@@ -143,6 +143,12 @@ class Renderer:
         return (text + "…") if text else ""
 
     # ---- Home status indicators (#306) ----
+    def _vsep(self, d, x):
+        """Vertical separator in the bar — uniform thickness/colour everywhere (#339)."""
+        h = (self.BAR_H - 12) // 2
+        cy = self.BAR_H // 2
+        d.line((x, cy - h, x, cy + h), fill=(72, 76, 96), width=2)
+
     def _status_layout(self):
         """Home indicators geometry (#339): a BIG tappable metronome, a vertical
         separator, then the 6 small status icons packed tightly (compact, like pre-#339).
@@ -150,7 +156,7 @@ class Renderer:
         x0 = 64
         metro_size = self.BAR_H - 12
         sep_x = x0 + metro_size + 6
-        return x0 + metro_size / 2, metro_size, sep_x, sep_x + 18, 32
+        return x0 + metro_size / 2, metro_size, sep_x, sep_x + 28, 32
 
     def _home_metro_hit(self, x):
         """True between the cog and the separator — the tappable metronome slot (#339)."""
@@ -167,8 +173,8 @@ class Renderer:
         # metronome — big (the interactive one), tappable, pink while running (#287/#339)
         self._glyph(d, "metronome", metro_cx, cy,
                     self._ic_color(status.metro_running, PINK), self.f_icon_big)
-        # small vertical separator between the metronome and the status group (#339)
-        d.line((sep_x, cy - metro_size // 2, sep_x, cy + metro_size // 2), fill=(72, 76, 96), width=2)
+        # vertical separator between the metronome and the status group (#339)
+        self._vsep(d, sep_x)
         # Bluetooth: dim (off) → blue `bluetooth` (radio on) → `bluetooth_connected` (#306)
         bt_glyph = "bluetooth_connected" if status.bt_conn else "bluetooth"
         rest = [
@@ -325,11 +331,11 @@ class Renderer:
         back = self._back_rect(status.depth)
         if back:
             self._tri(d, 22, cy, 20, "left", ACCENT)   # back arrow = pager-triangle design, own colour (#289)
-            d.line((back[2], 6, back[2], self.BAR_H - 6), fill=(64, 68, 86), width=1)
+            self._vsep(d, back[2])
             tx = back[2] + 8
-        elif status.depth == 1:                        # Home: settings cog in the left slot (#289)
-            self._glyph(d, "settings", 24, cy, ACCENT)
-            d.line((56, 6, 56, self.BAR_H - 6), fill=(64, 68, 86), width=1)
+        elif status.depth == 1:                        # Home: settings cog (big, like metronome — both interactive, #339)
+            self._glyph(d, "settings", 24, cy, ACCENT, self.f_icon_big)
+            self._vsep(d, 56)
             tx = 56 + 8
         if status.depth == 1:                          # Home: status icons replace the "pisynth" title (#306)
             self._draw_status_icons(d, status)

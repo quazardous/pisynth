@@ -41,6 +41,23 @@ every deploy — so the username is never hardcoded. Set `PISYNTH_USER` when the
 user and the run-as user differ. (`pisynth.conf` is rsync'd with the repo, so
 `apply.sh` reads it on the Pi.)
 
+### Local config on the Pi
+
+Runtime config lives in the run-as user's home (not in the repo):
+
+| Path | What | Set by |
+|---|---|---|
+| `~/.config/pisynth/settings.json` | UI prefs: `sleep_after`, `soundcard`, `page_tiles`, `preset`, `metro` | the touch UI |
+| `~/.config/pisynth/touch_cal.json` | touch calibration (affine transform) | first-run / Settings → Display → Calibrate |
+| `~/.config/pisynth/sounds/` | generated metronome click WAVs | the UI (auto-generated) |
+| `~/.local/synth.conf` | synth config: `GAIN`, `SOUNDCARD`, latency, soundfont dir | migration 002 (from `synth.conf.example`); editable |
+| `~/soundfonts/` | loaded soundfonts (`.sf2/.sf3`, often symlinks) | migration 002 / `install-soundfonts.sh` / sideload |
+
+**Settings → System → Reset config** deletes `settings.json` (back to defaults) and reverts
+the live session; it keeps calibration, `synth.conf`, and soundfonts. None of this is in git
+(it's per-device); `pisynth.conf` (the laptop's deploy target) is the only repo-adjacent
+config and is gitignored.
+
 ## Deploy workflow
 
 Edit on the laptop, then:

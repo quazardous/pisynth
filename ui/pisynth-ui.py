@@ -910,7 +910,7 @@ class App:
             Item("Display", on_select=push(self._display_menu), submenu=True),
             Item("Connectivity", on_select=push(self._connectivity_menu), submenu=True),
             Item("Tools", on_select=push(self._tools_menu), submenu=True),
-            Item("Info", on_select=push(self._info_menu), submenu=True),
+            Item("System", on_select=push(self._system_menu), submenu=True),
         ])
 
     # ---- connectivity: Wi-Fi / Bluetooth radios + pairing (#299) ----
@@ -1002,11 +1002,43 @@ class App:
         return MenuScreen("Tools", [
             Item("Metronome", on_select=(lambda: self.stack.append(self._metronome_menu())),
                  value=(lambda: "running" if self.metro.running else None), submenu=True),
-            Item("Reboot", on_select=(lambda: self._confirm_power("Reboot", "reboot")),
+        ])
+
+    # ---- System: info + power + reset (#300) ----
+    def _system_menu(self):
+        return MenuScreen("System", [
+            Item("Info", on_select=(lambda: self.stack.append(self._info_menu())), submenu=True),
+            Item("Reboot", on_select=(lambda: self._confirm("Reboot", lambda: self._power("reboot"))),
                  submenu=True),
-            Item("Power off", on_select=(lambda: self._confirm_power("Power off", "poweroff")),
+            Item("Power off", on_select=(lambda: self._confirm("Power off", lambda: self._power("poweroff"))),
+                 submenu=True),
+            Item("Reset config", on_select=(lambda: self._confirm("Reset config", self._reset)),
                  submenu=True),
         ])
+
+    def _confirm(self, label, fn):
+        """Confirmation screen for a destructive action (#297/#300)."""
+        self.stack.append(MenuScreen(label + "?", [
+            Item(label + " now", on_select=fn),
+            Item("Cancel", on_select=self.nav_back),
+        ]))
+
+    def _reset(self):
+        """Delete the user's settings (back to defaults) and revert the live session (#300).
+        Touch calibration is kept (reset it via Display → Calibrate)."""
+        try:
+            os.remove(SETTINGS_PATH)
+        except OSError:
+            pass
+        global PAGE_TILES
+        PAGE_TILES = 6
+        self.sleep_after = SLEEP_DEFAULT
+        self.soundcard = ""
+        self.cur_font_path, self.cur_bp, self.cur_preset_name = None, None, ""
+        self.metro.stop()
+        self.metro.bpm, self.metro.beats = 100, 4
+        self._set_gain(2.5)
+        self.stack = [self._home_menu()]
 
     # ---- metronome (#287) ----
     def _metronome_menu(self):
@@ -1027,14 +1059,6 @@ class App:
 
     def _metro_toggle(self):
         self.metro.stop() if self.metro.running else self.metro.start()
-
-    def _confirm_power(self, label, action):
-        """Confirmation screen for a destructive power action (#297) — avoids an
-        accidental tap rebooting/shutting down the box."""
-        self.stack.append(MenuScreen(label + "?", [
-            Item(label + " now", on_select=(lambda: self._power(action))),
-            Item("Cancel", on_select=self.nav_back),
-        ]))
 
     def _power(self, action):
         """Run `systemctl <reboot|poweroff>`. Needs the polkit grant from migration 012

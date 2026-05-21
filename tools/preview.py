@@ -145,9 +145,9 @@ app.stack = [app._home_menu()]
 app._open_bluetooth()                                 # Connectivity → Bluetooth devices (#287)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-bluetooth.png"))
 app.stack = [app._home_menu()]
-app.stack.append(app._tools_menu())                   # Settings → Tools (#297)
-app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-tools.png"))
-app._confirm_power("Power off", "poweroff")           # confirm screen (render only)
+app.stack.append(app._system_menu())                  # Settings → System: Info/Reboot/Power off/Reset (#300)
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-system.png"))
+app._confirm("Reset config", app._reset)              # confirm screen (render only — reset not run)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-confirm.png"))
 app.stack = [app._home_menu()]
 app.stack.append(app._metronome_menu())               # Tools → Metronome (#287)

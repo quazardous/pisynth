@@ -15,6 +15,8 @@ import types
 HERE = os.path.dirname(os.path.abspath(__file__))
 UI = os.path.join(HERE, "..", "ui", "pisynth-ui.py")
 OUT = sys.argv[1] if len(sys.argv) > 1 else "/tmp"
+os.makedirs(OUT, exist_ok=True)
+os.environ["PISYNTH_SOUNDS"] = OUT          # metronome click WAVs go here, not ~/.config (#287)
 
 # Stub the device-only deps so the module imports off-device.
 ev = types.ModuleType("evdev")
@@ -147,6 +149,11 @@ app.stack.append(app._tools_menu())                   # Settings → Tools (#297
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-tools.png"))
 app._confirm_power("Power off", "poweroff")           # confirm screen (render only)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-confirm.png"))
+app.stack = [app._home_menu()]
+app.stack.append(app._metronome_menu())               # Tools → Metronome (#287)
+app.metro.beats = 4; app.metro.running = True; app.metro.beat = 1   # show a running beat (no audio)
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-metronome.png"))
+app.metro.running = False; app.metro.beat = 0         # leave it stopped (preview only)
 
 # ---- offline (no synth): catalog read straight from the .sf files (#276) ----
 go_offline()

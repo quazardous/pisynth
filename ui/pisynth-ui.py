@@ -33,6 +33,7 @@ Deps: python3-pil python3-numpy python3-evdev  (migration 005).
 """
 import glob
 import json
+import math
 import os
 import re
 import queue
@@ -43,6 +44,7 @@ import subprocess
 import sys
 import threading
 import time
+import wave
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -657,6 +659,96 @@ class Bluetooth:
             self._jobs.put((action, arg))
 
 
+def _gen_click(path, freq, ms=45, sr=44100):
+    """Write a short enveloped sine click to a mono 16-bit WAV (metronome, #287)."""
+    n = int(sr * ms / 1000)
+    frames = bytearray()
+    for i in range(n):
+        env = (1.0 - i / n) ** 2                     # fast decay → a 'tick'
+        frames += struct.pack("<h", int(0.6 * env * 32767 * math.sin(2 * math.pi * freq * i / sr)))
+    with wave.open(path, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes(bytes(frames))
+
+
+def ensure_clicks():
+    """Generate the metronome click WAVs once (no binary assets in the repo) and return
+    (accent, normal) paths, or (None, None) if generation fails (#287)."""
+    d = os.path.expanduser(os.environ.get("PISYNTH_SOUNDS", "~/.config/pisynth/sounds"))
+    try:
+        os.makedirs(d, exist_ok=True)
+        hi, lo = os.path.join(d, "click-hi.wav"), os.path.join(d, "click-lo.wav")
+        if not os.path.exists(hi):
+            _gen_click(hi, 1800)
+        if not os.path.exists(lo):
+            _gen_click(lo, 1200)
+        return hi, lo
+    except (OSError, wave.Error):
+        return None, None
+
+
+class Metronome:
+    """Background metronome (#287, slice 1): a thread ticks at the BPM and plays a click
+    WAV via aplay on each beat (accent on beat 1). Keeps running when you leave the screen
+    ('son seulement' in the background). Slice 2: click-sound choice, dedicated-fluidsynth
+    backend, and output/Bluetooth-sink selection."""
+
+    def __init__(self, hi, lo):
+        self.bpm = 100
+        self.beats = 4
+        self.running = False
+        self.beat = 0                                # current beat 1..beats, 0 when stopped
+        self._hi, self._lo = hi, lo
+        self._stop = threading.Event()
+        self._thread = None
+        self._wake = None                            # write-end of a pipe; ping the UI per beat
+
+    def set_wake(self, fd):
+        self._wake = fd
+
+    def start(self):
+        if self.running:
+            return
+        self.running = True
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self.running = False
+        self._stop.set()
+        self.beat = 0
+
+    def _loop(self):
+        n, nxt = 0, time.monotonic()
+        while not self._stop.is_set():
+            n = n % max(1, self.beats) + 1
+            self.beat = n
+            self._click(n == 1)
+            if self._wake is not None:
+                try:
+                    os.write(self._wake, b"x")        # wake the UI loop to redraw the beat
+                except OSError:
+                    pass
+            nxt += 60.0 / max(1, min(300, self.bpm))
+            d = nxt - time.monotonic()
+            if d < 0:                                 # fell behind → resync
+                nxt, d = time.monotonic(), 0
+            self._stop.wait(d)
+
+    def _click(self, accent):
+        wav = self._hi if accent else self._lo
+        if not wav:
+            return
+        try:
+            subprocess.Popen(["aplay", "-q", wav],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+
+
 class App:
     BAR_H = 45      # top bar = same height as a settings row (ROW_H)
     ROW_H = 45      # tabular rows
@@ -691,6 +783,10 @@ class App:
         self.bt = Bluetooth()                        # Bluetooth pairing manager (#287)
         self._bt_scan = False
         self._bt_scan_t0 = 0.0                        # scan start time, for auto-off (#298)
+        self.metro = Metronome(*ensure_clicks())     # background metronome (#287)
+        _m = s.get("metro", {})
+        self.metro.bpm = _m.get("bpm", 100)
+        self.metro.beats = _m.get("beats", 4)
         self.stack = [self._home_menu()]
         cal = load_cal()
         if cal:
@@ -904,12 +1000,33 @@ class App:
 
     def _tools_menu(self):
         return MenuScreen("Tools", [
-            Item("Metronome", value=(lambda: "soon")),   # #287 lands here
+            Item("Metronome", on_select=(lambda: self.stack.append(self._metronome_menu())),
+                 value=(lambda: "running" if self.metro.running else None), submenu=True),
             Item("Reboot", on_select=(lambda: self._confirm_power("Reboot", "reboot")),
                  submenu=True),
             Item("Power off", on_select=(lambda: self._confirm_power("Power off", "poweroff")),
                  submenu=True),
         ])
+
+    # ---- metronome (#287) ----
+    def _metronome_menu(self):
+        return MenuScreen("Metronome", [
+            Item("BPM", on_adjust=self._metro_bpm, value=(lambda: str(self.metro.bpm))),
+            Item("Beats/bar", on_adjust=self._metro_beats, value=(lambda: str(self.metro.beats))),
+            Item("Start / Stop", on_select=self._metro_toggle,
+                 value=(lambda: "running" if self.metro.running else "stopped")),
+        ])
+
+    def _metro_bpm(self, delta):
+        self.metro.bpm = max(40, min(240, self.metro.bpm + 5 * delta))
+        self._update_settings(metro={"bpm": self.metro.bpm, "beats": self.metro.beats})
+
+    def _metro_beats(self, delta):
+        self.metro.beats = max(1, min(8, self.metro.beats + delta))
+        self._update_settings(metro={"bpm": self.metro.bpm, "beats": self.metro.beats})
+
+    def _metro_toggle(self):
+        self.metro.stop() if self.metro.running else self.metro.start()
 
     def _confirm_power(self, label, action):
         """Confirmation screen for a destructive power action (#297) — avoids an
@@ -1213,10 +1330,27 @@ class App:
             self._draw_tiles(d, m)
         else:
             self._draw_rows(d, m)
+        if m.title == "Metronome":
+            self._draw_beats(d)
         if m.footer:
             fw = d.textlength(m.footer, font=self.f_small)
             d.text((w / 2 - fw / 2, h - 18), m.footer, font=self.f_small, fill=MUTED)
         self.fb.blit(img)
+
+    def _draw_beats(self, d):
+        """Beat indicator on the Metronome screen: a dot per beat, the current one filled
+        (accent beat 1 in yellow), the rest outlined (#287)."""
+        n = max(1, self.metro.beats)
+        r, gap = 13, 16
+        total = n * 2 * r + (n - 1) * gap
+        x0, y = (self.fb.w - total) / 2, self.fb.h - 56
+        for i in range(n):
+            cx = x0 + r + i * (2 * r + gap)
+            box = (cx - r, y - r, cx + r, y + r)
+            if self.metro.running and self.metro.beat == i + 1:
+                d.ellipse(box, fill=(SEL_BORDER if i == 0 else ACCENT))
+            else:
+                d.ellipse(box, outline=MUTED, width=2)
 
     # ---- list screens ----
     def _row_y(self, i):
@@ -1251,7 +1385,7 @@ class App:
                     d.text(((rect[0] + rect[2]) / 2 - sw / 2, (rect[1] + rect[3]) / 2 - 11),
                            sym, font=self.f_med, fill=FG)
                 if it.value:
-                    v = it.value()
+                    v = it.value() or ""
                     vw = d.textlength(v, font=self.f_med)
                     d.text((vcx - vw / 2, cy - 10), v, font=self.f_med, fill=ACCENT)
                 if it.bar:
@@ -1262,7 +1396,7 @@ class App:
                     d.text((rx - 10, cy - 11), "›", font=self.f_med, fill=MUTED)
                     rx -= 22
                 if it.value:
-                    v = it.value()
+                    v = it.value() or ""
                     vw = d.textlength(v, font=self.f_med)
                     d.text((rx - vw, cy - 10), v, font=self.f_med, fill=ACCENT)
 
@@ -1415,6 +1549,7 @@ class App:
                     f"asleep={int(self.asleep)} sleep_after={self.sleep_after} "
                     f"online={int(self.fs.online or self.fs.connect())} "
                     f"render={RENDER_MODE} "
+                    f"metro={self.metro.bpm}/{self.metro.beats}:{'run' if self.metro.running else 'off'} "
                     f"calibrated={int(self.touch.affine is not None)}")
         if cmd == "render":
             self.render()
@@ -1492,6 +1627,10 @@ class App:
         sel.register(self.touch.fileno(), selectors.EVENT_READ, "touch")
         srv = self._control_server()
         sel.register(srv, selectors.EVENT_READ, "ctl")
+        metro_r, metro_w = os.pipe()                    # metronome thread pings here per beat (#287)
+        os.set_blocking(metro_r, False)
+        self.metro.set_wake(metro_w)
+        sel.register(metro_r, selectors.EVENT_READ, "metro")
         while True:
             events = sel.select(timeout=2.0)
             now = time.monotonic()
@@ -1519,6 +1658,13 @@ class App:
                     else:
                         for x, y in taps:
                             self.handle_tap(x, y)
+                elif key.data == "metro":              # per-beat ping → redraw the beat dots (#287)
+                    try:
+                        os.read(metro_r, 256)
+                    except OSError:
+                        pass
+                    if self.cur.title == "Metronome" and not self.asleep:
+                        self.render()
                 elif key.data == "ctl":
                     try:
                         conn, _ = srv.accept()

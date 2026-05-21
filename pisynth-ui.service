@@ -1,0 +1,25 @@
+[Unit]
+Description=pisynth touch control UI (framebuffer + evdev -> fluidsynth :9800)
+After=piano.service
+Wants=piano.service
+
+[Service]
+Type=simple
+User=pi
+# video -> /dev/fb0, input -> /dev/input/event* (touchscreen)
+SupplementaryGroups=video input
+# Dismiss the boot splash so plymouth stops holding /dev/fb0 (+ = run as root, - = ignore errors)
+ExecStartPre=+-/usr/bin/plymouth quit
+ExecStart=/usr/bin/python3 /usr/local/lib/pisynth/pisynth-ui.py
+Restart=always
+RestartSec=3
+Environment=PISYNTH_FB=/dev/fb0
+# Framebuffer paint strategy (#284): "full" = whole-frame write each render
+# (default, simplest); "partial" = write only the changed row band + skip
+# unchanged frames (less traffic on the slow SPI panel). Switch with:
+Environment=PISYNTH_RENDER=full
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

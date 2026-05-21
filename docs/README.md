@@ -5,6 +5,7 @@
 - **[dev.md](dev.md)** — developer guide: the deploy/migration workflow, the
   screenshot/remote-control feedback loop, and the menu-UI SDK.
 - **[research.md](research.md)** — design rationale & the decision log.
+- **[optimization.md](optimization.md)** — tuning the Pi 3B+ for glitch-free, low-latency fluidsynth.
 - **[roadmap.md](roadmap.md)** — planned / deferred work (hardware mods, perf tuning).
 - **[bluetooth.md](bluetooth.md)** — Bluetooth design: pairing flow, audio output, BLE-MIDI.
 

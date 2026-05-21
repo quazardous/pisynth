@@ -226,8 +226,8 @@ class Renderer:
                 b = 3                              # while loading, green frame once resident (#290/#334)
                 d.rectangle((rect[0] - b, rect[1] - b, rect[2] + b, rect[3] + b),
                             outline=(SEL_BORDER if loading else OK), width=b)
-                if loading:                        # small 'pending' (Material) top-right, label colour (#334)
-                    self._glyph(d, "pending", rect[2] - 16, rect[1] + 16, (255, 255, 255), self.f_icon_sm)
+                if loading:                        # small 'sync' (Material) top-right, label colour (#334)
+                    self._glyph(d, "sync", rect[2] - 16, rect[1] + 16, (255, 255, 255), self.f_icon_sm)
 
     def _tile_label(self, d, rect, label, sub=None):
         x0, y0, x1, y1 = rect

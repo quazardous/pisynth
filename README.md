@@ -24,6 +24,18 @@ keyboard's D-pad.
   idempotent **migrations**; **sideload SoundFonts** over rsync.
 - 🖧 Headless-friendly: the HDMI desktop only starts when a monitor is actually attached.
 
+## Screenshots
+
+The 3.5" touchscreen (480×320). Home is one tile per SoundFont; tap to drill into its
+presets; the gear opens Settings.
+
+| | |
+|---|---|
+| ![Home — instrument tiles](docs/img/home.png) | ![Presets — drill-down](docs/img/presets.png) |
+| **Home** — one tile per SoundFont (selected one framed green) | **Presets** — tap a tile to pick the instrument |
+| ![Settings menu](docs/img/settings.png) | ![Audio settings](docs/img/audio.png) |
+| **Settings** — Audio / MIDI / Display / System… | **Audio** — gain, volume, output device, test sound |
+
 ## Hardware
 
 | Part | Tested with |

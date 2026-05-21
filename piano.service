@@ -25,6 +25,12 @@ IOSchedulingClass=realtime
 IOSchedulingPriority=2
 # (No CPUAffinity: the Pi 3B+ has 4 identical Cortex-A53 cores — unlike the
 # NanoPi's RK3399 big.LITTLE, there's no faster cluster to pin to.)
+# Safety cap so a runaway synth can't lock up the touch UI (#282/#311): on the BT
+# output path fluidsynth runs NON-realtime (see start-piano.sh), so CPUQuota bounds it
+# — 200% = max 2 of the 4 cores, leaving the UI/system responsive. (RT tasks on the
+# low-latency ALSA-direct path aren't bounded by cgroup quota, but a real DAC paces
+# them, so they don't run away.)
+CPUQuota=200%
 
 # Logs to journald
 StandardOutput=journal

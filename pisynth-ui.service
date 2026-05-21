@@ -10,7 +10,8 @@ User=pi
 SupplementaryGroups=video input
 # Dismiss the boot splash so plymouth stops holding /dev/fb0 (+ = run as root, - = ignore errors)
 ExecStartPre=+-/usr/bin/plymouth quit
-ExecStart=/usr/bin/python3 /usr/local/lib/pisynth/pisynth-ui.py
+ExecStart=/usr/bin/python3 -m pisynth
+Environment=PYTHONPATH=/usr/local/lib/pisynth
 Restart=always
 RestartSec=3
 Environment=PISYNTH_FB=/dev/fb0

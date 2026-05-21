@@ -6,9 +6,13 @@
 # Inherits TARGET_USER / TARGET_HOME / REPO_DIR from apply.sh.
 set -euo pipefail
 
-# App + tools
+# App package (#308): ui/pisynth/ → /usr/local/lib/pisynth/pisynth/, run by the
+# service via `python3 -m pisynth` (PYTHONPATH=/usr/local/lib/pisynth). The bundled
+# icon font (#306) ships inside the package at pisynth/assets/ (ICON_FONT is
+# resolved relative to app.py). rsync handles the future io/ · core/ · ui/ subdirs.
 install -d -m 0755 /usr/local/lib/pisynth
-install -m 0755 "$REPO_DIR/ui/pisynth-ui.py" /usr/local/lib/pisynth/pisynth-ui.py
+rm -f /usr/local/lib/pisynth/pisynth-ui.py          # superseded by the package
+rsync -a --delete --exclude __pycache__ "$REPO_DIR/ui/pisynth/" /usr/local/lib/pisynth/pisynth/
 [[ -f "$REPO_DIR/tools/fbshot.py" ]] && install -m 0755 "$REPO_DIR/tools/fbshot.py" /usr/local/lib/pisynth/fbshot.py
 
 # Runtime shell scripts

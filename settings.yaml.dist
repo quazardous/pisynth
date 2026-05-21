@@ -1,0 +1,52 @@
+# pisynth local preferences — settings.yaml — DOCUMENTED TEMPLATE (#303)
+#
+# This is a REFERENCE copy. The real file lives at:
+#
+#     ~/.config/pisynth/settings.yaml
+#
+# and is created + rewritten automatically by the touch UI (Settings menu) — you
+# do NOT normally copy this template into place. Edit the live file by hand only
+# while the UI is stopped (`sudo systemctl stop pisynth-ui`), then restart it.
+#
+# SCOPE: these are preferences DRIVEN BY THE UI (changed from the screen). System
+# / deployment knobs are kept deliberately SEPARATE and are NOT in this file:
+#     ~/.local/synth.conf  — audio card, gain, ALSA buffers, soundfont dir (shell)
+#     hardware.conf        — SPI screen overlay (shell, in the repo)
+#
+# Every key below is optional; missing keys fall back to the defaults shown here.
+
+# ALSA card id for the synth output (used as plughw:NAME), as picked in
+# Settings → Audio → Audio device. "" = auto-detect the USB interface.
+# Read by start-piano.sh too. synth.conf's SOUNDCARD overrides this.
+soundcard: ""
+
+# Screen-sleep delay in seconds (Settings → Display → Screen sleep).
+# 0 = never sleep. UI offers 0 / 30 / 60 / 120 / 300 / 600.
+sleep_after: 0
+
+# Soundfont tiles per Home page (Settings → Display → Tiles per page): 4/6/9/12.
+page_tiles: 6
+
+# Last selected soundfont/preset, re-applied when the synth comes online.
+# font = soundfont basename (sfid-independent); bank/prog = MIDI bank+program.
+preset:
+  font: ""
+  bank: 0
+  prog: 0
+  name: ""
+
+# Metronome (Settings → Tools → Metronome).
+metro:
+  bpm: 100          # 40-240
+  beats: 4          # beats per bar, 1-8 (accent on beat 1)
+  card: ""          # ALSA card for the click; "" = system default. Pick a card
+                    # DIFFERENT from `soundcard` so the click coexists with the synth.
+
+# Bluetooth device preferences (Settings → Connectivity → Bluetooth devices).
+# Pairing/trust itself is owned by BlueZ (/var/lib/bluetooth); these are pisynth's
+# CHOICES of which paired device to prefer. Persisted by the BT manager (#303 slice B).
+bluetooth:
+  audio_sink: ""    # MAC of the preferred A2DP audio output (e.g. "AA:BB:CC:DD:EE:FF")
+  ble_midi: ""      # MAC of the preferred BLE-MIDI input
+  known: {}         # MAC -> friendly name of devices seen, so known devices keep a name
+                    # even with scan off / before BlueZ resolves it (#301). Auto-managed.

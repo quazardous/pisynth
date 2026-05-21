@@ -37,16 +37,16 @@ def note_name(n):
 
 
 class Renderer:
-    BAR_H = 45      # top bar = same height as a settings row (ROW_H)
-    ROW_H = 45      # tabular rows
-
     def __init__(self, display):
         self.display = display
+        # Top bar height == list row height; 1 bar + 5 rows = 6 equal bands filling the
+        # screen (#339). per_page_rows is derived from this by the controller.
+        self.BAR_H = self.ROW_H = display.h // 6
         self.f_big = load_font(24)
         self.f_med = load_font(18)
         self.f_small = load_font(13)
-        self.f_icon = load_icon_font(26)          # bundled Material Symbols subset (#306)
-        self.f_icon_sm = load_icon_font(20)       # smaller variant: tile 'pending' badge (#334)
+        self.f_icon = load_icon_font(self.BAR_H - 12)   # bar glyphs scale with the bar (#306/#339)
+        self.f_icon_sm = load_icon_font(20)             # smaller variant: tile 'sync' badge (#334)
 
     # ---- geometry (shared by render + the controller's hit-testing) ----
     def _back_rect(self, depth):
@@ -59,7 +59,7 @@ class Renderer:
         return (self.display.w - 110, 0, self.display.w, self.BAR_H) if screen.npages() > 1 else None
 
     def _row_y(self, i):
-        return self.BAR_H + 4 + i * self.ROW_H
+        return self.BAR_H + i * self.ROW_H
 
     def _stepper_rects(self, ry):
         """(minus, plus, value_center_x) for an adjustable row (e.g. Gain)."""
@@ -142,25 +142,44 @@ class Renderer:
         return (text + "…") if text else ""
 
     # ---- Home status indicators (#306) ----
-    def _draw_status_icons(self, d, x, cy, status):
-        """Render the Home indicators left-to-right from x: Wi-Fi · Bluetooth · keyboard
-        (MIDI in) · synth (fluidsynth stack) · audio (sound card) · metronome · health.
-        Lit when on/present/running (Bluetooth brand blue, metronome pink, the rest
-        green), dim slate when off/absent (#306/#326/#327)."""
-        step = 32
-        self._glyph(d, "wifi", x, cy, self._ic_color(status.wifi))
-        # Bluetooth: dim (off) → blue `bluetooth` (radio on) → blue `bluetooth_connected`
-        # (a device is connected), so you see at a glance if something's paired+live (#306).
+    def _status_layout(self):
+        """(x0, step, size) for the Home indicators: metronome + 6 others spread from x0
+        to the right edge, sized to nearly fill the bar (#339). Shared by render +
+        hit-testing so the tappable metronome slot lines up with what's drawn."""
+        x0 = 60
+        step = (self.display.w - 6 - x0) / 7
+        return x0, step, self.BAR_H - 12
+
+    def _home_metro_hit(self, x):
+        """True if x falls in the first indicator slot — the tappable metronome (#339)."""
+        x0, step, _ = self._status_layout()
+        return x0 <= x <= x0 + step
+
+    def _draw_status_icons(self, d, status):
+        """Home indicators (#306/#339): metronome FIRST (tap toggles it; pink while
+        running) + a vertical separator, then Wi-Fi · Bluetooth · keyboard (MIDI in) ·
+        synth (violet) · audio (yellow) · health. Lit when on/present, dim slate when
+        off/absent. Sized to nearly fill the bar and spread across its width."""
+        x0, step, size = self._status_layout()
+        cy = self.BAR_H // 2
+        half = size // 2
+        # 0: metronome — tappable, pink while running (#287/#339)
+        self._glyph(d, "metronome", x0 + step * 0.5, cy, self._ic_color(status.metro_running, PINK))
+        # small vertical separator between the metronome and the status group (#339)
+        sx = x0 + step
+        d.line((sx, cy - half, sx, cy + half), fill=(72, 76, 96), width=2)
+        # Bluetooth: dim (off) → blue `bluetooth` (radio on) → `bluetooth_connected` (#306)
         bt_glyph = "bluetooth_connected" if status.bt_conn else "bluetooth"
-        self._glyph(d, bt_glyph, x + step, cy, self._ic_color(status.bt, BT_BLUE))
-        self._glyph(d, "piano", x + 2 * step, cy, self._ic_color(status.midi, FG))  # white = keys active (#326)
-        self._glyph(d, "synth", x + 3 * step, cy, self._ic_color(status.synth, VIOLET))       # synth up = violet (#338)
-        self._glyph(d, "volume_up", x + 4 * step, cy, self._ic_color(status.audio, SEL_BORDER))  # sound card = yellow (#338)
-        self._glyph(d, "metronome", x + 5 * step, cy,
-                    self._ic_color(status.metro_running, PINK))   # pink when running (#287)
-        # health smiley (#325): face + colour both convey severity (good/warn/crit)
-        self._glyph(d, _HEALTH_GLYPH[status.health], x + 6 * step, cy,
-                    _HEALTH_COLOR[status.health])
+        rest = [
+            ("wifi", self._ic_color(status.wifi)),
+            (bt_glyph, self._ic_color(status.bt, BT_BLUE)),
+            ("piano", self._ic_color(status.midi, FG)),               # white = keys active (#326)
+            ("synth", self._ic_color(status.synth, VIOLET)),          # synth up = violet (#338)
+            ("volume_up", self._ic_color(status.audio, SEL_BORDER)),  # sound card = yellow (#338)
+            (_HEALTH_GLYPH[status.health], _HEALTH_COLOR[status.health]),  # face+colour = severity (#325)
+        ]
+        for k, (name, col) in enumerate(rest, start=1):
+            self._glyph(d, name, x0 + step * (k + 0.5), cy, col)
 
     def _draw_beats(self, d, status):
         """Beat indicator on the Metronome screen: a dot per beat, the current one filled
@@ -312,7 +331,7 @@ class Renderer:
             d.line((56, 6, 56, self.BAR_H - 6), fill=(64, 68, 86), width=1)
             tx = 56 + 8
         if status.depth == 1:                          # Home: status icons replace the "pisynth" title (#306)
-            self._draw_status_icons(d, tx + 18, cy, status)
+            self._draw_status_icons(d, status)
         else:
             d.text((tx, cy - 10), m.title, font=self.f_med, fill=FG)
         npages = m.npages()

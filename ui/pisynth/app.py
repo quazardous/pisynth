@@ -661,7 +661,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         else (0, -1). Used for hold-to-repeat (#314)."""
         if y < self.view.BAR_H or self.cur.tiles:
             return 0, -1
-        pos = (y - (self.view.BAR_H + 4)) // self.view.ROW_H
+        pos = (y - self.view.BAR_H) // self.view.ROW_H
         sl = self.cur.page_slice()
         if not (0 <= pos < len(sl)):
             return 0, -1
@@ -704,6 +704,9 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
             elif len(self.stack) == 1 and x <= 56:    # Home cog → Settings (#289)
                 self._open_settings()
                 self.render()
+            elif len(self.stack) == 1 and self.view._home_metro_hit(x):  # Home: tap metronome → toggle (#339)
+                self._metro_toggle()
+                self.render()
             elif page and page[0] <= x <= page[2]:
                 self.nav_page(-1 if x < (page[0] + page[2]) / 2 else 1)
             return
@@ -714,7 +717,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
 
     def _hit_list(self, x, y):
         m = self.cur
-        pos = (y - (self.view.BAR_H + 4)) // self.view.ROW_H
+        pos = (y - self.view.BAR_H) // self.view.ROW_H
         slice_ = m.page_slice()
         if not (0 <= pos < len(slice_)):
             return

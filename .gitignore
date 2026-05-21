@@ -12,6 +12,8 @@ __pycache__/
 
 # aiball dev-tooling state (local to the maintainer's workflow)
 /.aiball.yaml
+# local MCP server config (machine-specific tooling)
+/.mcp.json
 
 # agent/dev project notes — kept local, not published (#286)
 /CLAUDE.md

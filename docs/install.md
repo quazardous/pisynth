@@ -20,18 +20,35 @@ work out of the box; Windows users see [Windows](#windows).
 
 ## 2. Flash Raspberry Pi OS — and preconfigure it (saves the most pain)
 
-1. Install **Raspberry Pi Imager** (<https://www.raspberrypi.com/software/>) — Win/macOS/Linux.
-2. Pick **Raspberry Pi OS (64-bit)** (Trixie / Debian 13) and your SD card.
-3. **Before writing, open ⚙ / "Edit settings"** and set:
-   - **hostname** (e.g. `pisynth`);
-   - **username + password** — remember the username, it's the run-as user;
-   - **Wi-Fi** SSID + password (+ country) and **locale**;
-   - under **Services → enable SSH → "Allow public-key authentication"**, paste your SSH
-     public key (`~/.ssh/id_*.pub`; create one with `ssh-keygen` if you have none).
-4. Write the card, boot the Pi with network. It joins Wi-Fi and accepts key-based SSH.
+> **Starting point.** pisynth begins from a stock **Raspberry Pi running Raspberry Pi OS,
+> reachable over the network, that accepts your SSH key.** Getting there is plain Raspberry
+> Pi setup — not pisynth-specific — so this section just points at the **official docs**,
+> which stay current with each OS release. Once `ssh <user>@<hostname>.local` works, jump to
+> step 3.
 
-This one screen does the user / SSH-key / Wi-Fi setup that is otherwise the most
-error-prone part of the whole install.
+This is exactly the Raspberry Pi **headless (remote) setup**. Follow the official guide:
+
+- **Headless setup overview** (no monitor/keyboard, reachable over the network):
+  <https://www.raspberrypi.com/documentation/computers/getting-started.html#headless-setup>
+- **Install the OS with Raspberry Pi Imager** (Win/macOS/Linux):
+  <https://www.raspberrypi.com/documentation/computers/getting-started.html#imager-install>
+- **Customise on first boot** — hostname, user, Wi-Fi, SSH (during the Imager write):
+  <https://www.raspberrypi.com/documentation/computers/getting-started.html#customisation>
+- **Key-based SSH** (generate a key, preconfigure it in the image):
+  <https://www.raspberrypi.com/documentation/computers/remote-access.html#configure-ssh-without-a-password>
+
+The whole point is Imager's **OS customisation** screen (⚙ / "Edit settings") — fill it in
+**before writing** and it does the most error-prone part of the install in one shot. For
+pisynth, set:
+- **hostname** (e.g. `pisynth`);
+- **username + password** — remember the username, it's the run-as user;
+- **Wi-Fi** SSID + password (+ country) and **locale**;
+- pick **Raspberry Pi OS (64-bit)** (Trixie / Debian 13);
+- under **Services → enable SSH → "Allow public-key authentication"**, paste your SSH
+  public key (`~/.ssh/id_*.pub`; create one with `ssh-keygen` if you have none).
+
+Write the card, boot the Pi on the network, and confirm `ssh <user>@<hostname>.local` lands.
+That SSH-reachable Pi is the starting point for everything below.
 
 ## 3. Wire the screen
 
@@ -57,9 +74,12 @@ SSH into the Pi (Windows Terminal / PuTTY / a terminal), then:
 ```bash
 sudo apt-get install -y git
 git clone https://github.com/quazardous/pisynth ~/pisynth
-sudo bash ~/pisynth/apply.sh
+sudo ~/pisynth/install.sh
 ```
-Same result, no laptop-side scripts. The Pi reboots itself when the overlay is installed.
+`install.sh` is the **one-shot end-user installer**: it installs every package in a single
+apt batch (from `packages.list`), then hands off to `apply.sh` for the config and a single
+reboot. Same result as Path A, no laptop-side scripts. (`sudo bash ~/pisynth/apply.sh`
+still works if you've already installed the packages.)
 
 > Path A needs `bash`, `ssh`, `rsync` on your computer **and** key-based SSH (step 2).
 > Path B needs only a terminal / SSH client — nothing else runs on your computer.
@@ -95,13 +115,26 @@ tiles — tap one to select its default sound, tap it again to pick a preset. Pr
 
 ## Windows
 
-The deploy / feedback scripts (`deploy.sh`, `shot.sh`, `ctl.sh`, `probe.sh`) are bash +
-`ssh`/`rsync`. On Windows, either:
-- **Use Path B** above — nothing runs on Windows but an SSH client (Windows Terminal ships
-  `ssh`; or use PuTTY). Best for a one-time install.
-- **Use WSL** (`wsl --install`, open Ubuntu, `sudo apt install git rsync openssh-client`),
-  then follow Path A inside WSL. Best if you want the edit→`./deploy.sh` iteration loop.
-- Raspberry Pi Imager (step 2) runs natively on Windows, so the OS prep is identical.
+Raspberry Pi Imager (step 2) runs natively on Windows, so the OS prep is identical. For the
+install itself, pick one:
+
+- **`install.ps1`** (recommended — native PowerShell wrapper of `deploy.sh`). From a
+  `git clone` / unzipped copy of the repo, in PowerShell:
+  ```powershell
+  Copy-Item pisynth.conf.dist pisynth.conf      # then edit PISYNTH_HOST=user@your-pi
+  powershell -ExecutionPolicy Bypass -File .\install.ps1
+  ```
+  It needs only tools that ship with Windows 10/11 (OpenSSH client, `tar`, `robocopy`): it
+  stages the repo, copies it to the Pi over `scp`, then runs `sudo apply.sh` (asks the Pi's
+  sudo password once). Re-run it to update. Add `-UseRsync` if you have rsync on PATH, or
+  `-PiHost user@host` to override the target.
+- **Path B** above — nothing else runs on Windows but an SSH client (Windows Terminal ships
+  `ssh`; or use PuTTY): do the `git clone` + `apply.sh` on the Pi. Good for a one-shot
+  install with no local repo.
+- **WSL** (`wsl --install`, open Ubuntu, `sudo apt install git rsync openssh-client`), then
+  follow Path A inside WSL. Best if you want the edit→`./deploy.sh` iteration loop.
+
+The feedback scripts (`shot.sh`, `ctl.sh`, `probe.sh`) are bash + `ssh`; use them from WSL.
 
 ## Different screen
 

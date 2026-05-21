@@ -16,9 +16,12 @@ keyboard's D-pad.
 
 - 🎹 Boots straight into a playable instrument (any General MIDI SoundFont); hot-swap the
   keyboard or audio interface and it recovers.
-- 🖥️ 3.5" touchscreen UI — instrument **tiles** + a **Settings** menu (gain VU, calibration).
+- 🖥️ 3.5" touchscreen UI — instrument **tiles** + a **Settings** menu: gain/volume, audio
+  output (USB card **or Bluetooth** speaker), a **MIDI device picker + live test keyboard**,
+  a **metronome**, system info & **health**, and touch calibration.
 - 🪶 Lightweight: framebuffer-direct UI (no X server), fluidsynth in direct ALSA.
-- 🔧 One-command deploy with idempotent **migrations**; **sideload SoundFonts** over rsync.
+- 🔧 One-command **end-user installer** (`install.sh`), or a dev edit-deploy loop with
+  idempotent **migrations**; **sideload SoundFonts** over rsync.
 - 🖧 Headless-friendly: the HDMI desktop only starts when a monitor is actually attached.
 
 ## Hardware
@@ -39,18 +42,27 @@ touch are auto-detected.
 > New to this? **[INSTALL.md](docs/install.md)** is the full step-by-step (flashing, SSH keys,
 > Windows/WSL, on-device install, troubleshooting). The short version:
 
-On the Pi: flash Raspberry Pi OS, enable SSH, set up key-based login, wire up the 3.5"
-screen. On your computer:
+First, on the Pi: flash Raspberry Pi OS, enable SSH + key-based login, and wire up the
+3.5" screen. Then pick one of two ways to install:
+
+**End user — one command, on the Pi.** Copy this repo onto the Pi (`git clone` there, or
+`scp` it over), then:
+
+```bash
+sudo ./install.sh        # installs everything in one apt batch, configures, and reboots
+```
+
+**Developer — from your computer (edit → deploy loop).**
 
 ```bash
 git clone https://github.com/quazardous/pisynth
 cd pisynth
 cp pisynth.conf.dist pisynth.conf      # edit PISYNTH_HOST=user@your-pi
-./deploy.sh                            # installs everything (asks the Pi's sudo password once)
+./deploy.sh                            # rsync repo → Pi, run migrations (asks sudo once)
 ```
 
-`deploy.sh` reboots the Pi itself when a migration changed boot config (screen overlay,
-console, splash), so the first run comes up ready — no manual reboot.
+Both reboot the Pi themselves when boot config changed (screen overlay, console, splash),
+so the first run comes up ready — no manual reboot.
 
 Plug the keyboard + USB audio interface into the Pi. On first boot the screen runs a
 **touch calibration** (tap the 4 targets), then shows the instrument tiles. Press a key.

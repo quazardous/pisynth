@@ -12,7 +12,8 @@ migrations/NNN-*.sh    # one-time, ordered, idempotent setup steps (ledger: /var
 shot.sh                # laptop: pull a PNG of the Pi screen (via tools/fbshot.py)
 ctl.sh                 # laptop: send a command to the UI control socket (:9810)
 pisynth.conf(.dist)    # deployment config (PISYNTH_HOST); pisynth.conf is gitignored
-ui/pisynth-ui.py       # the framebuffer touch UI (menu SDK + calibration)
+ui/pisynth/            # the framebuffer touch UI package (run via `python3 -m pisynth`)
+                       #   app.py = controller; io/ · core/ · ui/ being extracted (#308)
 tools/fbshot.py        # dump /dev/fb0 (RGB565) to PNG
 tools/preview.py       # render the UI to PNGs locally (mock fb/touch) — no Pi needed
 start-piano.sh         # fluidsynth launcher (ALSA direct, TCP shell :9800)
@@ -47,13 +48,13 @@ Runtime config lives in the run-as user's home (not in the repo):
 
 | Path | What | Set by |
 |---|---|---|
-| `~/.config/pisynth/settings.json` | UI prefs: `sleep_after`, `soundcard`, `page_tiles`, `preset`, `metro` | the touch UI |
+| `~/.config/pisynth/settings.yaml` | UI prefs: `soundcard`, `sleep_after`, `page_tiles`, `preset`, `metro`, `bluetooth` (#303). Documented; template = `settings.yaml.dist`, schema = [preferences.md](preferences.md) | the touch UI |
 | `~/.config/pisynth/touch_cal.json` | touch calibration (affine transform) | first-run / Settings → Display → Calibrate |
 | `~/.config/pisynth/sounds/` | generated metronome click WAVs | the UI (auto-generated) |
 | `~/.local/synth.conf` | synth config: `GAIN`, `SOUNDCARD`, latency, soundfont dir | migration 002 (from `synth.conf.example`); editable |
 | `~/soundfonts/` | loaded soundfonts (`.sf2/.sf3`, often symlinks) | migration 002 / `install-soundfonts.sh` / sideload |
 
-**Settings → System → Reset config** deletes `settings.json` (back to defaults) and reverts
+**Settings → System → Reset config** deletes `settings.yaml` (back to defaults) and reverts
 the live session; it keeps calibration, `synth.conf`, and soundfonts. None of this is in git
 (it's per-device); `pisynth.conf` (the laptop's deploy target) is the only repo-adjacent
 config and is gitignored.

@@ -1,10 +1,12 @@
 # Bluetooth
 
-> Status (ticket #287): **pairing manager implemented** — the Settings → Connectivity → Bluetooth devices
-> screen, a `bluetoothctl` backend (`Bluetooth` in `ui/pisynth-ui.py`), and a polkit grant
-> (migration 011) are in. The device list / parsing is validated against real BlueZ; **scan
-> + pairing of audio devices still need on-device validation**. Not yet done: routing a BT
-> sink as the metronome output, and **BLE-MIDI** input.
+> Status (#287, #301): **pairing manager + per-device menu + friendly names** implemented
+> (Settings → Connectivity → Bluetooth devices; `bluetoothctl` backend in `ui/pisynth-ui.py`;
+> polkit grant in migration 011). **Synth A2DP output** is implemented (#301): pick a BT sink
+> in Settings → Audio, persisted as `bluetooth.audio_sink`; `start-piano.sh` routes fluidsynth
+> through pipewire-pulse, ALSA-direct otherwise. **Still needs on-device validation**: real
+> XM4 pairing/bonding, the actual A2DP audio + latency, and linger at headless boot. Not yet
+> done: **BLE-MIDI** input.
 
 pisynth can use Bluetooth for two things:
 
@@ -18,8 +20,12 @@ Both are managed from one place: **Settings → Connectivity → Bluetooth devic
 | Piece | Used for |
 |---|---|
 | BlueZ (`bluetoothctl`, `bluetoothd`) | pairing, connection, trust |
-| PipeWire (`pw-play`) | playing audio to a connected Bluetooth **sink** |
+| PipeWire + `pipewire-pulse` | exposing a connected BT **sink** (`bluez_output.<MAC>.N`); the synth routes to it via fluidsynth's `pulseaudio` driver, the metronome via `pw-play` (#301) |
 | ALSA sequencer (`aconnect`, `aseqdump`) | a connected BLE-**MIDI** device's input port |
+
+PipeWire/wireplumber/pipewire-pulse already run in the user session (no install needed);
+`pactl` is **not** present, so the synth targets the sink by node-name via fluidsynth's
+`pulseaudio` driver rather than `pactl`. `pw-dump` resolves the live sink name.
 
 The Pi 3B+ has an onboard Bluetooth controller and the `bluetooth` service is active by default.
 
@@ -29,24 +35,31 @@ The Pi 3B+ has an onboard Bluetooth controller and the `bluetooth` service is ac
 
 ```
 ‹  Bluetooth                    ◀ Scan
- ● Sony WH-1000XM4      connected     ← marked (yellow) = active
-   JBL Flip 5           paired
-   Pierre's Buds        available     ← appears while scanning
+ ● Sony WH-1000XM4      connected  › ← marked (yellow) = active
+   JBL Flip 5           paired     ›
+   Pierre's Buds        not paired › ← appears while scanning
 ```
 
-1. Open the screen → the controller is powered on (`power on`); paired devices are listed.
+1. Open the screen → the controller is powered on (`power on`); known/paired devices are listed.
 2. **Scan** (toggle) → `scan on` in the background; the list refreshes every ~2 s
    (`devices` / `info`) and adds newly discovered devices by name. Tap again to stop.
-3. Tap an **available** device → `pair → trust → connect`, with footer states
-   ("Pairing <name>…" → "Connected ✓" / "Failed").
+3. **Each device is a menu** (#301): tap a device → its own screen with the contextual
+   action + **Forget** + Status/Address:
+   - **not paired** → *Pair & connect* (`pair → trust → connect`),
+   - **paired** → *Connect*, **connected** → *Disconnect*,
+   - **Forget** → confirm → `remove <mac>`.
+   Status is spelled **not paired / paired / connected** ("available" was ambiguous, #301).
 4. A connected device is then usable:
-   - **audio sink** → it becomes a PipeWire sink, selectable as the metronome's (and
-     optionally the synth's) output, played via `pw-play`;
+   - **audio sink** → it becomes a PipeWire sink. Pick it as the **synth** output in
+     **Settings → Audio → Audio device** (it appears alongside the ALSA cards, tagged
+     `BT`); see *Synth output to a BT sink* below. The metronome can also target it via
+     `pw-play`.
    - **BLE-MIDI** → it exposes an ALSA seq port, which fluidsynth grabs via
      `midi.autoconnect=1` (same path as a USB MIDI keyboard, cable-free).
-5. **Paired** devices are *trusted*, so they **auto-reconnect** on boot / in range. Tap to
-   connect or disconnect.
-6. **Forget**: long-press → `remove <mac>`.
+5. **Paired** devices are *trusted*, so they **auto-reconnect** on boot / in range.
+6. **Friendly names** are resolved via `bluetoothctl info` (Alias) and remembered in
+   `settings.yaml` (`bluetooth.known`, #301), so known devices keep a name even with scan
+   off or before BlueZ re-resolves it — never a bare MAC once seen.
 
 Under the hood: scripted `bluetoothctl` subcommands (`power on`, `scan on/off`, `devices`,
 `info`, `pair`, `trust`, `connect`, `disconnect`, `remove`) — no extra library.
@@ -60,6 +73,26 @@ latency** (and it varies by device). Fine for casual listening, but poor for a *
 - Default the metronome/synth output to a **wired** card (onboard jack or USB interface).
 - Offer Bluetooth as an **optional** output, not the default. The latency is the user's
   call — pisynth does not try to compensate for it.
+
+### Synth output to a BT sink (#301)
+
+The audio-device picker lists connected A2DP sinks below the ALSA cards (tagged `BT`).
+Choosing one persists its MAC to `settings.yaml` as `bluetooth.audio_sink` and clears
+`soundcard` (exactly one output is active); choosing an ALSA card / *Auto* clears it again.
+
+`start-piano.sh` reads `bluetooth.audio_sink`:
+
+- **empty (default)** → fluidsynth runs **ALSA-direct** on the USB card, never touching
+  PipeWire — *"si pas de périphérique BT utilisé, il monte que ALSA"* (#301).
+- **set** → fluidsynth runs with `--audio-driver=pulseaudio` and
+  `audio.pulseaudio.device=bluez_output.<MAC>.N` (resolved live from `pw-dump`). It waits
+  up to `BT_WAIT` (20 s) for the trusted sink to (auto-)connect, then **falls back to ALSA**
+  if it never appears, so there is always sound.
+
+Because `start-piano.sh` runs as a *system* service, it exports
+`XDG_RUNTIME_DIR=/run/user/<uid>` to reach the user PipeWire graph, and migration
+`015-linger.sh` runs `loginctl enable-linger` so that graph is up at headless boot (nobody
+logs in on an appliance).
 
 ## BLE-MIDI
 

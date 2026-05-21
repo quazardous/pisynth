@@ -45,8 +45,9 @@ class Renderer:
         self.f_big = load_font(24)
         self.f_med = load_font(18)
         self.f_small = load_font(13)
-        self.f_icon = load_icon_font(self.BAR_H - 12)   # bar glyphs scale with the bar (#306/#339)
-        self.f_icon_sm = load_icon_font(20)             # smaller variant: tile 'sync' badge (#334)
+        self.f_icon = load_icon_font(26)                   # compact status icons (#306; restored #339)
+        self.f_icon_big = load_icon_font(self.BAR_H - 12)  # big interactive bar glyph: metronome (#339)
+        self.f_icon_sm = load_icon_font(20)                # smaller variant: tile 'sync' badge (#334)
 
     # ---- geometry (shared by render + the controller's hit-testing) ----
     def _back_rect(self, depth):
@@ -143,31 +144,31 @@ class Renderer:
 
     # ---- Home status indicators (#306) ----
     def _status_layout(self):
-        """(x0, step, size) for the Home indicators: metronome + 6 others spread from x0
-        to the right edge, sized to nearly fill the bar (#339). Shared by render +
-        hit-testing so the tappable metronome slot lines up with what's drawn."""
-        x0 = 60
-        step = (self.display.w - 6 - x0) / 7
-        return x0, step, self.BAR_H - 12
+        """Home indicators geometry (#339): a BIG tappable metronome, a vertical
+        separator, then the 6 small status icons packed tightly (compact, like pre-#339).
+        Returns (metro_cx, metro_size, sep_x, small_x0, small_step)."""
+        x0 = 64
+        metro_size = self.BAR_H - 12
+        sep_x = x0 + metro_size + 6
+        return x0 + metro_size / 2, metro_size, sep_x, sep_x + 18, 32
 
     def _home_metro_hit(self, x):
-        """True if x falls in the first indicator slot — the tappable metronome (#339)."""
-        x0, step, _ = self._status_layout()
-        return x0 <= x <= x0 + step
+        """True between the cog and the separator — the tappable metronome slot (#339)."""
+        _, _, sep_x, _, _ = self._status_layout()
+        return 57 <= x <= sep_x
 
     def _draw_status_icons(self, d, status):
-        """Home indicators (#306/#339): metronome FIRST (tap toggles it; pink while
-        running) + a vertical separator, then Wi-Fi · Bluetooth · keyboard (MIDI in) ·
-        synth (violet) · audio (yellow) · health. Lit when on/present, dim slate when
-        off/absent. Sized to nearly fill the bar and spread across its width."""
-        x0, step, size = self._status_layout()
+        """Home indicators (#306/#339): a BIG tappable metronome (tap toggles it; pink
+        while running) + a vertical separator, then the 6 compact status icons — Wi-Fi ·
+        Bluetooth · keyboard (MIDI in) · synth (violet) · audio (yellow) · health. Lit
+        when on/present, dim slate when off/absent. Only the interactive metronome is big."""
+        metro_cx, metro_size, sep_x, small_x0, small_step = self._status_layout()
         cy = self.BAR_H // 2
-        half = size // 2
-        # 0: metronome — tappable, pink while running (#287/#339)
-        self._glyph(d, "metronome", x0 + step * 0.5, cy, self._ic_color(status.metro_running, PINK))
+        # metronome — big (the interactive one), tappable, pink while running (#287/#339)
+        self._glyph(d, "metronome", metro_cx, cy,
+                    self._ic_color(status.metro_running, PINK), self.f_icon_big)
         # small vertical separator between the metronome and the status group (#339)
-        sx = x0 + step
-        d.line((sx, cy - half, sx, cy + half), fill=(72, 76, 96), width=2)
+        d.line((sep_x, cy - metro_size // 2, sep_x, cy + metro_size // 2), fill=(72, 76, 96), width=2)
         # Bluetooth: dim (off) → blue `bluetooth` (radio on) → `bluetooth_connected` (#306)
         bt_glyph = "bluetooth_connected" if status.bt_conn else "bluetooth"
         rest = [
@@ -178,8 +179,8 @@ class Renderer:
             ("volume_up", self._ic_color(status.audio, SEL_BORDER)),  # sound card = yellow (#338)
             (_HEALTH_GLYPH[status.health], _HEALTH_COLOR[status.health]),  # face+colour = severity (#325)
         ]
-        for k, (name, col) in enumerate(rest, start=1):
-            self._glyph(d, name, x0 + step * (k + 0.5), cy, col)
+        for k, (name, col) in enumerate(rest):
+            self._glyph(d, name, small_x0 + k * small_step, cy, col)   # compact (default f_icon)
 
     def _draw_beats(self, d, status):
         """Beat indicator on the Metronome screen: a dot per beat, the current one filled

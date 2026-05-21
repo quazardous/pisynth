@@ -1,6 +1,6 @@
 # Bluetooth
 
-> Status (ticket #287): **pairing manager implemented** — the Settings → Audio → Bluetooth
+> Status (ticket #287): **pairing manager implemented** — the Settings → Bluetooth
 > screen, a `bluetoothctl` backend (`Bluetooth` in `ui/pisynth-ui.py`), and a polkit grant
 > (migration 011) are in. The device list / parsing is validated against real BlueZ; **scan
 > + pairing of audio devices still need on-device validation**. Not yet done: routing a BT
@@ -11,7 +11,7 @@ pisynth can use Bluetooth for two things:
 - **Audio output** — send sound (e.g. the metronome click) to a Bluetooth speaker/headset.
 - **BLE-MIDI input** — connect a wireless MIDI keyboard / controller / pedal.
 
-Both are managed from one place: **Settings → Audio → Bluetooth** (the pairing manager).
+Both are managed from one place: **Settings → Bluetooth** (the pairing manager).
 
 ## Stack on the Pi
 
@@ -25,7 +25,7 @@ The Pi 3B+ has an onboard Bluetooth controller and the `bluetooth` service is ac
 
 ## Pairing flow (cinématique)
 
-**Settings → Audio → Bluetooth:**
+**Settings → Bluetooth:**
 
 ```
 ‹  Bluetooth                    ◀ Scan

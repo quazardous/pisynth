@@ -763,6 +763,7 @@ class App:
         return MenuScreen("Settings", [
             Item("Audio", on_select=push(self._audio_menu), submenu=True),
             Item("Display", on_select=push(self._display_menu), submenu=True),
+            Item("Bluetooth", on_select=self._open_bluetooth, submenu=True),
             Item("Tools", on_select=push(self._tools_menu), submenu=True),
             Item("Info", on_select=push(self._info_menu), submenu=True),
         ])
@@ -773,10 +774,9 @@ class App:
                  value=(lambda: f"{self.gain:.1f}"), bar=(lambda: self.gain / 10.0)),
             Item("Audio device", on_select=self._open_audio,
                  value=self._audio_label, submenu=True),
-            Item("Bluetooth", on_select=self._open_bluetooth, submenu=True),
         ])
 
-    # ---- Bluetooth pairing manager (ticket #287) ----
+    # ---- Bluetooth pairing manager (ticket #287) — top-level Settings entry ----
     def _open_bluetooth(self):
         self.bt.power_on()
         self._bt_scan = False

@@ -19,6 +19,7 @@ ERR    = (220, 90, 90)
 BT_BLUE = (0, 130, 252)                          # Bluetooth brand blue — lit BT icon (#306)
 PINK    = (255, 92, 170)                          # metronome icon when running (#287)
 AMBER   = (245, 175, 45)                          # health warning smiley (#325)
+VIOLET  = (170, 110, 235)                         # synth indicator when up (#338)
 TILE_PALETTE = [
     (41, 128, 185), (142, 68, 173), (22, 160, 133), (211, 84, 0),
     (39, 174, 96), (192, 57, 43), (52, 73, 94), (199, 77, 135),

@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw
 
 from .menu import MenuScreen
 from .theme import (ACCENT, AMBER, BARBG, BG, BT_BLUE, BTN, ERR, FG, ICON, MUTED, OK,
-                    PINK, SEL_BORDER, SEL_SUB, SELBG, TILE_PALETTE, load_font, load_icon_font)
+                    PINK, SEL_BORDER, SEL_SUB, SELBG, TILE_PALETTE, VIOLET, load_font, load_icon_font)
 
 # Dynamic bits the view needs each frame — a snapshot, so the renderer never reaches
 # back into the controller (#308). depth = len(nav stack); toast = active toast text/None;
@@ -154,8 +154,8 @@ class Renderer:
         bt_glyph = "bluetooth_connected" if status.bt_conn else "bluetooth"
         self._glyph(d, bt_glyph, x + step, cy, self._ic_color(status.bt, BT_BLUE))
         self._glyph(d, "piano", x + 2 * step, cy, self._ic_color(status.midi, FG))  # white = keys active (#326)
-        self._glyph(d, "synth", x + 3 * step, cy, self._ic_color(status.synth))     # fluidsynth stack up (#327)
-        self._glyph(d, "volume_up", x + 4 * step, cy, self._ic_color(status.audio)) # sound card OK (#327)
+        self._glyph(d, "synth", x + 3 * step, cy, self._ic_color(status.synth, VIOLET))       # synth up = violet (#338)
+        self._glyph(d, "volume_up", x + 4 * step, cy, self._ic_color(status.audio, SEL_BORDER))  # sound card = yellow (#338)
         self._glyph(d, "metronome", x + 5 * step, cy,
                     self._ic_color(status.metro_running, PINK))   # pink when running (#287)
         # health smiley (#325): face + colour both convey severity (good/warn/crit)

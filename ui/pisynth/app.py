@@ -115,6 +115,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         self._hold_next = 0.0           # monotonic time of the next repeat
         self._hold_fired = False        # a repeat fired → swallow the release tap
         self.fonts = []                 # [(sfid_or_None, path)] — sfid None when offline (disk)
+        self._loading = False           # a soundfont swap is in progress → amber tile frame (#334)
         self.cur_font_path = None       # current soundfont path (identity = basename, #276)
         self.cur_bp = None              # current (bank, prog)
         # persisted settings (screen sleep #277, audio device #282, preset #276)
@@ -183,9 +184,10 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         UI works with no synth/hardware (#276). Rebuild Home if it changed; apply a
         persisted preset the moment the synth comes online. Returns True if changed."""
         online = self.fs.online or self.fs.connect()
-        fonts = self.fs.fonts() if online else []
-        if not fonts:                                # offline, or synth up with nothing loaded yet
-            fonts = [(None, p) for p in list_soundfont_files()]
+        # Catalog always from disk: a single soundfont is resident at a time (#334), so
+        # fluidsynth's loaded list isn't the catalog — all fonts stay visible as tiles,
+        # the chosen one is loaded on demand. Presets come from the .sf files (read_sf_presets).
+        fonts = [(None, p) for p in list_soundfont_files()]
         changed = fonts != self.fonts
         if changed:
             self.fonts = fonts
@@ -244,10 +246,18 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         for bank, prog, name in presets:
             items.append(Item(
                 name,
-                on_select=(lambda pa=path, b=bank, p=prog, nm=name: self._choose_preset(pa, b, p, nm)),
+                on_select=(lambda pa=path, b=bank, p=prog, nm=name: self._tap_preset(pa, b, p, nm)),
                 marker=(lambda pa=path, b=bank, p=prog:
                         sf_key(self.cur_font_path) == sf_key(pa) and self.cur_bp == (b, p))))
         self.stack.append(MenuScreen(font_label(path), items, tiles=True))
+
+    def _tap_preset(self, path, bank, prog, name):
+        """Tap a preset → select it. Re-tap the one already selected → leave the submenu
+        (mirrors the two-tap font tile, #334)."""
+        if sf_key(self.cur_font_path) == sf_key(path) and self.cur_bp == (bank, prog):
+            self.nav_back()
+        else:
+            self._choose_preset(path, bank, prog, name)
 
     def _choose_preset(self, path, bank, prog, name=""):
         """Select a preset by font PATH (sfid-independent). Persist the choice (incl.
@@ -266,13 +276,25 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         return None
 
     def _apply_preset(self):
-        """Push the current preset to fluidsynth if it's online. No-op offline —
-        refresh_fonts re-applies it on the next offline->online transition (#276)."""
+        """Push the current preset to fluidsynth. One soundfont resident at a time (#334):
+        if the chosen font isn't loaded, unload whatever is and load it, then select.
+        No-op offline — refresh_fonts re-applies on the next offline->online transition."""
         if not (self.cur_font_path and self.cur_bp):
             return False
-        sfid = self._sfid_for_path(self.cur_font_path)
-        if sfid is None:
+        if not (self.fs.online or self.fs.connect()):
             return False
+        sfid = self._sfid_for_path(self.cur_font_path)
+        if sfid is None:                             # swap: keep a single font in RAM (#334)
+            self._loading = True
+            self.render()                            # amber tile frame while it loads (#334)
+            try:
+                for oid, _ in self.fs.fonts():
+                    self.fs.unload(oid)
+                sfid = self.fs.load(self.cur_font_path)
+            finally:
+                self._loading = False                # caller re-renders → green frame (loaded)
+            if sfid is None:
+                return False
         self.fs.select(sfid, *self.cur_bp)
         return True
 
@@ -631,7 +653,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
             depth=len(self.stack), wifi=self._st_wifi, bt=self._st_bt, bt_conn=self._st_bt_conn,
             midi=self._st_midi, synth=self._online, audio=self._st_audio, metro_running=self.metro.running,
             metro_beat=self.metro.beat, metro_beats=self.metro.beats, toast=active,
-            health=self._health, kbd=kbd))
+            health=self._health, kbd=kbd, loading=self._loading))
 
     # ---- hit-testing (controller side; geometry lives on the Renderer, #308) ----
     def _stepper_at(self, x, y):

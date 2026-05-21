@@ -44,7 +44,8 @@ ICON_FONT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 ICON = {"settings": "\ue8b8", "wifi": "\ue63e", "bluetooth": "\ue1a7",
         "bluetooth_connected": "\ue1a8", "piano": "\ue521",
         "volume_up": "\ue050", "metronome": "\uf4ba", "synth": "\U000fffd8",
-        "health_good": "\ue815", "health_warn": "\ue811", "health_crit": "\ue814"}
+        "health_good": "\ue815", "health_warn": "\ue811", "health_crit": "\ue814",
+        "pending": "\uef64"}                       # loading badge on a font tile (#334)
 
 
 def load_icon_font(size):

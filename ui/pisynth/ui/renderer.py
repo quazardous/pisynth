@@ -20,7 +20,7 @@ from .theme import (ACCENT, AMBER, BARBG, BG, BT_BLUE, BTN, ERR, FG, ICON, MUTED
 # health = 'good'|'warn'|'crit' for the Home health smiley (#325); kbd = MidiState|None for
 # the MIDI Test-keyboard screen (#331).
 Status = namedtuple("Status", "depth wifi bt bt_conn midi synth audio "
-                              "metro_running metro_beat metro_beats toast health kbd")
+                              "metro_running metro_beat metro_beats toast health kbd loading")
 
 # Snapshot of the live MIDI monitor for the Test-keyboard screen (#331).
 MidiState = namedtuple("MidiState", "active lo hi last count")
@@ -46,6 +46,7 @@ class Renderer:
         self.f_med = load_font(18)
         self.f_small = load_font(13)
         self.f_icon = load_icon_font(26)          # bundled Material Symbols subset (#306)
+        self.f_icon_sm = load_icon_font(20)       # smaller variant: tile 'pending' badge (#334)
 
     # ---- geometry (shared by render + the controller's hit-testing) ----
     def _back_rect(self, depth):
@@ -113,14 +114,15 @@ class Renderer:
             else:
                 d.line((xL + hh - depth, y, xL + hh, y), fill=fill)
 
-    def _glyph(self, d, name, cx, cy, fill):
+    def _glyph(self, d, name, cx, cy, fill, font=None):
         """Draw a bundled icon-font glyph centred on (cx, cy) (#306). No-op if the icon
         font failed to load — the bar then shows no icon rather than a broken box."""
-        if not self.f_icon:
+        font = font or self.f_icon
+        if not font:
             return
         ch = ICON[name]
-        x0, y0, x1, y1 = d.textbbox((0, 0), ch, font=self.f_icon)
-        d.text((cx - (x1 + x0) / 2, cy - (y1 + y0) / 2), ch, font=self.f_icon, fill=fill)
+        x0, y0, x1, y1 = d.textbbox((0, 0), ch, font=font)
+        d.text((cx - (x1 + x0) / 2, cy - (y1 + y0) / 2), ch, font=font, fill=fill)
 
     def _hbar(self, d, x0, y0, x1, y1, frac):
         n, gap = 12, 2
@@ -212,7 +214,7 @@ class Renderer:
                     vw = d.textlength(v, font=self.f_med)
                     d.text((rx - vw, cy - 10), v, font=self.f_med, fill=ACCENT)
 
-    def _draw_tiles(self, d, m):
+    def _draw_tiles(self, d, m, loading=False):
         slice_ = m.page_slice()
         rects = self._tile_grid(len(slice_), rows=self._fixed_rows(m))
         for (gi, it), rect in zip(slice_, rects):
@@ -220,10 +222,12 @@ class Renderer:
             d.rectangle(rect, fill=col)            # flat tile
             sub = it.sublabel() if it.sublabel else None
             self._tile_label(d, rect, it.label, sub)
-            if it.marker and it.marker():          # current selection → yellow OUTER frame (#290)
-                b = 3                              # ring sits in the inter-tile gap, outside the tile
+            if it.marker and it.marker():          # current selection: amber frame + 'pending' glyph
+                b = 3                              # while loading, green frame once resident (#290/#334)
                 d.rectangle((rect[0] - b, rect[1] - b, rect[2] + b, rect[3] + b),
-                            outline=SEL_BORDER, width=b)
+                            outline=(SEL_BORDER if loading else OK), width=b)
+                if loading:                        # small 'pending' (Material) top-right, label colour (#334)
+                    self._glyph(d, "pending", rect[2] - 16, rect[1] + 16, (255, 255, 255), self.f_icon_sm)
 
     def _tile_label(self, d, rect, label, sub=None):
         x0, y0, x1, y1 = rect
@@ -322,7 +326,7 @@ class Renderer:
         if m.keyboard:
             self._draw_keyboard(d, status.kbd)
         elif m.tiles:
-            self._draw_tiles(d, m)
+            self._draw_tiles(d, m, status.loading)
         else:
             self._draw_rows(d, m)
         if m.title == "Metronome":

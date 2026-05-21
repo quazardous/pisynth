@@ -95,5 +95,21 @@ class Fluid:
             cmds += [f"cc {ch} 0 0", f"cc {ch} 32 0", f"select {ch} {sfid} {bank} {prog}"]
         self.send(*cmds)
 
+    def load(self, path):
+        """Load a soundfont and return its new font id, or None. Used to keep a single
+        soundfont resident at a time (#334). fluidsynth processes the shell synchronously,
+        so a follow-up `fonts` lists it once the load has finished."""
+        if not self.send(f'load "{path}"'):
+            return None
+        key = path.rsplit("/", 1)[-1]
+        for sfid, p in self.fonts():
+            if p.rsplit("/", 1)[-1] == key:
+                return sfid
+        return None
+
+    def unload(self, sfid):
+        """Unload a soundfont by id (#334)."""
+        self.send(f"unload {sfid}")
+
     def set_gain(self, gain):
         self.send(f"gain {gain:.2f}")

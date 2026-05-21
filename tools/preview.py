@@ -121,11 +121,13 @@ pui.App._poll_status = lambda self, force=False: None   # Home indicators: flags
 SF_PATHS = [p for _, p in MOCK_FONTS]
 
 
-def go_online():                                      # synth running: catalog from fluidsynth
+def go_online():                                      # synth running: one font loaded, catalog from disk (#334)
     pui.Fluid.connect = lambda self: True
     pui.Fluid.fonts = lambda self: MOCK_FONTS
     pui.Fluid.presets = lambda self, sfid: [(0, i, n) for i, n in enumerate(GM)]
-    pui.Fluid.send = lambda self, *cmds: True         # swallow select / gain
+    pui.Fluid.send = lambda self, *cmds: True         # swallow select / gain / load / unload
+    pui.list_soundfont_files = lambda: SF_PATHS       # catalog is the disk set, not fluidsynth's (#334)
+    pui.read_sf_presets = lambda path: [(0, i, n) for i, n in enumerate(GM)]
 
 
 def go_offline():                                     # no synth/hardware: catalog from .sf files (#276)
@@ -144,7 +146,10 @@ app._choose_preset(SF_PATHS[2], 0, 0, "Acoustic Grand")   # current selection (#
 app._st_wifi = app._st_bt = app._st_midi = app._st_audio = True   # Home top-bar indicators all lit (#306/#327)
 app._st_bt_conn = True                                    # BT device connected → bluetooth_connected glyph (#306)
 app.metro.running = True                                   # metronome indicator lit (#306)
-app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-home.png"))   # Yamaha framed yellow + preset name
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-home.png"))   # Yamaha framed green (loaded) + preset name
+app._loading = True                                      # font swap in progress: amber frame + hourglass (#334)
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-home-loading.png"))
+app._loading = False
 app._st_wifi = app._st_bt = app._st_bt_conn = app._st_midi = app._st_audio = False; app._online = False; app.metro.running = False  # nothing on (#306)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-home-idle.png"))
 app._health = "warn"                                       # health smiley: amber grimace (#325)

@@ -178,6 +178,26 @@ if (( ${#sflist_ok[@]} == 0 )); then
     exit 1
 fi
 
+# One soundfont at a time (#334): load only ONE font at boot — the one persisted in the UI
+# settings (preset.font), else the first found — not all of them. Loading 5 large fonts at
+# once OOM-kills fluidsynth on a 1 GB Pi. The touch UI loads/unloads on selection so a
+# single soundfont is ever resident; the catalog stays full (it reads the .sf files).
+if (( ${#sflist_ok[@]} > 1 )); then
+    want=""
+    if [[ -f "$UI_SETTINGS" ]]; then
+        want="$(python3 -c 'import sys,yaml; d=yaml.safe_load(open(sys.argv[1])) or {}; print((d.get("preset") or {}).get("font","") or "")' "$UI_SETTINGS" 2>/dev/null || true)"
+    fi
+    one=""
+    if [[ -n "$want" ]]; then
+        for sf in "${sflist_ok[@]}"; do
+            [[ "$(basename "$sf")" == "$want" ]] && one="$sf" && break
+        done
+    fi
+    [[ -z "$one" ]] && one="${sflist_ok[0]}"
+    log "one-font mode (#334): loading only $(basename "$one") (of ${#sflist_ok[@]} available)"
+    sflist_ok=("$one")
+fi
+
 # --- Bluetooth A2DP output branch (#301) -----------------------------------------------
 # If a BT sink was chosen, route the synth through PipeWire's PulseAudio server. This
 # needs the user PipeWire session, which a system service reaches via XDG_RUNTIME_DIR;
@@ -204,6 +224,7 @@ if [[ -n "$BT_SINK_MAC" ]]; then
             -o "audio.pulseaudio.device=${SINK}" \
             -o "audio.realtime-prio=0" \
             -o "midi.autoconnect=${MIDI_AUTOCONNECT}" \
+            -o "synth.dynamic-sample-loading=1" \
             -o "synth.gain=${GAIN}" \
             -o "synth.reverb.active=1" \
             -o "synth.chorus.active=0" \
@@ -238,6 +259,7 @@ exec /usr/bin/fluidsynth \
     -o "audio.period-size=${PERIOD_SIZE}" \
     -o "audio.periods=${PERIODS}" \
     -o "midi.autoconnect=${MIDI_AUTOCONNECT}" \
+    -o "synth.dynamic-sample-loading=1" \
     -o "synth.gain=${GAIN}" \
     -o "synth.reverb.active=1" \
     -o "synth.chorus.active=0" \

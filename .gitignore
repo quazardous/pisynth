@@ -1,0 +1,21 @@
+# python
+__pycache__/
+*.pyc
+
+# local dev artifacts
+*.bak
+/deploy.log
+/last-shot.png
+
+# local deployment config (real host/IP) — the .dist template stays committed
+/pisynth.conf
+
+# aiball dev-tooling state (local to the maintainer's workflow)
+/.aiball.yaml
+
+# agent/dev project notes — kept local, not published (#286)
+/CLAUDE.md
+
+# sideloaded soundfonts (large / possibly licensed) — keep the README
+soundfonts/*.sf2
+soundfonts/*.sf3

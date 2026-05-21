@@ -1,0 +1,16 @@
+# pisynth deployment config — TEMPLATE.
+#
+#   cp pisynth.conf.dist pisynth.conf      # then edit pisynth.conf
+#
+# pisynth.conf is gitignored, so your real host stays out of version control.
+# Used by deploy.sh / shot.sh / ctl.sh. The environment variable PISYNTH_HOST
+# (if set) overrides this file.
+
+# SSH target of your Pi: user@host. An mDNS name or an IP both work.
+# Key-based SSH must already be set up to it.
+PISYNTH_HOST=pi@raspberrypi.local
+
+# User the synth runs as on the Pi (systemd User=, owns ~/soundfonts, in groups
+# video+input). Optional: if unset, apply.sh falls back to whoever runs sudo
+# (SUDO_USER). Set it when the SSH user and the run-as user differ.
+#PISYNTH_USER=pi

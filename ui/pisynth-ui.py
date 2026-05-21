@@ -688,8 +688,7 @@ class App:
                 submenu=True))
         if not items:
             items.append(Item("No soundfonts", color=TILE_MUTED))
-        items.append(Item("Settings", on_select=self._open_settings,
-                          submenu=True, color=TILE_SETTINGS))
+        # Settings is reached via the cog in the Home top bar (#289), not a tile.
         return MenuScreen("pisynth", items, tiles=True)
 
     def _preset_list(self, sfid, path):
@@ -982,6 +981,16 @@ class App:
         tw = d.textlength(text, font=font)
         d.text((self.fb.w / 2 - tw / 2, y), text, font=font, fill=fill)
 
+    def _cog(self, d, cx, cy, r, fill):
+        """A simple gear icon = disc + 8 radial teeth + a punched-through hub hole (#289)."""
+        for dx, dy in ((1, 0), (.707, .707), (0, 1), (-.707, .707),
+                       (-1, 0), (-.707, -.707), (0, -1), (.707, -.707)):
+            d.line((cx + dx * (r - 1), cy + dy * (r - 1),
+                    cx + dx * (r + 4), cy + dy * (r + 4)), fill=fill, width=3)
+        d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=fill)
+        hr = r * 0.45
+        d.ellipse((cx - hr, cy - hr, cx + hr, cy + hr), fill=BARBG)   # hole = bar background
+
     def _tri(self, d, cx, cy, h, direction, fill):
         """Filled triangle drawn as horizontal scanlines so the diagonal steps evenly —
         a constant 1 px change per row (regular slope), pointing left/right. Deliberately
@@ -1089,6 +1098,10 @@ class App:
             self._tri(d, 22, cy, 20, "left", ACCENT)   # back arrow = pager-triangle design, own colour (#289)
             d.line((back[2], 6, back[2], self.BAR_H - 6), fill=(64, 68, 86), width=1)
             tx = back[2] + 8
+        elif len(self.stack) == 1:                     # Home: settings cog in the left slot (#289)
+            self._cog(d, 22, cy, 11, ACCENT)
+            d.line((56, 6, 56, self.BAR_H - 6), fill=(64, 68, 86), width=1)
+            tx = 56 + 8
         d.text((tx, cy - 10), m.title, font=self.f_med, fill=FG)
         npages = m.npages()
         if npages > 1:                              # ◀ p/N ▶ — yellow triangles around the number (#276)
@@ -1229,6 +1242,9 @@ class App:
             page = self._page_rect()
             if back and back[0] <= x <= back[2]:
                 self.nav_back()
+            elif len(self.stack) == 1 and x <= 56:    # Home cog → Settings (#289)
+                self._open_settings()
+                self.render()
             elif page and page[0] <= x <= page[2]:
                 self.nav_page(-1 if x < (page[0] + page[2]) / 2 else 1)
             return

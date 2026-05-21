@@ -85,8 +85,9 @@ pui.Backlight = FakeBacklight
 pui.SETTINGS_PATH = os.path.join(OUT, "preview-settings.json")   # don't touch the real settings
 pui.list_audio_cards = lambda: [("Hub", "M-Track Hub"), ("Headphones", "bcm2835 Headphones")]
 # mock the Bluetooth backend so the pairing screen renders off-device (#287)
-pui.Bluetooth.power_on = lambda self: None
-pui.Bluetooth.scan = lambda self, on: None
+pui.Bluetooth.open = lambda self: None
+pui.Bluetooth.close = lambda self: None
+pui.Bluetooth.submit = lambda self, *a: None
 pui.Bluetooth.devices = lambda self: [
     ("AA:BB:CC:DD:EE:01", "Sony WH-1000XM4", True, True),
     ("AA:BB:CC:DD:EE:02", "JBL Flip 5", True, False),

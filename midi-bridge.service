@@ -1,0 +1,18 @@
+[Unit]
+Description=MIDI bridge — Keystation D-pad to fluidsynth preset/soundfont switcher
+After=piano.service
+Requires=piano.service
+PartOf=piano.service
+
+[Service]
+Type=simple
+User=pi
+Group=audio
+ExecStart=/usr/local/bin/midi-bridge.sh
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,70 @@
+# pisynth synth config — read by /usr/local/bin/start-piano.sh
+# Default install location: ~/.local/synth.conf  (i.e. /home/pi/.local/synth.conf)
+#
+# This file is sourced as bash, so use VAR=value lines (no spaces around =).
+# After changing a value:  sudo systemctl restart piano.service
+#
+# To temporarily try a value without editing this file:
+#   sudo systemctl edit piano.service
+#   [Service]
+#   Environment=GAIN=3.5
+
+# --- Volume ---
+# fluidsynth synth.gain. Range 0.0 – 10.0. Default 2.5.
+# Above ~4 you may start hearing clipping on dense chords.
+GAIN=2.5
+
+# --- Latency / stability ---
+# ALSA period size in frames. Smaller = lower latency, higher xrun risk.
+# 256 = ~6 ms @ 44.1 kHz (good default on RK3399). Try 512 if you hear crackles.
+PERIOD_SIZE=256
+
+# Number of periods in the ALSA buffer. 4 is fine; raise to 8 if very long pads xrun.
+PERIODS=4
+
+# --- Soundfonts ---
+# By default, start-piano.sh scans this directory for *.sf2 / *.sf3 files
+# (and symlinks) and loads ALL of them into fluidsynth. The D-pad ← →
+# cycles through them, alphabetically.
+# Use numeric prefixes (01-..., 02-...) to control loading + boot-default order.
+#SOUNDFONT_DIR=/home/pi/soundfonts
+
+# Manual override: explicit colon-separated list, takes precedence over the scan.
+#SOUNDFONTS=/path/to/a.sf2:/path/to/b.sf3
+
+# Single-soundfont fallback used only if SOUNDFONTS empty AND the dir scan finds nothing.
+#SOUNDFONT=/usr/share/sounds/sf3/MuseScore_General.sf3
+
+# --- D-pad MIDI bridge ---
+# Bridge auto-counts soundfonts by scanning SOUNDFONT_DIR. Override only if you know better.
+#NUM_SOUNDFONTS=2
+
+# --- D-pad feedback beep ---
+# GM preset for the audible feedback when a D-pad button is pressed.
+# 80 = Square Lead (8-bit beep), 81 = Sawtooth, 113 = Tinkle Bell, 104 = Sci-Fi (R2D2).
+#FEEDBACK_PRESET=80
+
+# Channel-wide volume of the feedback (CC 7, range 0-127). Lower = quieter beep.
+#FEEDBACK_VOLUME=50
+
+# Per-note velocity of the feedback (also affects timbre on some SFs).
+#FEEDBACK_VELOCITY=100
+
+# Duration of each beep, in seconds. Shorter = more "tick" feel.
+#FEEDBACK_DURATION=0.05
+
+# Set to 0 to completely silence the D-pad beep. Preset switching still works.
+#FEEDBACK_ENABLED=1
+
+# --- Hardware override ---
+# Normally start-piano.sh auto-detects the first non-HDMI USB audio card.
+# The touch UI (Settings → Audio device) lets you pick a card without editing
+# this file — it saves the choice to ~/.config/pisynth/settings.json, which
+# start-piano.sh reads. Uncommenting SOUNDCARD here OVERRIDES that UI choice.
+# Force a specific ALSA card name (as shown by `aplay -l`) here if you ever need it.
+#SOUNDCARD=Hub
+
+# --- Boot wait ---
+# How long to wait at startup for the USB sound card and a MIDI input
+# to appear before giving up. In seconds.
+WAIT_SECONDS=60

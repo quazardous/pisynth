@@ -11,15 +11,11 @@ for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.l
     fi
 done
 
-echo "[001] apt update + install fluidsynth stack..."
+echo "[001] apt update + install packages (from packages.list)..."
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    fluidsynth \
-    alsa-utils \
-    musescore-general-soundfont \
-    fluid-soundfont-gm \
-    rsync \
-    netcat-openbsd
+# Single source of truth shared with install.sh (#291): one package per line, '#'/blank ignored.
+mapfile -t PKGS < <(grep -vE '^[[:space:]]*(#|$)' "$REPO_DIR/packages.list")
+DEBIAN_FRONTEND=noninteractive apt-get install -y "${PKGS[@]}"
 
 echo "[001] best-effort WiFi firmware..."
 # Note: NOT firmware-misc-nonfree here — on a Pi it drags in useless Intel/NVIDIA

@@ -1,0 +1,21 @@
+# pisynth runtime apt packages (#291) — single source of truth, read by both
+# migrations/001-packages.sh (dev incremental path) and install.sh (end-user one-shot).
+# One package per line; '#' comments and blank lines ignored. Best-effort Wi-Fi/BT
+# firmware is handled separately (it may be absent on some images).
+
+# synth + audio
+fluidsynth
+alsa-utils
+musescore-general-soundfont
+fluid-soundfont-gm
+
+# touch UI (framebuffer, no X): Pillow + numpy + evdev + YAML prefs
+python3-pil
+python3-numpy
+python3-evdev
+python3-yaml
+
+# control plane / deploy / radios
+netcat-openbsd
+rsync
+rfkill

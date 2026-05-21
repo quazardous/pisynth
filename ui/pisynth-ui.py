@@ -763,10 +763,37 @@ class App:
         return MenuScreen("Settings", [
             Item("Audio", on_select=push(self._audio_menu), submenu=True),
             Item("Display", on_select=push(self._display_menu), submenu=True),
-            Item("Bluetooth", on_select=self._open_bluetooth, submenu=True),
+            Item("Connectivity", on_select=push(self._connectivity_menu), submenu=True),
             Item("Tools", on_select=push(self._tools_menu), submenu=True),
             Item("Info", on_select=push(self._info_menu), submenu=True),
         ])
+
+    # ---- connectivity: Wi-Fi / Bluetooth radios + pairing (#299) ----
+    def _connectivity_menu(self):
+        return MenuScreen("Connectivity", [
+            Item("Wi-Fi", on_select=(lambda: self._toggle_radio("wifi")),
+                 value=(lambda: "off" if self._radio_blocked("wifi") else "on")),
+            Item("Bluetooth", on_select=(lambda: self._toggle_radio("bluetooth")),
+                 value=(lambda: "off" if self._radio_blocked("bluetooth") else "on")),
+            Item("Bluetooth devices", on_select=self._open_bluetooth, submenu=True),
+        ])
+
+    def _radio_blocked(self, kind):
+        """True if the given radio (kind='wifi'|'bluetooth') is soft-blocked (#299)."""
+        try:
+            r = subprocess.run(["rfkill", "list", kind], capture_output=True, text=True, timeout=3)
+            return "Soft blocked: yes" in r.stdout
+        except (OSError, subprocess.SubprocessError):
+            return False
+
+    def _toggle_radio(self, kind):
+        action = "unblock" if self._radio_blocked(kind) else "block"
+        try:
+            r = subprocess.run(["rfkill", action, kind], capture_output=True, timeout=5)
+            if r.returncode != 0:
+                self.cur.footer = "failed — needs migration 013"
+        except (OSError, subprocess.SubprocessError):
+            self.cur.footer = "failed — needs migration 013"
 
     def _audio_menu(self):
         return MenuScreen("Audio", [
@@ -831,30 +858,11 @@ class App:
     def _tools_menu(self):
         return MenuScreen("Tools", [
             Item("Metronome", value=(lambda: "soon")),   # #287 lands here
-            Item("Airplane mode", on_select=self._toggle_airplane,
-                 value=(lambda: "on" if self._airplane_on() else "off")),
             Item("Reboot", on_select=(lambda: self._confirm_power("Reboot", "reboot")),
                  submenu=True),
             Item("Power off", on_select=(lambda: self._confirm_power("Power off", "poweroff")),
                  submenu=True),
         ])
-
-    # ---- airplane mode (#299): rfkill block/unblock all radios; volatile (migration 013) ----
-    def _airplane_on(self):
-        try:
-            r = subprocess.run(["rfkill", "list"], capture_output=True, text=True, timeout=3)
-            return "Soft blocked: yes" in r.stdout
-        except (OSError, subprocess.SubprocessError):
-            return False
-
-    def _toggle_airplane(self):
-        action = "unblock" if self._airplane_on() else "block"
-        try:
-            r = subprocess.run(["rfkill", action, "all"], capture_output=True, timeout=5)
-            if r.returncode != 0:
-                self.cur.footer = "failed — needs migration 013"
-        except (OSError, subprocess.SubprocessError):
-            self.cur.footer = "failed — needs migration 013"
 
     def _confirm_power(self, label, action):
         """Confirmation screen for a destructive power action (#297) — avoids an

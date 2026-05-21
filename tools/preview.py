@@ -136,7 +136,10 @@ app.stack = [app._home_menu()]
 app.stack.append(app._info_menu())                    # Settings → Info: hardware (#289)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-info.png"))
 app.stack = [app._home_menu()]
-app._open_bluetooth()                                 # Settings → Bluetooth (#287)
+app.stack.append(app._connectivity_menu())            # Settings → Connectivity (#299)
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-connectivity.png"))
+app.stack = [app._home_menu()]
+app._open_bluetooth()                                 # Connectivity → Bluetooth devices (#287)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-bluetooth.png"))
 app.stack = [app._home_menu()]
 app.stack.append(app._tools_menu())                   # Settings → Tools (#297)

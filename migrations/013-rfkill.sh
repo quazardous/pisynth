@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# 013 — airplane mode (#299): install rfkill, let the run-as user toggle the radios
-# (Wi-Fi + Bluetooth) from the touch UI without root, and make it VOLATILE — a reboot
-# always comes back with the radios on.
+# 013 — connectivity radios (#299): install rfkill, let the run-as user toggle Wi-Fi /
+# Bluetooth from the touch UI (Settings → Connectivity) without root, and make it
+# VOLATILE — a reboot always comes back with the radios on.
 set -euo pipefail
 
 echo "[013] installing rfkill..."
@@ -22,8 +22,8 @@ udevadm trigger --subsystem-match=misc --action=add || true
 # Apply now too (the trigger can miss).
 [[ -e /dev/rfkill ]] && chgrp netdev /dev/rfkill && chmod g+w /dev/rfkill && echo "[013] perms set on /dev/rfkill" || true
 
-# Make airplane mode VOLATILE: stop systemd from saving/restoring the radio block
-# state across reboots, so a reboot always brings the radios back on.
+# Make the radio toggles VOLATILE: stop systemd from saving/restoring the block state
+# across reboots, so a reboot always brings the radios back on (esp. Wi-Fi, #299).
 systemctl disable --now systemd-rfkill.socket 2>/dev/null || true
 systemctl mask systemd-rfkill.service systemd-rfkill.socket 2>/dev/null || true
-echo "[013] systemd-rfkill masked — airplane mode does not persist across reboot"
+echo "[013] systemd-rfkill masked — radio blocks do not persist across reboot"

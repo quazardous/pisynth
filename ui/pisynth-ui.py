@@ -831,7 +831,31 @@ class App:
     def _tools_menu(self):
         return MenuScreen("Tools", [
             Item("Metronome", value=(lambda: "soon")),   # #287 lands here
+            Item("Reboot", on_select=(lambda: self._confirm_power("Reboot", "reboot")),
+                 submenu=True),
+            Item("Power off", on_select=(lambda: self._confirm_power("Power off", "poweroff")),
+                 submenu=True),
         ])
+
+    def _confirm_power(self, label, action):
+        """Confirmation screen for a destructive power action (#297) — avoids an
+        accidental tap rebooting/shutting down the box."""
+        self.stack.append(MenuScreen(label + "?", [
+            Item(label + " now", on_select=(lambda: self._power(action))),
+            Item("Cancel", on_select=self.nav_back),
+        ]))
+
+    def _power(self, action):
+        """Run `systemctl <reboot|poweroff>`. Needs the polkit grant from migration 012
+        (the UI is a sessionless service); on failure, show why instead of silently dying."""
+        try:
+            r = subprocess.run(["systemctl", action], capture_output=True, timeout=10)
+            if r.returncode != 0:
+                self.cur.footer = "failed — needs migration 012"
+        except subprocess.TimeoutExpired:
+            pass                                    # system is going down
+        except (OSError, subprocess.SubprocessError):
+            self.cur.footer = "failed"
 
     def _info_menu(self):
         # Snapshot the values once (cheap, avoids per-render file/socket reads).

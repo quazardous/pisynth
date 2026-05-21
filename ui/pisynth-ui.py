@@ -531,6 +531,84 @@ def local_ip():
         s.close()
 
 
+class Bluetooth:
+    """Pairing manager backend (#287): a thin, defensive wrapper around `bluetoothctl`.
+    Every call is a subprocess with a short timeout and degrades to empty/False on any
+    error, so the UI never hangs even when BlueZ misbehaves. bluetoothctl's exact scan
+    semantics are validated/tuned on-device."""
+
+    DEV_RE = re.compile(r"Device\s+([0-9A-F:]{17})\s*(.*)", re.I)
+
+    def __init__(self):
+        self._scan = None        # background `scan on` process while scanning
+
+    def _run(self, *args, timeout=8):
+        try:
+            r = subprocess.run(["bluetoothctl", *args],
+                               capture_output=True, text=True, timeout=timeout)
+            return r.returncode == 0, r.stdout
+        except (OSError, subprocess.SubprocessError):
+            return False, ""
+
+    def available(self):
+        return self._run("show", timeout=3)[0]
+
+    def power_on(self):
+        self._run("power", "on", timeout=5)
+
+    def _macs(self, *filt):
+        return set(self.DEV_RE.match(ln.strip()).group(1)
+                   for ln in self._run("devices", *filt, timeout=5)[1].splitlines()
+                   if self.DEV_RE.match(ln.strip()))
+
+    def devices(self):
+        """[(mac, name, paired, connected), ...] — known + (while scanning) discovered."""
+        paired, connected = self._macs("Paired"), self._macs("Connected")
+        out = []
+        for ln in self._run("devices", timeout=5)[1].splitlines():
+            m = self.DEV_RE.match(ln.strip())
+            if m:
+                mac = m.group(1)
+                out.append((mac, m.group(2).strip() or mac, mac in paired, mac in connected))
+        return out
+
+    def scanning(self):
+        return self._scan is not None and self._scan.poll() is None
+
+    def scan(self, on):
+        if on and not self.scanning():
+            try:
+                self._scan = subprocess.Popen(["bluetoothctl", "scan", "on"],
+                                              stdout=subprocess.DEVNULL,
+                                              stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+            except OSError:
+                self._scan = None
+        elif not on and self._scan is not None:
+            self._scan.terminate()
+            try:
+                self._scan.wait(timeout=2)
+            except subprocess.SubprocessError:
+                self._scan.kill()
+            self._scan = None
+            self._run("scan", "off", timeout=3)
+
+    def pair_connect(self, mac):
+        """Pair (Just-Works), trust (for auto-reconnect), connect. True if connected."""
+        self._run("pair", mac, timeout=15)
+        self._run("trust", mac, timeout=5)
+        return self._run("connect", mac, timeout=15)[0]
+
+    def connect(self, mac):
+        return self._run("connect", mac, timeout=15)[0]
+
+    def disconnect(self, mac):
+        self._run("disconnect", mac, timeout=10)
+
+    def remove(self, mac):
+        self.scan(False)
+        self._run("remove", mac, timeout=10)
+
+
 class App:
     BAR_H = 45      # top bar = same height as a settings row (ROW_H)
     ROW_H = 45      # tabular rows
@@ -562,6 +640,8 @@ class App:
             self.cur_bp = (pr["bank"], pr["prog"])
             self.cur_preset_name = pr.get("name", "")
         self._online = False                        # last seen synth state (for apply-on-connect)
+        self.bt = Bluetooth()                        # Bluetooth pairing manager (#287)
+        self._bt_scan = False
         self.stack = [self._home_menu()]
         cal = load_cal()
         if cal:
@@ -694,7 +774,52 @@ class App:
                  value=(lambda: f"{self.gain:.1f}"), bar=(lambda: self.gain / 10.0)),
             Item("Audio device", on_select=self._open_audio,
                  value=self._audio_label, submenu=True),
+            Item("Bluetooth", on_select=self._open_bluetooth, submenu=True),
         ])
+
+    # ---- Bluetooth pairing manager (ticket #287) ----
+    def _open_bluetooth(self):
+        self.bt.power_on()
+        self._bt_scan = False
+        self.stack.append(self._bluetooth_menu())
+
+    def _bluetooth_menu(self):
+        items = [Item("Scan", on_select=self._toggle_scan,
+                      value=(lambda: "on" if self._bt_scan else "off"))]
+        for mac, name, paired, connected in self.bt.devices():
+            state = "connected" if connected else ("paired" if paired else "available")
+            items.append(Item(
+                name,
+                on_select=(lambda m=mac, p=paired, c=connected: self._bt_select(m, p, c)),
+                marker=(lambda c=connected: c),
+                value=(lambda s=state: s)))
+        foot = "scanning…" if self._bt_scan else None
+        return MenuScreen("Bluetooth", items, footer=foot)
+
+    def _rebuild_bt(self):
+        """Refresh the Bluetooth screen's device list in place (keeps the cursor)."""
+        if self.cur.title == "Bluetooth":
+            keep = self.cur.idx
+            self.stack[-1] = self._bluetooth_menu()
+            self.cur.idx = max(0, min(keep, len(self.cur.items) - 1))
+
+    def _toggle_scan(self):
+        self._bt_scan = not self._bt_scan
+        self.bt.scan(self._bt_scan)
+        self._rebuild_bt()
+
+    def _bt_select(self, mac, paired, connected):
+        self.cur.footer = ("Disconnecting…" if connected else
+                           "Connecting…" if paired else "Pairing…")
+        self.render()                                # show the pending state before blocking
+        if connected:
+            self.bt.disconnect(mac); result = "disconnected"
+        elif paired:
+            result = "connected" if self.bt.connect(mac) else "connect failed"
+        else:
+            result = "connected ✓" if self.bt.pair_connect(mac) else "pairing failed"
+        self._rebuild_bt()
+        self.cur.footer = result
 
     def _display_menu(self):
         return MenuScreen("Display", [
@@ -832,6 +957,9 @@ class App:
             self.render()
 
     def nav_back(self):
+        if self.cur.title == "Bluetooth" and self._bt_scan:   # don't leave a scan running (#287)
+            self._bt_scan = False
+            self.bt.scan(False)
         if len(self.stack) > 1:
             self.stack.pop()
         self.render()
@@ -1256,6 +1384,9 @@ class App:
             if not events:                             # idle tick
                 changed = self.refresh_fonts()         # also applies saved preset on connect
                 if changed and not self.asleep:
+                    self.render()
+                if self._bt_scan and self.cur.title == "Bluetooth" and not self.asleep:
+                    self._rebuild_bt()                 # refresh discovered devices while scanning (#287)
                     self.render()
                 if (not self.asleep and self.sleep_after
                         and now - self.last_active >= self.sleep_after):

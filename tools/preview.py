@@ -84,6 +84,14 @@ pui.Touch = FakeTouch
 pui.Backlight = FakeBacklight
 pui.SETTINGS_PATH = os.path.join(OUT, "preview-settings.json")   # don't touch the real settings
 pui.list_audio_cards = lambda: [("Hub", "M-Track Hub"), ("Headphones", "bcm2835 Headphones")]
+# mock the Bluetooth backend so the pairing screen renders off-device (#287)
+pui.Bluetooth.power_on = lambda self: None
+pui.Bluetooth.scan = lambda self, on: None
+pui.Bluetooth.devices = lambda self: [
+    ("AA:BB:CC:DD:EE:01", "Sony WH-1000XM4", True, True),
+    ("AA:BB:CC:DD:EE:02", "JBL Flip 5", True, False),
+    ("AA:BB:CC:DD:EE:03", "Pierre's Buds", False, False),
+]
 
 SF_PATHS = [p for _, p in MOCK_FONTS]
 
@@ -127,6 +135,9 @@ app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-audio-device.png"))
 app.stack = [app._home_menu()]
 app.stack.append(app._info_menu())                    # Settings → Info: hardware (#289)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-info.png"))
+app.stack = [app._home_menu()]
+app._open_bluetooth()                                 # Settings → Audio → Bluetooth (#287)
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-bluetooth.png"))
 
 # ---- offline (no synth): catalog read straight from the .sf files (#276) ----
 go_offline()

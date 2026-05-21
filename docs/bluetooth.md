@@ -1,7 +1,10 @@
-# Bluetooth (design)
+# Bluetooth
 
-> Status: **planned / design** (ticket #287) — not implemented yet. This documents the
-> intended Bluetooth support and its UX flow.
+> Status (ticket #287): **pairing manager implemented** — the Settings → Audio → Bluetooth
+> screen, a `bluetoothctl` backend (`Bluetooth` in `ui/pisynth-ui.py`), and a polkit grant
+> (migration 011) are in. The device list / parsing is validated against real BlueZ; **scan
+> + pairing of audio devices still need on-device validation**. Not yet done: routing a BT
+> sink as the metronome output, and **BLE-MIDI** input.
 
 pisynth can use Bluetooth for two things:
 

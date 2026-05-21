@@ -831,11 +831,30 @@ class App:
     def _tools_menu(self):
         return MenuScreen("Tools", [
             Item("Metronome", value=(lambda: "soon")),   # #287 lands here
+            Item("Airplane mode", on_select=self._toggle_airplane,
+                 value=(lambda: "on" if self._airplane_on() else "off")),
             Item("Reboot", on_select=(lambda: self._confirm_power("Reboot", "reboot")),
                  submenu=True),
             Item("Power off", on_select=(lambda: self._confirm_power("Power off", "poweroff")),
                  submenu=True),
         ])
+
+    # ---- airplane mode (#299): rfkill block/unblock all radios; volatile (migration 013) ----
+    def _airplane_on(self):
+        try:
+            r = subprocess.run(["rfkill", "list"], capture_output=True, text=True, timeout=3)
+            return "Soft blocked: yes" in r.stdout
+        except (OSError, subprocess.SubprocessError):
+            return False
+
+    def _toggle_airplane(self):
+        action = "unblock" if self._airplane_on() else "block"
+        try:
+            r = subprocess.run(["rfkill", action, "all"], capture_output=True, timeout=5)
+            if r.returncode != 0:
+                self.cur.footer = "failed — needs migration 013"
+        except (OSError, subprocess.SubprocessError):
+            self.cur.footer = "failed — needs migration 013"
 
     def _confirm_power(self, label, action):
         """Confirmation screen for a destructive power action (#297) — avoids an

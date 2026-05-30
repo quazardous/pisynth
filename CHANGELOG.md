@@ -18,6 +18,9 @@ All notable changes to pisynth, in plain language. Newest first.
 - **Volume range** — gain now spans 0–4.0 in 0.1 steps for finer, wider control.
 - **Grid navigation** — menus wrap around at the edges, left/right stay on the row, and
   reaching a page edge flips to the next page.
+- **Metronome timing** — the click now streams to a single persistent audio player instead
+  of launching one `aplay` per beat, so the tempo stays steady (no more wobble from
+  per-beat process startup). Added a **click volume** control on the Metronome screen.
 
 ### Fixed
 - The navigation beep keeps the sound you chose (it's now a generated tone, independent of

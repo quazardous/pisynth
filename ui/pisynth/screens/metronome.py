@@ -14,6 +14,7 @@ class MetronomeMixin:
         return MenuScreen("Metronome", [
             Item("BPM", on_adjust=self._metro_bpm, value=(lambda: str(self.metro.bpm))),
             Item("Beats/bar", on_adjust=self._metro_beats, value=(lambda: str(self.metro.beats))),
+            Item("Volume", on_adjust=self._metro_vol, value=(lambda: f"{self.metro.vol}%")),
             Item("Output", on_select=self._open_metro_audio, submenu=True,
                  value=self._metro_card_label),
             Item("Start / Stop", on_select=self._metro_toggle,
@@ -23,7 +24,8 @@ class MetronomeMixin:
     def _save_metro(self):
         """Persist all metronome prefs together so writing one never drops another (#287)."""
         self._update_settings(metro={"bpm": self.metro.bpm, "beats": self.metro.beats,
-                                     "card": self.metro.card, "bt_sink": self.metro.bt_sink})
+                                     "vol": self.metro.vol, "card": self.metro.card,
+                                     "bt_sink": self.metro.bt_sink})
 
     def _metro_bpm(self, delta):
         self.metro.bpm = max(40, min(240, self.metro.bpm + 5 * delta))
@@ -33,8 +35,17 @@ class MetronomeMixin:
         self.metro.beats = max(1, min(8, self.metro.beats + delta))
         self._save_metro()
 
+    def _metro_vol(self, delta):
+        self.metro.set_volume(self.metro.vol + 5 * delta)   # live: rebuilt for the next bar (#648)
+        self._save_metro()
+
     def _metro_toggle(self):
-        self.metro.stop() if self.metro.running else self.metro.start()
+        if self.metro.running:
+            self.metro.stop()
+        else:
+            self.metro.start()
+            if not self.metro.running and self.metro.err:    # output failed to open (#648)
+                self.toast(self.metro.err, secs=4)
 
     # ---- metronome output device (#287) ----
     def _metro_card_label(self):

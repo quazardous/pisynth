@@ -62,6 +62,9 @@ class MetronomeMixin:
         self.metro.card = name
         self.metro.bt_sink = ""                      # ALSA card → drop any BT sink (#287)
         self._save_metro()
+        if name and name == self.soundcard:          # the synth holds its card exclusively (direct
+            self.toast("⚠ carte du synth — pas de son, choisis une autre sortie", secs=4)  # ALSA) → busy (#648)
+            return
         self.metro.test_click()                     # immediate feedback so the device is testable
         self.toast("Test click played")
 

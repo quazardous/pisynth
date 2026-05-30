@@ -192,9 +192,19 @@ class Metronome:
         self.err = ""
         self._build_clicks()
         self._proc = self._spawn_player()
-        if self._proc is None:                       # couldn't open the output → surface it (#648)
+        if self._proc is None:                       # spawn itself failed (no player binary)
             self.err = "metronome: cannot open output"
             return
+        # The player opens its device THEN reads stdin. A failed open (e.g. the card is held
+        # exclusively by the synth via direct ALSA → "device busy") makes it exit within a
+        # few ms. Poll briefly so the UI can toast it NOW — the writer thread finding out
+        # after start() returns would be too late for the toggle's toast check (#648).
+        for _ in range(12):                          # ~120 ms worst case, one-shot on Start
+            if self._proc.poll() is not None:
+                self.err = "metronome: output busy / unavailable"
+                self._proc = None
+                return
+            time.sleep(0.01)
         self.running = True
         self._stop.clear()
         self._audio_t = threading.Thread(target=self._audio_loop, daemon=True)
@@ -243,7 +253,7 @@ class Metronome:
     def _audio_loop(self):
         """Keep the player fed one beat at a time. The write BLOCKS on the player's full
         ALSA buffer → the card clock paces us, sample-accurately (#648). A write error
-        (device busy / player died) breaks out and is surfaced via self.err."""
+        (device busy / player died mid-run) breaks out and is surfaced via self.err."""
         i = 0
         while not self._stop.is_set():
             accent = (i % max(1, min(8, self.beats))) == 0

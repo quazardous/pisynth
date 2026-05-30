@@ -95,6 +95,14 @@ _sa.alsa_volume = lambda card: 70                # output volume stepper (#314)
 _sa.set_alsa_volume = lambda card, pct: True
 _sa.bt_volume = lambda mac: 52                   # BT sink volume via wpctl (#314)
 _sa.set_bt_volume = lambda mac, pct: True
+# MIDI navigation (#373): deterministic ports off-device, and never spawn aseqdump
+import pisynth.screens.nav as _snav
+_snav.list_midi_ports = lambda: [("Keystation 61 MK3:0", "Keystation 61 MK3:0"),
+                                 ("Keystation 61 MK3:1", "Keystation 61 MK3:1")]
+_snav.midi_route_to_fluid = lambda port, connect: None    # no aconnect off-device
+pui.MidiMonitor.open = lambda self, port: None
+pui.MidiMonitor.close = lambda self: None
+pui.App._nav_set_bridge = lambda self, active: None        # no systemctl off-device
 # Info page (#316): deterministic Pi-like values off-device
 pui.board_model = lambda: "Raspberry Pi 3 Model B Plus"
 pui.local_ip = lambda: "192.168.1.42"
@@ -121,9 +129,17 @@ pui.App._poll_status = lambda self, force=False: None   # Home indicators: flags
 SF_PATHS = [p for _, p in MOCK_FONTS]
 
 
+def _preview_apply(self):                             # synchronous select off-device (no thread / no real
+    sfid = self._sfid_for_path(self.cur_font_path)    # connection): the async load (#375) needs a live synth
+    if sfid is not None:                              # so stub it to the old behaviour for deterministic renders
+        self.fs.select(sfid, *self.cur_bp)
+    return True
+pui.App._apply_preset = _preview_apply
+
+
 def go_online():                                      # synth running: one font loaded, catalog from disk (#334)
     pui.Fluid.connect = lambda self: True
-    pui.Fluid.fonts = lambda self: MOCK_FONTS
+    pui.Fluid.fonts = lambda self, overall=2.0: MOCK_FONTS
     pui.Fluid.presets = lambda self, sfid: [(0, i, n) for i, n in enumerate(GM)]
     pui.Fluid.send = lambda self, *cmds: True         # swallow select / gain / load / unload
     pui.list_soundfont_files = lambda: SF_PATHS       # catalog is the disk set, not fluidsynth's (#334)
@@ -132,7 +148,7 @@ def go_online():                                      # synth running: one font 
 
 def go_offline():                                     # no synth/hardware: catalog from .sf files (#276)
     pui.Fluid.connect = lambda self: False
-    pui.Fluid.fonts = lambda self: []
+    pui.Fluid.fonts = lambda self, overall=2.0: []
     pui.list_soundfont_files = lambda: SF_PATHS
     pui.read_sf_presets = lambda path: [(0, i, n) for i, n in enumerate(GM)]
 
@@ -140,16 +156,18 @@ def go_offline():                                     # no synth/hardware: catal
 # ---- online (synth up) ----
 go_online()
 app = pui.App()
-app.gain = 7.0
+app.gain = 3.0                                        # within the 0–4 stepper range (#372)
 app.refresh_fonts()                                   # Home from fluidsynth fonts
 app._choose_preset(SF_PATHS[2], 0, 0, "Acoustic Grand")   # current selection (#276)
 app._st_wifi = app._st_bt = app._st_midi = app._st_audio = True   # Home top-bar indicators all lit (#306/#327)
 app._st_bt_conn = True                                    # BT device connected → bluetooth_connected glyph (#306)
 app.metro.running = True                                   # metronome indicator lit (#306)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-home.png"))   # Yamaha framed green (loaded) + preset name
-app._loading = True                                      # font swap in progress: amber frame + hourglass (#334)
+app._loading = True; app._load_phase = 1                 # phase 1: loading the font → amber frame (#375)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-home-loading.png"))
-app._loading = False
+app._load_phase = 2                                      # phase 2: loading the preset samples → blue frame (#375)
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-home-loading-samples.png"))
+app._loading = False; app._load_phase = 0
 app._st_wifi = app._st_bt = app._st_bt_conn = app._st_midi = app._st_audio = False; app._online = False; app.metro.running = False  # nothing on (#306)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-home-idle.png"))
 app._health = "warn"                                       # health smiley: amber grimace (#325)
@@ -187,6 +205,11 @@ app.stack.append(app._info_hardware())                # System → Hardware (tem
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-info-hardware.png"))
 app.stack.pop(); app.stack.append(app._info_software())   # System → Software (#316)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-info-software.png"))
+app.stack = [app._home_menu()]
+app.nav_cfg["enabled"] = True; app.nav_cfg["sound"] = True   # show toggles 'on' (#373)
+app._open_nav()                                       # Settings → Navigation (MIDI nav config)
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-navigation.png"))
+app.nav_cfg["enabled"] = False; app.nav_cfg["sound"] = False
 app.stack = [app._home_menu()]
 app.stack.append(app._connectivity_menu())            # Settings → Connectivity (#299)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-connectivity.png"))

@@ -71,10 +71,11 @@ class Fluid:
             chunks.append(data)
         return b"".join(chunks).decode(errors="ignore").splitlines()
 
-    def fonts(self):
-        """[(sfid, path), ...] of loaded soundfonts, in load order."""
+    def fonts(self, overall=2.0):
+        """[(sfid, path), ...] of loaded soundfonts, in load order. `overall` bounds the
+        wait — raised by load() so a slow `load` reply isn't cut short (#375)."""
         out = []
-        for ln in self.query("fonts"):
+        for ln in self.query("fonts", overall=overall):
             m = re.match(r"\s*(\d+)\s+(.*\.(?:sf2|sf3))\s*$", ln, re.I)
             if m:
                 out.append((int(m.group(1)), m.group(2)))
@@ -95,14 +96,15 @@ class Fluid:
             cmds += [f"cc {ch} 0 0", f"cc {ch} 32 0", f"select {ch} {sfid} {bank} {prog}"]
         self.send(*cmds)
 
-    def load(self, path):
+    def load(self, path, timeout=45):
         """Load a soundfont and return its new font id, or None. Used to keep a single
-        soundfont resident at a time (#334). fluidsynth processes the shell synchronously,
-        so a follow-up `fonts` lists it once the load has finished."""
+        soundfont resident at a time (#334). fluidsynth processes the shell serially, so the
+        follow-up `fonts` only replies once the load has finished — wait up to `timeout`s
+        for it, since big SF2 take 10-20s on a Pi 3B+ (#375)."""
         if not self.send(f'load "{path}"'):
             return None
         key = path.rsplit("/", 1)[-1]
-        for sfid, p in self.fonts():
+        for sfid, p in self.fonts(overall=timeout):
             if p.rsplit("/", 1)[-1] == key:
                 return sfid
         return None

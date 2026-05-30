@@ -44,7 +44,11 @@ class MenuScreen:
         return self.items[self.idx]
 
     def move(self, delta):
-        self.idx = max(0, min(len(self.items) - 1, self.idx + delta))
+        # Wrap-around (#373): stepping past an edge loops to the other side, so MIDI/D-pad
+        # nav never dead-ends (david: « ça devrait revenir de l'autre côté »).
+        n = len(self.items)
+        if n:
+            self.idx = (self.idx + delta) % n
 
     # ---- pagination (tiles: PAGE_TILES per page; lists: LIST_ROWS per page, #276) ----
     def _per_page(self):

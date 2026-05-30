@@ -3,6 +3,7 @@
 Reads the keyboard DIRECTLY (ALSA seq), independent of fluidsynth — so it works even when
 the synth is down (it isolates 'does the keyboard send MIDI?' from 'does the synth play?').
 """
+import collections
 import os
 import re
 import subprocess
@@ -18,6 +19,7 @@ class MidiMonitor:
         self.last = None             # last note-on number (for the readout)
         self.count = 0               # total note-ons seen (proves MIDI is flowing)
         self.lo = self.hi = None     # min/max note seen → the 'detected layout' range
+        self.events = collections.deque(maxlen=64)  # queued note-on numbers, FIFO (#373 nav)
         self._proc = None
         self._thread = None
         self._stop = threading.Event()
@@ -30,6 +32,7 @@ class MidiMonitor:
         """Start dumping `port` (an `aseqdump -p` target, e.g. 'Keystation 61 MK3')."""
         self.close()
         self.active, self.last, self.count, self.lo, self.hi = set(), None, 0, None, None
+        self.events.clear()
         self._stop.clear()
         self._thread = threading.Thread(target=self._loop, args=(port,), daemon=True)
         self._thread.start()
@@ -46,8 +49,13 @@ class MidiMonitor:
 
     def _loop(self, port):
         try:
-            self._proc = subprocess.Popen(["aseqdump", "-p", port], stdout=subprocess.PIPE,
-                                          stderr=subprocess.DEVNULL, text=True, bufsize=1)
+            # stdbuf -oL forces aseqdump to LINE-buffer its stdout. Without it glibc
+            # block-buffers when stdout is a pipe, so events only arrive in ~4 KB bursts
+            # and single key-presses stall (#373: "se déplace qu'une fois"). Same trick as
+            # nanosynth's midi-bridge.sh.
+            self._proc = subprocess.Popen(["stdbuf", "-oL", "aseqdump", "-p", port],
+                                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                          text=True, bufsize=1)
         except OSError:
             return
         for line in self._proc.stdout:                # blocks per line; terminate() ends it
@@ -64,6 +72,7 @@ class MidiMonitor:
             self.active.add(note)
             self.last = note
             self.count += 1
+            self.events.append(note)                  # queue for the nav dispatcher (#373)
             self.lo = note if self.lo is None else min(self.lo, note)
             self.hi = note if self.hi is None else max(self.hi, note)
         else:
@@ -73,3 +82,11 @@ class MidiMonitor:
                 os.write(self._wake, b"x")
             except OSError:
                 pass
+
+    def drain(self):
+        """Pop all queued note-on numbers since the last drain (#373). The nav
+        dispatcher reads these per wake so rapid presses are never coalesced/lost
+        (unlike `last`, which only keeps the most recent)."""
+        out = list(self.events)
+        self.events.clear()
+        return out

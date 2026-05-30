@@ -20,7 +20,8 @@ from .theme import (ACCENT, AMBER, BARBG, BG, BT_BLUE, BTN, ERR, FG, ICON, MUTED
 # health = 'good'|'warn'|'crit' for the Home health smiley (#325); kbd = MidiState|None for
 # the MIDI Test-keyboard screen (#331).
 Status = namedtuple("Status", "depth wifi bt bt_conn midi synth audio "
-                              "metro_running metro_beat metro_beats toast health kbd loading")
+                              "metro_running metro_beat metro_beats toast health kbd loading "
+                              "load_anim load_phase")
 
 # Snapshot of the live MIDI monitor for the Test-keyboard screen (#331).
 MidiState = namedtuple("MidiState", "active lo hi last count")
@@ -240,7 +241,7 @@ class Renderer:
                     vw = d.textlength(v, font=self.f_med)
                     d.text((rx - vw, cy - 10), v, font=self.f_med, fill=ACCENT)
 
-    def _draw_tiles(self, d, m, loading=False):
+    def _draw_tiles(self, d, m, loading=False, anim=0, phase=0):
         slice_ = m.page_slice()
         rects = self._tile_grid(len(slice_), rows=self._fixed_rows(m))
         for (gi, it), rect in zip(slice_, rects):
@@ -248,12 +249,17 @@ class Renderer:
             d.rectangle(rect, fill=col)            # flat tile
             sub = it.sublabel() if it.sublabel else None
             self._tile_label(d, rect, it.label, sub)
-            if it.marker and it.marker():          # current selection: amber frame + 'pending' glyph
-                b = 3                              # while loading, green frame once resident (#290/#334)
+            if it.marker and it.marker():          # current selection: framed (+ 'pending' glyph)
+                # 2-colour loading frame (#375): amber = loading the font (phase 1), blue =
+                # loading the preset samples (phase 2), green = ready. Frame pulses while loading.
+                b = 3 + (anim // 2 % 3 if loading else 0)
+                oc = OK if not loading else (ACCENT if phase == 2 else SEL_BORDER)
                 d.rectangle((rect[0] - b, rect[1] - b, rect[2] + b, rect[3] + b),
-                            outline=(SEL_BORDER if loading else OK), width=b)
+                            outline=oc, width=b)
                 if loading:                        # small 'sync' (Material) top-right, label colour (#334)
                     self._glyph(d, "sync", rect[2] - 16, rect[1] + 16, (255, 255, 255), self.f_icon_sm)
+            if gi == m.idx:                        # navigation cursor (#373): bold pink frame so D-pad
+                d.rectangle(rect, outline=PINK, width=4)   # moves are visible (lists already hi-light idx)
 
     def _tile_label(self, d, rect, label, sub=None):
         x0, y0, x1, y1 = rect
@@ -352,7 +358,7 @@ class Renderer:
         if m.keyboard:
             self._draw_keyboard(d, status.kbd)
         elif m.tiles:
-            self._draw_tiles(d, m, status.loading)
+            self._draw_tiles(d, m, status.loading, status.load_anim, status.load_phase)
         else:
             self._draw_rows(d, m)
         if m.title == "Metronome":

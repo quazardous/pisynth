@@ -36,6 +36,7 @@ import selectors
 import socket
 import subprocess
 import sys
+import threading
 import time
 
 from PIL import Image
@@ -51,7 +52,7 @@ DEBUG    = os.environ.get("PISYNTH_DEBUG") == "1"
 # and skip the write entirely when nothing changed — far less traffic on the slow
 # SPI panel (~16-32 MHz). Set PISYNTH_RENDER=partial in pisynth-ui.service to switch.
 RENDER_MODE = os.environ.get("PISYNTH_RENDER", "full")
-VERSION  = "0.3.0"
+VERSION  = "0.4.0"
 
 # Keyboard channels we broadcast preset changes to. Channel 15 is left alone
 # (midi-bridge.sh reserves it for the D-pad feedback SFX).
@@ -71,7 +72,7 @@ from .ui.renderer import MidiState, Renderer, Status
 from .ui.theme import TILE_MUTED
 
 # Per-feature controller mixins (#308): audio / bluetooth / metronome screens + handlers.
-from .screens import AudioMixin, BluetoothMixin, MetronomeMixin
+from .screens import AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin
 
 
 # Hardware / device-backend adapters live in the io/ layer (#308). Re-exported
@@ -84,8 +85,9 @@ from .io import (Backlight, Bluetooth, Fluid, Framebuffer, Metronome, MidiMonito
 # Domain / pure-logic layer (#308). Re-exported into app's namespace so existing
 # call sites — and preview.py's monkeypatches (list_audio_cards / read_sf_presets
 # / ...) — keep working on the bare names.
-from .core.audio import (audio_active, audio_output_present, list_midi_inputs,
-                         midi_input_present, play_test)
+from .core.audio import (GAIN_DEFAULT, GAIN_MAX, GAIN_MIN, GAIN_STEP, audio_active,
+                         audio_output_present, list_midi_inputs, midi_input_present,
+                         play_test)
 from .core.geometry import solve_affine
 from .core.settings import (CAL_PATH, SETTINGS_PATH, _legacy_json_path, load_cal,
                             load_settings, save_cal, save_settings)
@@ -96,7 +98,7 @@ from .core.system import (board_model, cpu_clock, cpu_temp, disk_info, health,
 
 
 
-class App(AudioMixin, BluetoothMixin, MetronomeMixin):
+class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
     def __init__(self):
         self.fb = Framebuffer(FB_DEV, RENDER_MODE == "partial")   # io adapter (#308)
         self.view = Renderer(self.fb)             # the display/view layer (#308 step 5)
@@ -104,7 +106,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         MenuScreen.per_page_rows = max(1, (self.fb.h - self.view.BAR_H) // self.view.ROW_H)
         self.fs = Fluid(FS_HOST, FS_PORT, KBD_CHANNELS)           # io adapter (#308)
         self.touch = Touch()
-        self.gain = 2.5
+        self.gain = GAIN_DEFAULT
         self.volume = None              # cached output volume %; read on opening Audio (#314)
         self._restart_pending = 0.0     # monotonic start of an audio restart; 0 = none (#282)
         self._health = "good"           # Home health smiley state: good|warn|crit (#325)
@@ -116,6 +118,11 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         self._hold_fired = False        # a repeat fired → swallow the release tap
         self.fonts = []                 # [(sfid_or_None, path)] — sfid None when offline (disk)
         self._loading = False           # a soundfont swap is in progress → amber tile frame (#334)
+        self._load_thread = None        # background font-load thread, or None (#375)
+        self._load_result = None        # (path, bp, sfid) posted by the worker when done (#375)
+        self._load_fs = None            # dedicated fluidsynth connection for the load worker (#375)
+        self._load_frame = 0            # spinner animation counter while loading (#375)
+        self._load_phase = 0            # 0=idle, 1=loading font, 2=loading samples (#375 2-colour)
         self.cur_font_path = None       # current soundfont path (identity = basename, #276)
         self.cur_bp = None              # current (bank, prog)
         # persisted settings (screen sleep #277, audio device #282, preset #276)
@@ -148,6 +155,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         self.bt_sink = (s.get("bluetooth") or {}).get("audio_sink", "")  # MAC of the BT audio output, or "" (#301)
         self.midi_keyboard = s.get("midi_keyboard", "")   # chosen MIDI keyboard name; "" = auto (all) (#326)
         self.midimon = MidiMonitor()                 # MIDI test-keyboard reader (#331)
+        self._nav_init(s)                            # MIDI navigation: cfg + its own monitor (#373)
         self.metro = Metronome(*ensure_clicks())     # background metronome (#287)
         _m = s.get("metro", {})
         self.metro.bpm = _m.get("bpm", 100)
@@ -195,6 +203,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
                 self.stack[0] = self._home_menu()
         if online and not self._online:              # offline -> online: re-apply the saved preset
             self._apply_preset()
+            self._nav_on_synth_online()              # re-silence the nav port (autoconnect race, #373)
         self._online = online
         return changed
 
@@ -267,36 +276,95 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         self._update_settings(preset={"font": sf_key(path), "bank": bank, "prog": prog, "name": name})
         self._apply_preset()
 
-    def _sfid_for_path(self, path):
-        """Resolve a font path to its live fluidsynth font id by basename, or None
-        when the synth isn't running / hasn't loaded it."""
-        for sfid, p in self.fs.fonts():
+    def _sfid_for_path(self, path, fs=None):
+        """Resolve a font path to its live fluidsynth font id by basename, or None when
+        the synth isn't running / hasn't loaded it. `fs` lets the load worker query on its
+        own connection (#375)."""
+        for sfid, p in (fs or self.fs).fonts():
             if sf_key(p) == sf_key(path):
                 return sfid
         return None
 
     def _apply_preset(self):
-        """Push the current preset to fluidsynth. One soundfont resident at a time (#334):
-        if the chosen font isn't loaded, unload whatever is and load it, then select.
-        No-op offline — refresh_fonts re-applies on the next offline->online transition."""
+        """Push the current preset to fluidsynth. ALWAYS done in the BACKGROUND (#375):
+        with synth.dynamic-sample-loading=1 (#334) there are TWO slow phases — `load` (font
+        structure) and `select` (the preset's samples, loaded on demand) — so even an
+        already-loaded font needs a (phase-2) wait before sound works. The worker runs both;
+        the indicator stays up across them. No-op offline; refresh_fonts re-applies on the
+        next offline->online transition."""
         if not (self.cur_font_path and self.cur_bp):
+            return False
+        if self._loading:                            # a load is already running (#375)
             return False
         if not (self.fs.online or self.fs.connect()):
             return False
-        sfid = self._sfid_for_path(self.cur_font_path)
-        if sfid is None:                             # swap: keep a single font in RAM (#334)
-            self._loading = True
-            self.render()                            # amber tile frame while it loads (#334)
-            try:
-                for oid, _ in self.fs.fonts():
-                    self.fs.unload(oid)
-                sfid = self.fs.load(self.cur_font_path)
-            finally:
-                self._loading = False                # caller re-renders → green frame (loaded)
-            if sfid is None:
-                return False
-        self.fs.select(sfid, *self.cur_bp)
+        loaded = self._sfid_for_path(self.cur_font_path) is not None
+        self._start_load(self.cur_font_path, self.cur_bp, loaded)
         return True
+
+    # ---- async soundfont loading (#375): load (phase 1) + select/samples (phase 2) ----
+    def _load_conn(self):
+        """A dedicated fluidsynth connection for the load worker so it never shares the
+        socket with the UI thread (#375)."""
+        if self._load_fs is None:
+            self._load_fs = Fluid(FS_HOST, FS_PORT, KBD_CHANNELS)
+        return self._load_fs
+
+    def _start_load(self, path, bp, loaded):
+        self._loading = True
+        self._load_frame = 0
+        self._load_result = None
+        self._load_phase = 2 if loaded else 1        # already loaded → straight to the samples phase
+        self.render()                                # show the indicator immediately
+        self._load_thread = threading.Thread(target=self._load_worker, args=(path, bp), daemon=True)
+        self._load_thread.start()
+
+    def _load_worker(self, path, bp):
+        """Background, on a dedicated connection. Phase 1: load the font structure if it
+        isn't resident (unload the previous one — single font in RAM, #334). Phase 2: select
+        the preset, which makes fluidsynth load its samples on demand, then WAIT for that to
+        finish — fluidsynth serialises shell commands, so a `fonts` query right after the
+        select only replies once the samples are in. The load/select are global synth state,
+        so the keyboard then plays through them. Posts the outcome to _load_result (#375)."""
+        fs = self._load_conn()
+        sfid = None
+        try:
+            sfid = self._sfid_for_path(path, fs)
+            if sfid is None:                         # phase 1 — load the font structure
+                self._load_phase = 1
+                for oid, p in fs.fonts():
+                    if sf_key(p) != sf_key(path):    # never unload the target (boot race vs start-piano, #378)
+                        fs.unload(oid)
+                sfid = self._sfid_for_path(path, fs) or fs.load(path)  # maybe it was there after all
+            if sfid is not None:                     # phase 2 — keep ONE font (#334), select → samples on demand
+                self._load_phase = 2
+                self._load_frame = 0
+                for oid, p in fs.fonts():
+                    if sf_key(p) != sf_key(path):
+                        fs.unload(oid)
+                sfid = self._sfid_for_path(path, fs)  # re-derive: only ever select a font that IS loaded —
+                if sfid is not None:                  # never `select <missing id>` (#378: "No SoundFont id=2")
+                    fs.select(sfid, *bp)
+                    fs.fonts(overall=45)             # serialised → returns once samples are loaded
+        except OSError:
+            sfid = None
+        self._load_result = (path, bp, sfid)
+
+    def _finish_load(self):
+        """Run-loop side of an async load (#375): the worker already loaded + selected, so
+        here we only clear the indicator (sound is ready) — or, if the user picked a different
+        preset while it ran, kick off the new one."""
+        path, bp, sfid = self._load_result
+        self._load_result = None
+        self._load_thread = None
+        self._loading = False
+        self._load_phase = 0
+        if (path, bp) != (self.cur_font_path, self.cur_bp):
+            self._apply_preset()                     # target changed mid-load → apply the new one
+            return
+        if sfid is None:
+            self.toast("chargement échoué")
+        self.render()                                # frame back to green (ready) now
 
     def _settings_menu(self):
         # Categorized (#289): Audio · Display · Tools · Info.
@@ -305,6 +373,8 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         return MenuScreen("Settings", [
             Item("Audio", on_select=push(self._audio_menu), submenu=True),
             Item("MIDI", on_select=self._open_midi, value=self._midi_label, submenu=True),
+            Item("Navigation", on_select=self._open_nav, submenu=True,
+                 value=(lambda: "on" if self.nav_cfg["enabled"] else "off")),    # MIDI nav (#373)
             Item("Display", on_select=push(self._display_menu), submenu=True),
             Item("Connectivity", on_select=push(self._connectivity_menu), submenu=True),
             Item("Tools", on_select=push(self._tools_menu), submenu=True),
@@ -451,8 +521,10 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         self.metro.card = ""
         self.bt_names = {}; self._bt_names_dirty = False
         self.bt_sink = ""
-        self._set_gain(2.5)
+        self.nav_cfg = self._nav_cfg_from({})        # MIDI nav back to defaults (off) (#373)
+        self._set_gain(GAIN_DEFAULT)
         self.stack = [self._home_menu()]
+        self._nav_reconcile()                        # stop the nav monitor (reset → disabled)
 
     def _power(self, action):
         """Run `systemctl <reboot|poweroff>`. Needs the polkit grant from migration 012
@@ -468,33 +540,36 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
 
     @staticmethod
     def _info_rows(title, rows):
-        # Values snapshot once at build time (cheap; avoids per-render file/socket reads).
-        return MenuScreen(title, [Item(k, value=(lambda v=v: v)) for k, v in rows])
+        # Each value is either a callable (refreshed every render → live field #642) or
+        # a static string (snapshotted once at build time; cheap).
+        return MenuScreen(title, [Item(k, value=(v if callable(v) else (lambda v=v: v)))
+                                  for k, v in rows])
 
     def _info_hardware(self):
+        # Live fields use callables so the row refreshes while the screen is shown (#642).
         return self._info_rows("Hardware", [
             ("Board", board_model()),
-            ("Health", health()[1]),         # aggregate verdict incl. services (#325)
-            ("CPU temp", cpu_temp()),
-            ("CPU clock", cpu_clock()),      # ⚠ when throttled — shows the under-voltage effect (#325)
-            ("Power", power_status()),       # under-voltage/throttle — weak PSU shows here (#316)
-            ("RAM", mem_info()),
-            ("Disk", disk_info()),
+            ("Health", lambda: health()[1]), # aggregate verdict incl. services (#325)
+            ("CPU temp", cpu_temp),
+            ("CPU clock", cpu_clock),        # ⚠ when throttled — shows the under-voltage effect (#325)
+            ("Power", power_status),         # under-voltage/throttle — weak PSU shows here (#316)
+            ("RAM", mem_info),
+            ("Disk", disk_info),
             ("Screen", f"{self.fb.w}x{self.fb.h}"),
         ])
 
     def _info_software(self):
-        radios = ("Wi-Fi " + ("off" if self._radio_blocked("wifi") else "on")
-                  + " · BT " + ("off" if self._radio_blocked("bluetooth") else "on"))
+        radios = lambda: ("Wi-Fi " + ("off" if self._radio_blocked("wifi") else "on")
+                          + " · BT " + ("off" if self._radio_blocked("bluetooth") else "on"))
         return self._info_rows("Software", [
             ("pisynth", VERSION),
             ("OS", os_pretty()),
             ("Kernel", os.uname().release),
             ("Host", socket.gethostname()),
-            ("IP", local_ip()),
+            ("IP", local_ip),                # DHCP lease can change while we're up (#642)
             ("Radios", radios),
-            ("Uptime", uptime_str()),
-            ("Soundfonts", str(len(self.fonts))),
+            ("Uptime", uptime_str),
+            ("Soundfonts", lambda: str(len(self.fonts))),
         ])
 
     # ---- screen sleep (ticket #277) ----
@@ -541,7 +616,9 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         return self.stack[-1]
 
     def _set_gain(self, g):
-        self.gain = max(0.0, min(10.0, round(g * 2) / 2))
+        # Clamp to [GAIN_MIN, GAIN_MAX] and quantize to GAIN_STEP (#372); round
+        # to 2 dp so float fuzz never leaks into the `state` line or set_gain.
+        self.gain = round(min(GAIN_MAX, max(GAIN_MIN, round(g / GAIN_STEP) * GAIN_STEP)), 2)
         self.fs.set_gain(self.gain)
 
     def _open_settings(self):
@@ -574,6 +651,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
             self.midimon.close()
         if len(self.stack) > 1:
             self.stack.pop()
+        self._nav_reconcile()                        # match navmon to the new top screen (#373)
         self.render()
 
     def nav_page(self, delta=1):
@@ -653,7 +731,8 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
             depth=len(self.stack), wifi=self._st_wifi, bt=self._st_bt, bt_conn=self._st_bt_conn,
             midi=self._st_midi, synth=self._online, audio=self._st_audio, metro_running=self.metro.running,
             metro_beat=self.metro.beat, metro_beats=self.metro.beats, toast=active,
-            health=self._health, kbd=kbd, loading=self._loading))
+            health=self._health, kbd=kbd, loading=self._loading, load_anim=self._load_frame,
+            load_phase=self._load_phase))
 
     # ---- hit-testing (controller side; geometry lives on the Renderer, #308) ----
     def _stepper_at(self, x, y):
@@ -823,8 +902,8 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
             acts = {
                 "next_preset": lambda: self._cycle_preset(1),
                 "prev_preset": lambda: self._cycle_preset(-1),
-                "gain_up": lambda: self._set_gain(self.gain + 0.5),
-                "gain_down": lambda: self._set_gain(self.gain - 0.5),
+                "gain_up": lambda: self._set_gain(self.gain + GAIN_STEP),
+                "gain_down": lambda: self._set_gain(self.gain - GAIN_STEP),
             }
             fn = acts.get(parts[1])
             if fn:
@@ -865,16 +944,31 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
         os.set_blocking(midi_r, False)
         self.midimon.set_wake(midi_w)
         sel.register(midi_r, selectors.EVENT_READ, "midimon")
+        nav_r, nav_w = os.pipe()                          # nav monitor pings here per note (#373)
+        os.set_blocking(nav_r, False)
+        self.navmon.set_wake(nav_w)
+        sel.register(nav_r, selectors.EVENT_READ, "navmon")
+        self._nav_reconcile()                            # open the nav port now if enabled (#373)
         while True:
             now = time.monotonic()
             timeout = 2.0
             if self._hold_delta or self.touch.held_pos() is not None:  # hold-to-repeat tick (#314)
                 timeout = 0.08
+            if self._loading:                          # animate the load spinner (#375)
+                timeout = min(timeout, 0.12)
             if self._toast_until:                      # wake right at toast expiry (#320)
                 timeout = max(0.05, min(timeout, self._toast_until - now))
             events = sel.select(timeout=timeout)
             now = time.monotonic()
             if not events:                             # idle tick
+                if self._loading:                      # async font load (#375): animate + poll, skip the
+                    if self._load_result is not None:  # rest (no synth chatter while it loads)
+                        self._finish_load()
+                    else:
+                        self._load_frame += 1
+                        if not self.asleep:
+                            self.render()
+                    continue
                 self._hold_repeat(now)                 # auto-repeat a held +/- stepper (#314)
                 if self._toast_msg and now >= self._toast_until:   # toast expired (#320)
                     self._toast_msg = ""
@@ -902,6 +996,8 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
                     if self._bt_names_dirty:           # remember any newly-resolved names (#301)
                         self._save_bt_names()
                     self.render()
+                if self.cur.title in ("Hardware", "Software") and not self.asleep:
+                    self.render()                       # live CPU temp / clock / uptime / IP (#642)
                 if (not self.asleep and self.sleep_after
                         and now - self.last_active >= self.sleep_after):
                     self.sleep_screen()
@@ -936,6 +1032,12 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin):
                         pass
                     if self.cur.keyboard and not self.asleep:
                         self.render()
+                elif key.data == "navmon":             # per-note ping → drive UI nav / learn (#373)
+                    try:
+                        os.read(nav_r, 256)
+                    except OSError:
+                        pass
+                    self._nav_on_events()
                 elif key.data == "ctl":
                     try:
                         conn, _ = srv.accept()

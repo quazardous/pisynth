@@ -10,5 +10,6 @@ home/soundfont domain.
 from .audio import AudioMixin
 from .bluetooth import BluetoothMixin
 from .metronome import MetronomeMixin
+from .nav import NavMixin
 
-__all__ = ["AudioMixin", "BluetoothMixin", "MetronomeMixin"]
+__all__ = ["AudioMixin", "BluetoothMixin", "MetronomeMixin", "NavMixin"]

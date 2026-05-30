@@ -7,8 +7,8 @@ _dialog/_close_dialog, _confirm, _update_settings, _set_gain) resolve via the MR
 import subprocess
 import time
 
-from ..core.audio import (alsa_volume, bt_volume, list_audio_cards, play_test,
-                          set_alsa_volume, set_bt_volume)
+from ..core.audio import (GAIN_MAX, GAIN_STEP, alsa_volume, bt_volume,
+                          list_audio_cards, play_test, set_alsa_volume, set_bt_volume)
 from ..core.settings import load_settings
 from ..io import ensure_test_tune
 from ..ui.menu import Item, MenuScreen
@@ -19,8 +19,8 @@ class AudioMixin:
     def _audio_menu(self):
         self.volume = self._read_volume()            # refresh cached output volume on open (#314)
         return MenuScreen("Audio", [
-            Item("Gain", on_adjust=(lambda d: self._set_gain(self.gain + 0.5 * d)),
-                 value=(lambda: f"{self.gain:.1f}"), bar=(lambda: self.gain / 10.0)),
+            Item("Gain", on_adjust=(lambda d: self._set_gain(self.gain + GAIN_STEP * d)),
+                 value=(lambda: f"{self.gain:.1f}"), bar=(lambda: self.gain / GAIN_MAX)),
             Item("Volume", on_adjust=self._set_volume, value=self._volume_label,
                  bar=(lambda: (self.volume or 0) / 100.0)),
             Item("Audio device", on_select=self._open_audio,

@@ -5,6 +5,12 @@ import os
 import re
 import subprocess
 
+# Synth gain UI limits (#372). fluidsynth synth.gain spans 0–10, but on this
+# appliance dense chords clip above ~4 (see synth.conf.example), so the stepper
+# is capped at 4.0 with a fine 0.1 step (the #314 hold-repeat still ramps it).
+# Default matches synth.conf's GAIN=2.5.
+GAIN_MIN, GAIN_MAX, GAIN_STEP, GAIN_DEFAULT = 0.0, 4.0, 0.1, 2.5
+
 def list_audio_cards():
     """[(name, label), ...] of ALSA cards that expose PCM playback (#282).
     `name` is the bracketed card id used as plughw:NAME — same token start-piano.sh
@@ -98,6 +104,59 @@ def list_midi_inputs():
         if m:
             res.append((m.group(1), m.group(1)))
     return res
+
+
+def list_midi_ports():
+    """[(spec, label), ...] of hardware MIDI input SUB-ports (#373 nav). Unlike
+    `list_midi_inputs` (which returns one row per device/client), this lists each
+    client's individual ports — e.g. the Keystation exposes `:0` (the piano keys)
+    and `:1` (the D-pad/control surface). `spec` is an `aseqdump -p` target of the
+    form `Client Name:port` (stable across reboots, like list_midi_inputs). Only
+    clients carrying a `card=` are kept (System / Midi Through / FLUID / PipeWire
+    excluded)."""
+    try:
+        out = subprocess.run(["aconnect", "-i"], capture_output=True, text=True, timeout=4).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+    res, cur = [], None
+    for ln in out.splitlines():
+        cm = re.match(r"client\s+\d+\s*:\s*'(.+?)'\s*\[(.*)\]", ln)
+        if cm:                                         # a client header → keep its name only if it's a card
+            cur = cm.group(1) if "card=" in cm.group(2) else None
+            continue
+        if cur:
+            pm = re.match(r"\s+(\d+)\s+'", ln)         # an indented "  N 'port name'" line
+            if pm:
+                res.append((f"{cur}:{pm.group(1)}", f"{cur}:{pm.group(1)}"))
+    return res
+
+
+def _fluid_seq_client():
+    """ALSA-seq client id of the running FLUID Synth, or None (#373)."""
+    try:
+        out = subprocess.run(["aconnect", "-l"], capture_output=True, text=True, timeout=4).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for ln in out.splitlines():
+        m = re.match(r"client\s+(\d+)\s*:\s*'FLUID Synth", ln)
+        if m:
+            return m.group(1)
+    return None
+
+
+def midi_route_to_fluid(port_spec, connect):
+    """Connect (connect=True) or disconnect (False) a MIDI input port ↔ FLUID Synth's
+    input (#373). Disconnecting keeps the nav port's RAW notes from playing while nav
+    owns it (david: « le son est très fort »); reconnecting restores normal playing.
+    No-op if fluidsynth or the port isn't reachable."""
+    fc = _fluid_seq_client()
+    if not fc or not port_spec:
+        return
+    args = ["aconnect"] + ([] if connect else ["-d"]) + [port_spec, f"{fc}:0"]
+    try:
+        subprocess.run(args, capture_output=True, timeout=4)
+    except (OSError, subprocess.SubprocessError):
+        pass
 
 
 def audio_output_present(soundcard="", bt_sink=""):

@@ -96,6 +96,11 @@ class Fluid:
             cmds += [f"cc {ch} 0 0", f"cc {ch} 32 0", f"select {ch} {sfid} {bank} {prog}"]
         self.send(*cmds)
 
+    def select_one(self, ch, sfid, bank, prog):
+        """Select a preset on a SINGLE channel (#655): used to put the metronome's click
+        (a GM drum kit, bank 128) on its reserved channel without touching the keyboard ones."""
+        return self.send(f"select {ch} {sfid} {bank} {prog}")
+
     def load(self, path, timeout=45):
         """Load a soundfont and return its new font id, or None. Used to keep a single
         soundfont resident at a time (#334). fluidsynth processes the shell serially, so the

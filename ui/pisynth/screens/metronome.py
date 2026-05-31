@@ -38,10 +38,12 @@ class MetronomeMixin:
     def _metro_bpm(self, delta):
         self.metro.bpm = max(40, min(240, self.metro.bpm + 5 * delta))
         self._save_metro()
+        self.metro.reload()                          # fluid mode: regenerate the SMF at the new tempo (#655)
 
     def _metro_beats(self, delta):
         self.metro.beats = max(1, min(8, self.metro.beats + delta))
         self._save_metro()
+        self.metro.reload()                          # fluid mode: regenerate the SMF (#655)
 
     def _metro_vol(self, delta):
         self.metro.set_volume(self.metro.vol + 5 * delta)   # live: rebuilt for the next bar (#648)

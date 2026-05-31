@@ -55,8 +55,14 @@ RENDER_MODE = os.environ.get("PISYNTH_RENDER", "full")
 VERSION  = "0.4.0"
 
 # Keyboard channels we broadcast preset changes to. Channel 15 is left alone
-# (midi-bridge.sh reserves it for the D-pad feedback SFX).
-KBD_CHANNELS = range(15)
+# (midi-bridge.sh reserves it for the D-pad feedback SFX); channel 9 is reserved for the
+# fused-metronome click (GM drum channel, #655) so the piano never plays on it.
+KBD_CHANNELS = [c for c in range(15) if c != 9]
+
+# Default click soundfont for the fused metronome (#655): the small GM font from apt
+# `timgm6mb-soundfont` (~6 MB, already sideloaded by install-soundfonts.sh) — it carries
+# the GM drum kit (bank 128) with the wood-block, so no extra asset/download is needed.
+METRO_CLICK_SF_DEFAULT = "06-TimGM6mb.sf2"
 
 # Screen-sleep delays offered in Settings (ticket #277). 0 = never sleep.
 SLEEP_OPTIONS = [(0, "Off"), (30, "30s"), (60, "1m"), (120, "2m"), (300, "5m"), (600, "10m")]
@@ -170,9 +176,11 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         # the running metronome streams PCM into a persistent player (#648); build its argv
         # from the current output (resolved at start, so the card picker takes effect).
         self.metro.stream_cmd = lambda: metro_stream_argv(self.metro.card, self.metro.bt_sink)
-        # fluid mode (#655): play the click SMF into FLUID Synth via aplaymidi. fluid_setup
-        # (load click font + select on ch9) is wired separately once the loader spares it.
+        # fluid mode (#655): play the click SMF into FLUID Synth via aplaymidi, with the click
+        # font loaded + a GM drum kit selected on the reserved channel 9 (the loader spares it).
         self.metro.click_cmd = lambda midi: metro_click_argv(midi, fluid_seq_port())
+        self.metro.fluid_setup = self._metro_fluid_setup
+        self.metro.fluid_teardown = self._metro_fluid_teardown
         self.stack = [self._home_menu()]
         cal = load_cal()
         if cal:
@@ -328,6 +336,15 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         self._load_thread = threading.Thread(target=self._load_worker, args=(path, bp), daemon=True)
         self._load_thread.start()
 
+    def _load_keep(self, path):
+        """Soundfont keys the unload sweep must SPARE: the piano target (#334 keeps one), plus
+        — in fused metronome mode — the light click font so it stays resident across preset
+        changes (david: « garder la soundfont légère du métronome ») (#655)."""
+        keep = {sf_key(path)}
+        if getattr(self.metro, "mode", "") == "fluid":
+            keep.add(sf_key(self.metro.click_sf or METRO_CLICK_SF_DEFAULT))
+        return keep
+
     def _load_worker(self, path, bp):
         """Background, on a dedicated connection. Phase 1: load the font structure if it
         isn't resident (unload the previous one — single font in RAM, #334). Phase 2: select
@@ -337,19 +354,20 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         so the keyboard then plays through them. Posts the outcome to _load_result (#375)."""
         fs = self._load_conn()
         sfid = None
+        keep = self._load_keep(path)                 # fonts to spare from the unload sweep (#334/#655)
         try:
             sfid = self._sfid_for_path(path, fs)
             if sfid is None:                         # phase 1 — load the font structure
                 self._load_phase = 1
                 for oid, p in fs.fonts():
-                    if sf_key(p) != sf_key(path):    # never unload the target (boot race vs start-piano, #378)
+                    if sf_key(p) not in keep:        # never unload the target (boot race vs start-piano, #378)
                         fs.unload(oid)
                 sfid = self._sfid_for_path(path, fs) or fs.load(path)  # maybe it was there after all
             if sfid is not None:                     # phase 2 — keep ONE font (#334), select → samples on demand
                 self._load_phase = 2
                 self._load_frame = 0
                 for oid, p in fs.fonts():
-                    if sf_key(p) != sf_key(path):
+                    if sf_key(p) not in keep:
                         fs.unload(oid)
                 sfid = self._sfid_for_path(path, fs)  # re-derive: only ever select a font that IS loaded —
                 if sfid is not None:                  # never `select <missing id>` (#378: "No SoundFont id=2")
@@ -374,6 +392,28 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         if sfid is None:
             self.toast("chargement échoué")
         self.render()                                # frame back to green (ready) now
+
+    # ---- fused metronome: click played BY fluidsynth (#655) ----
+    def _metro_fluid_setup(self, click_sf):
+        """Make the click playable by fluidsynth: load its (light) soundfont and select a GM
+        drum kit (bank 128) on the reserved channel 9, so aplaymidi's notes 76/77 sound as a
+        woodblock mixed with the piano on the same card. Returns True when ready (#655)."""
+        if not (self.fs.online or self.fs.connect()):
+            return False
+        path = os.path.join(SOUNDFONT_DIR, click_sf or METRO_CLICK_SF_DEFAULT)
+        if not os.path.exists(path):
+            return False
+        sfid = self._sfid_for_path(path) or self.fs.load(path)   # loader spares it after (#655)
+        if sfid is None:
+            return False
+        self.fs.select_one(9, sfid, 128, 0)          # GM standard drum kit on the click channel
+        return True
+
+    def _metro_fluid_teardown(self):
+        """Silence the click channel when the fused metronome stops (#655). The light font
+        stays resident (spared by the loader) — only kill any sounding note on ch9."""
+        if self.fs.online:
+            self.fs.send("cc 9 123 0")               # all-notes-off on the click channel
 
     def _settings_menu(self):
         # Categorized (#289): Audio · Display · Tools · Info.

@@ -7,7 +7,8 @@
 #   03-Yamaha-Grand-v2.1.sf2       → downloaded from Hugging Face mirror
 #   04-Nice-Steinway-Lite-v3.0.sf2 → downloaded from Hugging Face mirror
 #   05-Abbey-Steinway-D-v1.9.sf2   → downloaded from Hugging Face mirror
-#   06-TimGM6mb.sf2                → symlink to apt package (timgm6mb-soundfont, small GM)
+#   06-TimGM6mb.sf2                → symlink to apt package (timgm6mb-soundfont, small GM);
+#                                    also the default click font for the fused metronome (#655)
 #
 # Idempotent: skips anything already present and valid.
 # Run as the `pi` user; sudo is invoked only for apt.

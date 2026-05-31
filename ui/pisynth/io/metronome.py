@@ -9,6 +9,8 @@ import threading
 import time
 import wave
 
+from .clicktrack import click_midi_file
+
 
 def _gen_click(path, freq, ms=45, sr=44100):
     """Write a short enveloped sine click to a mono 16-bit WAV (metronome, #287)."""
@@ -158,10 +160,15 @@ class Metronome:
         self.bpm = 100
         self.beats = 4
         self.vol = 80                                # click volume 0-100 (#648)
+        self.mode = "separate"                       # "separate" = PCM on its own card (#648); "fluid" = via fluidsynth (#655)
         self.card = ""                               # ALSA card for the click; "" = system default (#287)
         self.bt_sink = ""                            # BT sink MAC for the click; "" = none (#287)
+        self.click_sf = ""                           # fluid mode: soundfont providing the click percussion (#655)
         self.play_fn = None                          # injected one-shot player play(wav) for test_click
         self.stream_cmd = None                       # injected () -> (argv, env|None) for the persistent player (#648)
+        self.click_cmd = None                        # injected (midi_path) -> aplaymidi argv for fluid mode (#655)
+        self.fluid_setup = None                      # injected (click_sf) -> bool: load+select click on ch9 (#655)
+        self.fluid_teardown = None                   # injected () -> None: restore ch9 / drop click font (#655)
         self.running = False
         self.beat = 0                                # current beat 1..beats, 0 when stopped
         self.flash = False                           # True for a short window on each beat → blink the dot (#648)
@@ -169,9 +176,10 @@ class Metronome:
         self._hi, self._lo = hi, lo                  # click WAVs (test_click via play_fn)
         self._accent = self._normal = b""            # current-volume click PCM, rebuilt on start / vol change
         self._stop = threading.Event()
-        self._audio_t = None                         # PCM writer thread
-        self._beat_t = None                          # visual beat-dot thread
-        self._proc = None                            # the persistent player process
+        self._audio_t = None                         # PCM writer thread (separate mode)
+        self._beat_t = None                          # visual beat-dot thread (both modes)
+        self._proc = None                            # the persistent player process (PCM) or aplaymidi (fluid)
+        self._fluid_t = None                         # aplaymidi relaunch watcher (fluid mode, #655)
         self._wake = None                            # write-end of a pipe; ping the UI per beat
 
     def set_wake(self, fd):
@@ -185,17 +193,31 @@ class Metronome:
     def set_volume(self, vol):
         self.vol = max(0, min(100, int(vol)))
         if self.running:
-            self._build_clicks()                     # writer picks it up on the next bar
+            if self.mode == "fluid":
+                self.reload()                         # regenerate the SMF at the new velocity (#655)
+            else:
+                self._build_clicks()                 # PCM writer picks it up on the next bar
 
     def start(self):
         if self.running:
             return
         self.err = ""
+        self._stop.clear()
+        ok = self._start_fluid() if self.mode == "fluid" else self._start_pcm()
+        if not ok:                                   # err set by the starter
+            self._stop.set()
+            return
+        self.running = True
+        self._beat_t = threading.Thread(target=self._beat_loop, daemon=True)
+        self._beat_t.start()
+
+    def _start_pcm(self):
+        """Separate mode (#648): a persistent raw-PCM player streamed beat by beat."""
         self._build_clicks()
         self._proc = self._spawn_player()
         if self._proc is None:                       # spawn itself failed (no player binary)
             self.err = "metronome: cannot open output"
-            return
+            return False
         # The player opens its device THEN reads stdin. A failed open (e.g. the card is held
         # exclusively by the synth via direct ALSA → "device busy") makes it exit within a
         # few ms. Poll briefly so the UI can toast it NOW — the writer thread finding out
@@ -204,14 +226,70 @@ class Metronome:
             if self._proc.poll() is not None:
                 self.err = "metronome: output busy / unavailable"
                 self._proc = None
-                return
+                return False
             time.sleep(0.01)
-        self.running = True
-        self._stop.clear()
         self._audio_t = threading.Thread(target=self._audio_loop, daemon=True)
-        self._beat_t = threading.Thread(target=self._beat_loop, daemon=True)
         self._audio_t.start()
-        self._beat_t.start()
+        return True
+
+    def _start_fluid(self):
+        """Fused mode (#655): the click is played BY fluidsynth (same card as the piano).
+        Load+select the click font on ch9 (injected), then stream a click SMF into FLUID
+        Synth via aplaymidi — the ALSA-seq queue keeps the tempo steady. A watcher relaunches
+        aplaymidi if its (long) file ever ends while we're still running."""
+        if not (self.fluid_setup and self.click_cmd):
+            self.err = "metronome: fluid mode not wired"
+            return False
+        if not self.fluid_setup(self.click_sf):      # sfload + select drum kit on ch9
+            self.err = "metronome: click soundfont unavailable"
+            return False
+        self._proc = self._spawn_aplaymidi()
+        if self._proc is None:
+            self.err = "metronome: aplaymidi failed"
+            if self.fluid_teardown:
+                self.fluid_teardown()
+            return False
+        self._fluid_t = threading.Thread(target=self._fluid_watch, daemon=True)
+        self._fluid_t.start()
+        return True
+
+    def _spawn_aplaymidi(self):
+        d = os.path.expanduser(os.environ.get("PISYNTH_SOUNDS", "~/.config/pisynth/sounds"))
+        try:
+            os.makedirs(d, exist_ok=True)
+            midi = click_midi_file(os.path.join(d, "metro-click.mid"), self.bpm, self.beats, vol=self.vol)
+            return subprocess.Popen(self.click_cmd(midi), stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL)
+        except (OSError, ValueError):
+            return None
+
+    def _fluid_watch(self):
+        """Relaunch aplaymidi if its long file ends while still running (#655)."""
+        while not self._stop.is_set():
+            p = self._proc
+            if p is None:
+                break
+            p.wait()
+            if self._stop.is_set():
+                break
+            self._proc = self._spawn_aplaymidi()      # file ran out → loop the metronome
+            if self._proc is None:
+                self.err = "metronome: aplaymidi stopped"
+                self.running = False
+                break
+
+    def reload(self):
+        """Apply a live bpm/beats/vol change. Separate mode reads them live; fluid mode must
+        regenerate the SMF and relaunch aplaymidi — we just kill the current run and let the
+        watcher respawn it (which regenerates from the new bpm/beats/vol) (#655)."""
+        if not (self.running and self.mode == "fluid"):
+            return
+        p = self._proc
+        if p:
+            try:
+                p.terminate()                         # watcher's p.wait() returns → respawns fresh
+            except OSError:
+                pass
 
     def stop(self):
         self.running = False
@@ -222,13 +300,15 @@ class Metronome:
         if p:
             try:
                 if p.stdin:
-                    p.stdin.close()                  # unblocks a writer parked on backpressure
-            except OSError:
+                    p.stdin.close()                  # unblocks a PCM writer parked on backpressure
+            except (OSError, ValueError):
                 pass
             try:
                 p.terminate()
             except OSError:
                 pass
+        if self.mode == "fluid" and self.fluid_teardown:
+            self.fluid_teardown()                     # restore ch9 / drop the click font
 
     def _spawn_player(self):
         """Open the persistent raw-PCM player from the injected stream_cmd (#648). Falls

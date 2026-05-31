@@ -309,3 +309,16 @@ def metro_stream_argv(soundcard="", bt_sink="", sr=44100):
         cmd += ["-D", f"plughw:{soundcard}"]
     cmd.append("-")
     return (cmd, None)
+
+
+def fluid_seq_port():
+    """ALSA-seq address of the running FLUID Synth input port (e.g. '129:0'), or '' (#655).
+    Target for `aplaymidi -p` in the fused metronome mode."""
+    fc = _fluid_seq_client()
+    return f"{fc}:0" if fc else ""
+
+
+def metro_click_argv(midi_path, port=""):
+    """argv to play the click SMF into FLUID Synth via aplaymidi (#655 fused mode). `port`
+    is an ALSA-seq target (fluid_seq_port()); falls back to matching 'FLUID' by name."""
+    return ["aplaymidi", "-p", port or "FLUID Synth", midi_path]

@@ -38,7 +38,7 @@ Keep UI-driven prefs distinct from system/deploy config. The
 | `sleep_after` | int | `0` | Settings → Display → Screen sleep | seconds before screen sleep; `0` = never. |
 | `page_tiles` | int | `6` | Settings → Display → Tiles per page | soundfont tiles per Home page (4/6/9/12). |
 | `preset` | map | unset | Home: tap soundfont → preset | `{font, bank, prog, name}`; `font` = soundfont basename; re-applied when the synth comes online. |
-| `metro` | map | `{bpm:100, beats:4, card:""}` | Settings → Tools → Metronome | `bpm` 40-240, `beats` 1-8, `card` = ALSA card for the click (`""` = system default; pick a card *different* from `soundcard`). |
+| `metro` | map | `{bpm:100, beats:4, vol:80, home_pulse:false}` | Settings → Tools → Metronome | `bpm` 40-240, `beats` 1-8, `vol` 0-100 (click velocity), `home_pulse` = flash the Home metronome icon on each beat. The click always plays through the piano synth (reserved channel 9) — no separate output device. |
 | `bluetooth` | map | `{audio_sink:"", ble_midi:"", known:{}}` | Settings → Connectivity → Bluetooth devices | `audio_sink`/`ble_midi` = MACs of preferred devices (pisynth's *choices*; populated by the BT manager). `known` = MAC→friendly-name cache so known devices keep a name with scan off / before BlueZ resolves it (auto-managed). Pairing/trust itself is owned by BlueZ. |
 
 ## Migration from `settings.json`

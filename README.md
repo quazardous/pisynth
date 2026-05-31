@@ -19,10 +19,11 @@ keyboard's D-pad.
 - 🖥️ 3.5" touchscreen UI — instrument **tiles** + a **Settings** menu: gain/volume, audio
   output (USB card **or Bluetooth** speaker), a **MIDI device picker + live test keyboard**,
   a **metronome**, system info & **health**, and touch calibration.
-- 🪶 Lightweight: framebuffer-direct UI (no X server), fluidsynth in direct ALSA.
-- 🔧 One-command **end-user installer** (`install.sh`), or a dev edit-deploy loop with
-  idempotent **migrations**; **sideload SoundFonts** over rsync.
-- 🖧 Headless-friendly: the HDMI desktop only starts when a monitor is actually attached.
+- 🪶 Light & fast: no desktop to load, so it boots straight to the synth in seconds and the
+  sound stays low-latency.
+- 🔧 One-command install, and an easy way to add your own SoundFonts (drop them in, run one
+  command).
+- 🖧 No monitor needed: the desktop only starts if you actually plug in an HDMI screen.
 
 ## Screenshots
 
@@ -81,6 +82,16 @@ Plug the keyboard + USB audio interface into the Pi. On first boot the screen ru
 
 ## How it works
 
+Your keyboard plays through **fluidsynth** (the software synth), which sends the sound
+straight to your USB audio interface — a short path, kept that way for low latency. The
+touchscreen and the keyboard's D-pad don't make sound themselves; they just **control** the
+synth (pick an instrument, set the volume, start the metronome).
+
+With no monitor attached it boots straight to the synth; the desktop only starts if you plug
+in an HDMI screen, so the little screen is never fought over.
+
+<details><summary><strong>Under the hood</strong> (for tinkerers)</summary>
+
 ```
 Keystation 61 MK3 ──USB──┐
                           ├─► fluidsynth (ALSA direct, TCP shell :9800) ─► USB audio ─► sound
@@ -90,10 +101,10 @@ USB audio interface ──────┘                  ▲
             midi-bridge.sh (D-pad)   touch UI (/dev/fb0, control socket :9810)
 ```
 
-The touchscreen UI (`ui/pisynth-ui.py`) draws straight to the framebuffer and sends
-commands to fluidsynth's TCP shell — the same control plane the keyboard D-pad uses. The
-desktop (lightdm/Wayland) is gated to start only with HDMI attached, so headless boots go
-straight to the synth and the small screen is never fought over.
+The touch UI (`ui/pisynth-ui.py`) draws straight to the framebuffer and drives fluidsynth
+over its TCP shell — the same control plane the D-pad uses. See [DEV.md](docs/dev.md) for the
+full architecture.
+</details>
 
 ## SoundFonts
 

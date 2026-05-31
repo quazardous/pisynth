@@ -4,6 +4,10 @@ Step-by-step, from a blank SD card to playing. Budget ~30–45 min (plus an opti
 soundfont download). To hack on the UI **without** a Pi, see [dev.md](dev.md)
 (`tools/preview.py`).
 
+> **Heads-up:** pisynth is a build-it-yourself project — you install it from source, so a
+> little comfort with the terminal and SSH helps. There's no pre-made image (yet); the steps
+> below, plus the official Raspberry Pi guides they link, walk you through it.
+
 ## 1. What you need
 
 **Hardware**

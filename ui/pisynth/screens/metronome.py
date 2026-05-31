@@ -13,6 +13,8 @@ class MetronomeMixin:
     # ---- metronome (#287) ----
     def _metronome_menu(self):
         items = [
+            Item("Start / Stop", on_select=self._metro_toggle,    # first — the primary action (david)
+                 value=(lambda: "running" if self.metro.running else "stopped")),
             Item("BPM", on_adjust=self._metro_bpm, value=(lambda: str(self.metro.bpm))),
             Item("Beats/bar", on_adjust=self._metro_beats, value=(lambda: str(self.metro.beats))),
             Item("Volume", on_adjust=self._metro_vol, value=(lambda: f"{self.metro.vol}%")),
@@ -24,8 +26,6 @@ class MetronomeMixin:
         else:                                        # separate output (#648/#287) → pick its card/sink
             items.append(Item("Output", on_select=self._open_metro_audio, submenu=True,
                               value=self._metro_card_label))
-        items.append(Item("Start / Stop", on_select=self._metro_toggle,
-                          value=(lambda: "running" if self.metro.running else "stopped")))
         return MenuScreen("Metronome", items)
 
     def _save_metro(self):
@@ -59,7 +59,7 @@ class MetronomeMixin:
         self._save_metro()
         if self.stack and self.stack[-1].title == "Metronome":   # rebuild: Output ↔ Click sound swaps
             m = self._metronome_menu()
-            m.idx = 3                                # keep the cursor on the Mode row
+            m.idx = 4                                # keep the cursor on the Mode row (Start/Stop is now first)
             self.stack[-1] = m
 
     def _open_metro_click_sf(self):

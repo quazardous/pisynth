@@ -26,6 +26,10 @@ All notable changes to pisynth, in plain language. Newest first.
 ### Fixed
 - System health no longer warns when the optional MIDI-bridge service is down — only the
   synth (sound) and power/thermal state drive the health indicator.
+- **Navigation beep audible again** — it was silenced by the synth holding the sound card
+  exclusively (the beep's `aplay` couldn't open it). The beep is now a short percussion
+  note played through the synth itself (reserved channel 9, like the metronome click), so
+  it stays consistent whatever instrument is loaded.
 
 ## 0.4.0 — 2026-05-30
 

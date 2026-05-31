@@ -14,18 +14,19 @@ Design
   port if present, else the last — never `:0`, which is normally the main keyboard
   (and would *sound* when pressed). A control port like the Keystation's `:1` is
   already disconnected from fluidsynth by midi-bridge.sh → silent.
-- Off by default. Optional beep feedback (off by default) plays a generated WAV on the
-  active output — soundfont-INDEPENDENT, like the metronome (#287) / test sound (#318).
-  (Was a fluidsynth note on channel 15, but with one-font-at-a-time (#334) it inherited
-  the main keyboard's soundfont, #378.)
+- Off by default. Optional beep feedback (off by default) is a short GM-percussion note on
+  the synth's reserved channel 9 — the SAME path as the metronome click (#673): the ch9 drum
+  kit is fixed (TimGM6mb), so the beep is soundfont-INDEPENDENT, and it plays through the
+  synth's own card (no `aplay` → no contention with the exclusive ALSA-direct output, which
+  silenced the old generated-WAV beep, #378/#673).
 
 Cross-feature helpers (toast, _update_settings, nav_*, fs, render) resolve via the MRO.
 """
 import subprocess
 import time
 
-from ..core.audio import list_midi_ports, midi_route_to_fluid, play_test
-from ..io import MidiMonitor, ensure_nav_beep
+from ..core.audio import list_midi_ports, midi_route_to_fluid
+from ..io import MidiMonitor
 from ..ui.menu import Item, MenuScreen
 
 # Nav actions named after the D-pad directions (david). All four directions MOVE the
@@ -38,10 +39,13 @@ NAV_ACTIONS = [("up", "Up"), ("down", "Down"), ("left", "Left"),
 # Defaults = the Keystation D-pad notes (nanosynth: ↑96 ↓97 ←98 →99 ●100); Retour unbound.
 NAV_DEFAULT_BINDINGS = {"up": 96, "down": 97, "left": 98, "right": 99,
                         "select": 100, "back": None}
-# Selectable beep sounds — generated WAVs (#378), soundfont-independent. key → label.
+# Selectable beep sounds (#378) → mapped to GM percussion notes on channel 9 (#673),
+# soundfont-independent (the ch9 drum kit is fixed). key → label.
 NAV_BEEPS = [("aigu", "High"), ("grave", "Low"), ("blip", "Blip"), ("click", "Click")]
 NAV_DEFAULT_BEEP = "aigu"
-NAV_DEFAULT_VOL = 40        # beep loudness 0-100% → WAV amplitude (#373/#378)
+NAV_DEFAULT_VOL = 40        # beep loudness 0-100% → MIDI velocity (#373/#673)
+# GM percussion notes (bank 128) for each beep kind: high/low woodblock, cowbell, side stick.
+NAV_BEEP_NOTES = {"aigu": 76, "grave": 77, "blip": 56, "click": 37}
 
 
 class NavMixin:
@@ -212,14 +216,21 @@ class NavMixin:
         self.nav_move(max(0, min(target, n - 1)) - idx)
 
     def _nav_beep(self, action=None):
-        """Play the chosen feedback beep, if sound is on. A GENERATED WAV on the active
-        output (#378) — soundfont-independent, so the chosen beep is always respected (the
-        old fluidsynth note inherited the loaded font). Fire-and-forget via play_test."""
+        """Play the chosen feedback beep, if sound is on (#373/#673): a short GM-percussion
+        note on the synth's reserved channel 9 (same path as the metronome click) — fixed
+        drum kit so it's soundfont-independent, played through the synth's card (no aplay →
+        no contention). Fire-and-forget; silent when the synth is offline or volume is 0."""
         if not self.nav_cfg["sound"] or getattr(self, "_loading", False):  # quiet during a load (#375)
             return
-        wav = ensure_nav_beep(self.nav_cfg["beep"], self.nav_cfg["beep_vol"])
-        if wav:
-            play_test(wav, self.soundcard, self.bt_sink)
+        vol = self.nav_cfg["beep_vol"]
+        if vol <= 0 or not self.fs.online:           # muted, or no synth to play it
+            return
+        note = NAV_BEEP_NOTES.get(self.nav_cfg["beep"], NAV_BEEP_NOTES[NAV_DEFAULT_BEEP])
+        vel = max(1, min(127, round(vol / 100 * 127)))
+        try:
+            self.fs.send(f"noteon 9 {note} {vel}")   # ch9 = the fixed drum kit (#655/#673)
+        except OSError:
+            pass
 
     # ---- the Navigation settings screen ----
     def _open_nav(self):

@@ -13,49 +13,8 @@ import wave
 from .clicktrack import click_midi_file
 
 
-# Nav feedback beeps (#378): generated WAVs, soundfont-INDEPENDENT (the old fluidsynth
-# note inherited the loaded soundfont). (freq Hz, ms, waveform).
-_NAV_BEEPS = {
-    "aigu":  (1760, 70, "sine"),
-    "grave": (587, 90, "sine"),
-    "blip":  (988, 55, "square"),
-    "click": (2600, 22, "sine"),
-}
-
-
-def _gen_beep(path, kind, amp=0.5, sr=44100):
-    """Write a short enveloped beep to a mono 16-bit WAV (#378)."""
-    freq, ms, shape = _NAV_BEEPS.get(kind, _NAV_BEEPS["aigu"])
-    n = int(sr * ms / 1000)
-    frames = bytearray()
-    for i in range(n):
-        env = (1.0 - i / n) ** 2                     # fast decay → a 'beep', not a tone
-        s = math.sin(2 * math.pi * freq * i / sr)
-        if shape == "square":
-            s = 1.0 if s >= 0 else -1.0
-        frames += struct.pack("<h", int(max(-1.0, min(1.0, amp * env * s)) * 32767))
-    with wave.open(path, "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(sr)
-        w.writeframes(bytes(frames))
-
-
-def ensure_nav_beep(kind, vol):
-    """Path to the nav beep WAV for (kind, vol 0-100), generated once and cached by name
-    (#378). vol scales the amplitude; 0 = a silent WAV (muted). None on failure."""
-    if kind not in _NAV_BEEPS:
-        kind = "aigu"
-    vol = max(0, min(100, int(vol)))
-    d = os.path.expanduser(os.environ.get("PISYNTH_SOUNDS", "~/.config/pisynth/sounds"))
-    try:
-        os.makedirs(d, exist_ok=True)
-        p = os.path.join(d, f"nav-{kind}-{vol}.wav")
-        if not os.path.exists(p):
-            _gen_beep(p, kind, amp=vol / 100.0 * 0.9)   # cap < 1.0 to avoid clipping
-        return p
-    except (OSError, wave.Error):
-        return None
+# (Nav feedback beeps moved off generated WAVs to a GM-percussion note on the synth's
+# channel 9 — same path as the metronome click; see screens/nav.py (#673).)
 
 
 # A short ORIGINAL fanfare for the audio Test (#318) — generated, not a copyrighted

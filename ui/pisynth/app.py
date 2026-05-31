@@ -212,6 +212,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
                 self.stack[0] = self._home_menu()
         if online and not self._online:              # offline -> online: re-apply the saved preset
             self._apply_preset()
+            self._ensure_click_channel()             # ch9 drum kit for the metro click + nav beep (#655/#673)
             self._nav_on_synth_online()              # re-silence the nav port (autoconnect race, #373)
         self._online = online
         return changed
@@ -398,20 +399,28 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
                 return real
         return os.path.realpath(os.path.join(SOUNDFONT_DIR, METRO_CLICK_SF_DEFAULT))
 
-    def _metro_fluid_setup(self):
-        """Make the click playable by the MAIN fluidsynth (piano output, device ""): load its
-        (light) soundfont and select a GM drum kit (bank 128) on the reserved channel 9, so
-        aplaymidi's notes 76/77 sound as a woodblock mixed with the piano on the same card.
-        Returns the synth's ALSA-seq port (for aplaymidi), or "" on failure (#655/#668)."""
+    def _ensure_click_channel(self):
+        """Load the light click soundfont and select a GM drum kit (bank 128) on the reserved
+        channel 9. SHARED by the metronome click and the nav feedback beep (#655/#673) — both
+        play percussion on ch9 through the main synth, so the kit must be resident whenever the
+        synth is up (loaded at synth-online, not only when the metro runs). Returns the click
+        font's sfid, or None on failure. The loader keep-set spares this font (#655)."""
         if not (self.fs.online or self.fs.connect()):
-            return ""
+            return None
         path = self._click_sf_path()
         if not os.path.exists(path):
-            return ""
+            return None
         sfid = self._sfid_for_path(path) or self.fs.load(path)   # loader spares it after (#655)
         if sfid is None:
-            return ""
+            return None
         self.fs.select_one(9, sfid, 128, 0)          # GM standard drum kit on the click channel
+        return sfid
+
+    def _metro_fluid_setup(self):
+        """Ensure the click channel (drum kit on ch9), then return the synth's ALSA-seq port
+        for aplaymidi to target, or "" on failure (#655/#668)."""
+        if self._ensure_click_channel() is None:
+            return ""
         return fluid_seq_port()                      # aplaymidi target into the piano synth
 
     def _metro_fluid_teardown(self):

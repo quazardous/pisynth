@@ -190,15 +190,14 @@ class Renderer:
             self._glyph(d, name, small_x0 + k * small_step, cy, col)   # compact (default f_icon)
 
     def _metro_dot(self, d, status, cx, cy, r):
-        """Metronome beat indicator (#648, david): ONE dot in the header (after the back
-        button) that blinks in time — yellow on the strong beat 1, blue (accent) on the
-        others, dim outline between beats. (Replaced the per-beat row of dots, which 'va
-        pas'.)"""
-        box = (cx - r, cy - r, cx + r, cy + r)
+        """Metronome beat indicator in the header (#648/#655, david): the metronome icon-font
+        glyph that blinks in time — yellow on the strong beat 1, blue on the others, dim
+        between beats. A font symbol (crisper than the old drawn dot, which david found ugly)."""
         if status.metro_running and status.metro_flash:
-            d.ellipse(box, fill=(SEL_BORDER if status.metro_beat == 1 else ACCENT))
+            col = SEL_BORDER if status.metro_beat == 1 else ACCENT
         else:
-            d.ellipse(box, outline=MUTED, width=2)
+            col = MUTED                              # dim between beats → it still blinks
+        self._glyph(d, "metronome", cx, cy, col, self.f_icon)
 
     # ---- list / tile bodies ----
     def _draw_rows(self, d, m):

@@ -20,8 +20,8 @@ from .theme import (ACCENT, AMBER, BARBG, BG, BT_BLUE, BTN, ERR, FG, ICON, MUTED
 # health = 'good'|'warn'|'crit' for the Home health smiley (#325); kbd = MidiState|None for
 # the MIDI Test-keyboard screen (#331).
 Status = namedtuple("Status", "depth wifi bt bt_conn midi synth audio "
-                              "metro_running metro_beat metro_beats metro_flash toast health kbd "
-                              "loading load_anim load_phase")
+                              "metro_running metro_beat metro_beats metro_flash metro_home_pulse "
+                              "toast health kbd loading load_anim load_phase")
 
 # Snapshot of the live MIDI monitor for the Test-keyboard screen (#331).
 MidiState = namedtuple("MidiState", "active lo hi last count")
@@ -171,9 +171,13 @@ class Renderer:
         when on/present, dim slate when off/absent. Only the interactive metronome is big."""
         metro_cx, metro_size, sep_x, small_x0, small_step = self._status_layout()
         cy = self.BAR_H // 2
-        # metronome — big (the interactive one), tappable, pink while running (#287/#339)
-        self._glyph(d, "metronome", metro_cx, cy,
-                    self._ic_color(status.metro_running, PINK), self.f_icon_big)
+        # metronome — big (the interactive one), tappable, pink while running (#287/#339).
+        # With the Home-pulse option on (#668), it flashes yellow on each beat instead.
+        if status.metro_running and status.metro_home_pulse:
+            metro_col = SEL_BORDER if status.metro_flash else PINK
+        else:
+            metro_col = self._ic_color(status.metro_running, PINK)
+        self._glyph(d, "metronome", metro_cx, cy, metro_col, self.f_icon_big)
         # vertical separator between the metronome and the status group (#339)
         self._vsep(d, sep_x)
         # Bluetooth: dim (off) → blue `bluetooth` (radio on) → `bluetooth_connected` (#306)
@@ -320,7 +324,7 @@ class Renderer:
         d.text((w / 2 - tw / 2, top + kb_h + 10), msg, font=self.f_small, fill=col)
 
     # ---- frame ----
-    def render(self, screen, status):
+    def render(self, screen, status, band=None):
         w, h = self.display.w, self.display.h
         img = Image.new("RGB", (w, h), BG)
         d = ImageDraw.Draw(img)
@@ -366,7 +370,10 @@ class Renderer:
         if label:
             fw = d.textlength(label, font=self.f_small)
             d.text((w / 2 - fw / 2, h - 18), label, font=self.f_small, fill=MUTED)
-        self.display.blit(img)
+        if band:                                     # blit only these rows (#668 Home pulse: just the top bar)
+            self.display.blit_rows(img, *band)
+        else:
+            self.display.blit(img)
 
     # ---- calibration screens (driven by app.calibrate / _verify_loop) ----
     def _draw_target(self, tx, ty, n, total):

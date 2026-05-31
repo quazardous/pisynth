@@ -57,6 +57,17 @@ class Framebuffer:
                 f.seek(r0 * self.w * 2)
                 f.write(frame[r0:r1].tobytes())
 
+    def blit_rows(self, img, r0, r1):
+        """Write ONLY framebuffer rows [r0, r1) — a targeted partial update regardless of the
+        global full/partial mode (#668). The Home metronome pulse uses it to repaint just the
+        top bar per beat, so it's cheap on the slow SPI panel instead of a full-frame write."""
+        frame = self._encode(img)
+        with open(self.dev, "r+b") as f:
+            f.seek(r0 * self.w * 2)
+            f.write(frame[r0:r1].tobytes())
+        if self.partial:
+            self._prev = frame                       # keep the diff base coherent in partial mode
+
 
 class Backlight:
     """SPI panel backlight via /sys/class/backlight/*/bl_power (0=on, 4=off).

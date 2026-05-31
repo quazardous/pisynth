@@ -161,6 +161,7 @@ class Metronome:
         self.beats = 4
         self.vol = 80                                # click volume 0-100 (#648)
         self.mode = "separate"                       # "separate" = PCM on its own card (#648); "fluid" = via fluidsynth (#655)
+        self.home_pulse = False                      # pulse the Home metronome icon on each beat (#668)
         self.card = ""                               # ALSA card for the click; "" = system default (#287)
         self.bt_sink = ""                            # BT sink MAC for the click; "" = none (#287)
         self.click_sf = ""                           # fluid mode: soundfont providing the click percussion (#655)

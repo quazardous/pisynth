@@ -26,6 +26,8 @@ class MetronomeMixin:
             Item("Beats/bar", on_adjust=self._metro_beats, value=(lambda: str(self.metro.beats))),
             Item("Volume", on_adjust=self._metro_vol, value=(lambda: f"{self.metro.vol}%")),
             Item("Mode", on_adjust=self._metro_mode, value=self._metro_mode_label),
+            Item("Home pulse", on_select=self._metro_toggle_home_pulse,   # beat indicator on Home (#668)
+                 value=(lambda: "on" if self.metro.home_pulse else "off")),
         ]
         if self.metro.mode == "fluid":               # click via the synth (#655) → pick its soundfont
             items.append(Item("Click sound", on_select=self._open_metro_click_sf, submenu=True,
@@ -40,7 +42,7 @@ class MetronomeMixin:
         self._update_settings(metro={"bpm": self.metro.bpm, "beats": self.metro.beats,
                                      "vol": self.metro.vol, "mode": self.metro.mode,
                                      "click_sf": self.metro.click_sf, "card": self.metro.card,
-                                     "bt_sink": self.metro.bt_sink})
+                                     "bt_sink": self.metro.bt_sink, "home_pulse": self.metro.home_pulse})
 
     def _metro_bpm(self, delta):
         self.metro.bpm = max(40, min(240, self.metro.bpm + 5 * delta))
@@ -101,6 +103,10 @@ class MetronomeMixin:
         if self.metro.running and self.metro.mode == "fluid":
             self.metro.stop()                        # font changed → restart to reload it
         self.toast("Click sound: " + (name or "default"))
+
+    def _metro_toggle_home_pulse(self):
+        self.metro.home_pulse = not self.metro.home_pulse
+        self._save_metro()
 
     def _metro_toggle(self):
         if self.metro.running:

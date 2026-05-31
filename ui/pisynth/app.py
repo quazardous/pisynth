@@ -168,6 +168,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         self.metro.beats = _m.get("beats", 4)
         self.metro.vol = _m.get("vol", 80)          # metronome click volume 0-100 (#648)
         self.metro.mode = _m.get("mode", "separate") # "separate" PCM (#648) | "fluid" via synth (#655)
+        self.metro.home_pulse = _m.get("home_pulse", False)   # pulse the Home metronome icon (#668)
         self.metro.click_sf = _m.get("click_sf", "") # fluid mode: click soundfont basename (#655)
         self.metro.card = _m.get("card", "")        # metronome output card (#287)
         self.metro.bt_sink = _m.get("bt_sink", "")  # metronome BT sink output (#287)
@@ -584,6 +585,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         self.metro.stop()
         self.metro.bpm, self.metro.beats, self.metro.vol = 100, 4, 80
         self.metro.mode, self.metro.click_sf = "separate", ""
+        self.metro.home_pulse = False
         self.metro.card = self.metro.bt_sink = ""
         self.bt_names = {}; self._bt_names_dirty = False
         self.bt_sink = ""
@@ -785,7 +787,9 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
                     self.view._draw_verify(done, dot)
 
     # ---- render → delegate to the view layer (#308 step 5) ----
-    def render(self):
+    def render(self, band=None):
+        """`band` = (r0, r1) to blit only those framebuffer rows (#668): the Home metronome
+        pulse repaints just the top bar so the per-beat redraw is cheap on the slow SPI panel."""
         if len(self.stack) == 1:
             self._poll_status()                      # refresh Home indicators before snapshot
         active = self._toast_msg if (self._toast_msg and time.monotonic() < self._toast_until) else None
@@ -797,9 +801,9 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
             depth=len(self.stack), wifi=self._st_wifi, bt=self._st_bt, bt_conn=self._st_bt_conn,
             midi=self._st_midi, synth=self._online, audio=self._st_audio, metro_running=self.metro.running,
             metro_beat=self.metro.beat, metro_beats=self.metro.beats,
-            metro_flash=self.metro.flash, toast=active,
+            metro_flash=self.metro.flash, metro_home_pulse=self.metro.home_pulse, toast=active,
             health=self._health, kbd=kbd, loading=self._loading, load_anim=self._load_frame,
-            load_phase=self._load_phase))
+            load_phase=self._load_phase), band=band)
 
     # ---- hit-testing (controller side; geometry lives on the Renderer, #308) ----
     def _stepper_at(self, x, y):
@@ -1092,6 +1096,9 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
                         pass
                     if self.cur.title == "Metronome" and not self.asleep:
                         self.render()
+                    elif (len(self.stack) == 1 and self.metro.home_pulse and self.metro.running
+                          and not self.asleep):        # Home: pulse the metronome icon, top-bar blit only (#668)
+                        self.render(band=(0, self.view.BAR_H))
                 elif key.data == "midimon":            # per-note ping → light the test keyboard (#331)
                     try:
                         os.read(midi_r, 256)

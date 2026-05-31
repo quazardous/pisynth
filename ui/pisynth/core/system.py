@@ -44,7 +44,9 @@ def _svc_active(name):
 def health():
     """Overall health: ('good'|'warn'|'crit', reason) (#325). Worst severity wins; at
     equal severity the HARDWARE cause is reported before software. Reads thermal +
-    `vcgencmd get_throttled` + `systemctl is-active` for piano/midi-bridge."""
+    `vcgencmd get_throttled` + `systemctl is-active piano.service`. The synth (piano) is
+    the only service that gates health; midi-bridge (Keystation D-pad → preset cycling) is
+    optional — the box plays fine without it, so it must NOT degrade health (#670)."""
     try:
         with open("/sys/class/thermal/thermal_zone0/temp") as f:
             temp = int(f.read().strip()) // 1000
@@ -71,8 +73,8 @@ def health():
         return "warn", "low voltage"
     if thr:
         return "warn", "throttled"
-    if not _svc_active("midi-bridge.service"):
-        return "warn", "midi bridge down"
+    # midi-bridge being down does NOT degrade health: it's the optional Keystation D-pad
+    # preset-cycler, not the sound path — the synth plays fine without it (#670).
     return "good", "OK"
 
 

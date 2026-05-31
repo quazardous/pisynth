@@ -342,7 +342,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         changes (david: « garder la soundfont légère du métronome ») (#655)."""
         keep = {sf_key(path)}
         if getattr(self.metro, "mode", "") == "fluid":
-            keep.add(sf_key(self.metro.click_sf or METRO_CLICK_SF_DEFAULT))
+            keep.add(sf_key(self._click_sf_path(self.metro.click_sf)))   # realpath → matches loaded basename (#655)
         return keep
 
     def _load_worker(self, path, bp):
@@ -390,17 +390,24 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
             self._apply_preset()                     # target changed mid-load → apply the new one
             return
         if sfid is None:
-            self.toast("chargement échoué")
+            self.toast("load failed")
         self.render()                                # frame back to green (ready) now
 
     # ---- fused metronome: click played BY fluidsynth (#655) ----
+    def _click_sf_path(self, name):
+        """Absolute REAL path of the click soundfont (name or the default), symlinks
+        resolved (#655). The default 06-TimGM6mb.sf2 is a symlink to TimGM6mb.sf2, so
+        fluidsynth reports the resolved basename — we must match on that everywhere
+        (load id lookup + the loader's keep set), or the click font is never found/kept."""
+        return os.path.realpath(os.path.join(SOUNDFONT_DIR, name or METRO_CLICK_SF_DEFAULT))
+
     def _metro_fluid_setup(self, click_sf):
         """Make the click playable by fluidsynth: load its (light) soundfont and select a GM
         drum kit (bank 128) on the reserved channel 9, so aplaymidi's notes 76/77 sound as a
         woodblock mixed with the piano on the same card. Returns True when ready (#655)."""
         if not (self.fs.online or self.fs.connect()):
             return False
-        path = os.path.join(SOUNDFONT_DIR, click_sf or METRO_CLICK_SF_DEFAULT)
+        path = self._click_sf_path(click_sf)
         if not os.path.exists(path):
             return False
         sfid = self._sfid_for_path(path) or self.fs.load(path)   # loader spares it after (#655)

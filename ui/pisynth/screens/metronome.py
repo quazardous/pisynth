@@ -51,7 +51,7 @@ class MetronomeMixin:
 
     # ---- output mode: separate card (#648) vs via the synth (#655) ----
     def _metro_mode_label(self):
-        return "Piano" if self.metro.mode == "fluid" else "Séparé"
+        return "Piano" if self.metro.mode == "fluid" else "Separate"
 
     def _metro_mode(self, delta):
         self.metro.stop()                            # mode change → stop; restart in the new mode
@@ -103,7 +103,7 @@ class MetronomeMixin:
         self.metro.bt_sink = ""                      # ALSA card → drop any BT sink (#287)
         self._save_metro()
         if name and name == self.soundcard:          # the synth holds its card exclusively (direct
-            self.toast("⚠ carte du synth — pas de son, choisis une autre sortie", secs=4)  # ALSA) → busy (#648)
+            self.toast("⚠ synth's card — no sound, pick another output", secs=4)  # ALSA) → busy (#648)
             return
         self.metro.test_click()                     # immediate feedback so the device is testable
         self.toast("Test click played")

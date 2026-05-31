@@ -20,8 +20,8 @@ from .theme import (ACCENT, AMBER, BARBG, BG, BT_BLUE, BTN, ERR, FG, ICON, MUTED
 # health = 'good'|'warn'|'crit' for the Home health smiley (#325); kbd = MidiState|None for
 # the MIDI Test-keyboard screen (#331).
 Status = namedtuple("Status", "depth wifi bt bt_conn midi synth audio "
-                              "metro_running metro_beat metro_beats toast health kbd loading "
-                              "load_anim load_phase")
+                              "metro_running metro_beat metro_beats metro_flash toast health kbd "
+                              "loading load_anim load_phase")
 
 # Snapshot of the live MIDI monitor for the Test-keyboard screen (#331).
 MidiState = namedtuple("MidiState", "active lo hi last count")
@@ -189,20 +189,16 @@ class Renderer:
         for k, (name, col) in enumerate(rest):
             self._glyph(d, name, small_x0 + k * small_step, cy, col)   # compact (default f_icon)
 
-    def _draw_beats(self, d, status):
-        """Beat indicator on the Metronome screen: a dot per beat, the current one filled
-        (accent beat 1 in yellow), the rest outlined (#287)."""
-        n = max(1, status.metro_beats)
-        r, gap = 13, 16
-        total = n * 2 * r + (n - 1) * gap
-        x0, y = (self.display.w - total) / 2, self.display.h - 56
-        for i in range(n):
-            cx = x0 + r + i * (2 * r + gap)
-            box = (cx - r, y - r, cx + r, y + r)
-            if status.metro_running and status.metro_beat == i + 1:
-                d.ellipse(box, fill=(SEL_BORDER if i == 0 else ACCENT))
-            else:
-                d.ellipse(box, outline=MUTED, width=2)
+    def _metro_dot(self, d, status, cx, cy, r):
+        """Metronome beat indicator (#648, david): ONE dot in the header (after the back
+        button) that blinks in time — yellow on the strong beat 1, blue (accent) on the
+        others, dim outline between beats. (Replaced the per-beat row of dots, which 'va
+        pas'.)"""
+        box = (cx - r, cy - r, cx + r, cy + r)
+        if status.metro_running and status.metro_flash:
+            d.ellipse(box, fill=(SEL_BORDER if status.metro_beat == 1 else ACCENT))
+        else:
+            d.ellipse(box, outline=MUTED, width=2)
 
     # ---- list / tile bodies ----
     def _draw_rows(self, d, m):
@@ -343,6 +339,10 @@ class Renderer:
             self._glyph(d, "settings", 24, cy, ACCENT, self.f_icon_big)
             self._vsep(d, 56)
             tx = 56 + 8
+        if m.title == "Metronome":                     # blinking beat dot in the header, after back (#648)
+            r = (self.BAR_H - 20) // 2
+            self._metro_dot(d, status, tx + r, cy, r)
+            tx += 2 * r + 10                           # title sits after the dot
         if status.depth == 1:                          # Home: status icons replace the "pisynth" title (#306)
             self._draw_status_icons(d, status)
         else:
@@ -361,8 +361,6 @@ class Renderer:
             self._draw_tiles(d, m, status.loading, status.load_anim, status.load_phase)
         else:
             self._draw_rows(d, m)
-        if m.title == "Metronome":
-            self._draw_beats(d, status)
         # toast (transient, #320) takes the bottom slot over the per-screen footer (e.g. BT);
         # plain centred text, no box (#320: david preferred 'juste le texte').
         label = status.toast or m.footer

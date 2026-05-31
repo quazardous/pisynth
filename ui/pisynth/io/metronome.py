@@ -164,6 +164,7 @@ class Metronome:
         self.stream_cmd = None                       # injected () -> (argv, env|None) for the persistent player (#648)
         self.running = False
         self.beat = 0                                # current beat 1..beats, 0 when stopped
+        self.flash = False                           # True for a short window on each beat → blink the dot (#648)
         self.err = ""                                # last player failure, "" = none (surfaced by the UI, #648)
         self._hi, self._lo = hi, lo                  # click WAVs (test_click via play_fn)
         self._accent = self._normal = b""            # current-volume click PCM, rebuilt on start / vol change
@@ -216,6 +217,7 @@ class Metronome:
         self.running = False
         self._stop.set()
         self.beat = 0
+        self.flash = False
         p, self._proc = self._proc, None
         if p:
             try:
@@ -266,24 +268,37 @@ class Metronome:
                 break
             i += 1
 
+    def _ping(self):
+        if self._wake is not None:
+            try:
+                os.write(self._wake, b"x")            # wake the UI loop to redraw
+            except OSError:
+                pass
+
     def _beat_loop(self):
-        """Drive the on-screen beat dots off a monotonic clock (#648). Independent of the
-        audio stream (which is sample-accurate on its own); a fixed sub-buffer phase offset
-        between dot and click is imperceptible."""
+        """Drive the single blinking dot off a monotonic clock (#648): on each beat, flash
+        ON (the UI lights the dot — yellow on beat 1, accent otherwise) then flash OFF part
+        way through the beat → it blinks. Independent of the audio stream (sample-accurate
+        on its own); a fixed sub-buffer phase offset between dot and click is imperceptible."""
         n, nxt = 0, time.monotonic()
         while not self._stop.is_set():
+            d = nxt - time.monotonic()
+            if d > 0 and self._stop.wait(d):          # wait to the beat boundary
+                break
+            if self._stop.is_set():
+                break
             n = n % max(1, self.beats) + 1
             self.beat = n
-            if self._wake is not None:
-                try:
-                    os.write(self._wake, b"x")        # wake the UI loop to redraw the beat
-                except OSError:
-                    pass
-            nxt += 60.0 / max(1, min(300, self.bpm))
-            d = nxt - time.monotonic()
-            if d < 0:                                 # fell behind → resync
-                nxt, d = time.monotonic(), 0
-            self._stop.wait(d)
+            self.flash = True
+            self._ping()                              # dot ON
+            interval = 60.0 / max(1, min(300, self.bpm))
+            nxt += interval
+            if nxt < time.monotonic():                # fell behind → resync
+                nxt = time.monotonic()
+            if self._stop.wait(min(0.12, interval * 0.4)):   # ON window, then dim
+                break
+            self.flash = False
+            self._ping()                              # dot OFF (blink)
 
     def test_click(self):
         """Play one accent click immediately on the configured card — lets the user

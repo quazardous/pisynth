@@ -232,9 +232,9 @@ app._confirm("Reset config", app._reset)              # confirm screen (render o
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-confirm.png"))
 app.stack = [app._home_menu()]
 app.stack.append(app._metronome_menu())               # Tools → Metronome (#287)
-app.metro.beats = 4; app.metro.running = True; app.metro.beat = 1   # show a running beat (no audio)
+app.metro.beats = 4; app.metro.running = True; app.metro.beat = 1; app.metro.flash = True  # strong-beat dot lit (#648)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-metronome.png"))
-app.metro.running = False; app.metro.beat = 0         # leave it stopped (preview only)
+app.metro.running = False; app.metro.beat = 0; app.metro.flash = False   # leave it stopped (preview only)
 app.metro.card = "Headphones"                          # show a chosen output card (#287)
 app._open_metro_audio()                                # Metronome → Output (card picker, #287)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-metronome-output.png"))

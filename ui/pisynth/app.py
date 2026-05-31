@@ -734,7 +734,8 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         self.view.render(self.cur, Status(
             depth=len(self.stack), wifi=self._st_wifi, bt=self._st_bt, bt_conn=self._st_bt_conn,
             midi=self._st_midi, synth=self._online, audio=self._st_audio, metro_running=self.metro.running,
-            metro_beat=self.metro.beat, metro_beats=self.metro.beats, toast=active,
+            metro_beat=self.metro.beat, metro_beats=self.metro.beats,
+            metro_flash=self.metro.flash, toast=active,
             health=self._health, kbd=kbd, loading=self._loading, load_anim=self._load_frame,
             load_phase=self._load_phase))
 

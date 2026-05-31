@@ -8,6 +8,11 @@ from ..core.soundfonts import list_soundfont_files, sf_key
 from ..ui.menu import Item, MenuScreen
 from .devices import output_label, output_picker_items
 
+# Classic Italian tempo markings → a representative BPM (#668, david). The BPM stepper
+# stays for fine control; this is a quick "set a musical tempo" picker.
+TEMPO_PRESETS = [("Largo", 50), ("Adagio", 66), ("Andante", 92), ("Moderato", 114),
+                 ("Allegro", 138), ("Vivace", 166), ("Presto", 184)]
+
 
 class MetronomeMixin:
     # ---- metronome (#287) ----
@@ -16,6 +21,8 @@ class MetronomeMixin:
             Item("Start / Stop", on_select=self._metro_toggle,    # first — the primary action (david)
                  value=(lambda: "running" if self.metro.running else "stopped")),
             Item("BPM", on_adjust=self._metro_bpm, value=(lambda: str(self.metro.bpm))),
+            Item("Tempo", on_select=self._open_metro_tempo, submenu=True,
+                 value=self._metro_tempo_label),     # classic tempo presets → BPM (david)
             Item("Beats/bar", on_adjust=self._metro_beats, value=(lambda: str(self.metro.beats))),
             Item("Volume", on_adjust=self._metro_vol, value=(lambda: f"{self.metro.vol}%")),
             Item("Mode", on_adjust=self._metro_mode, value=self._metro_mode_label),
@@ -40,6 +47,22 @@ class MetronomeMixin:
         self._save_metro()
         self.metro.reload()                          # fluid mode: regenerate the SMF at the new tempo (#655)
 
+    # ---- classic tempo presets (#668) ----
+    def _metro_tempo_label(self):
+        """Tempo name if the current BPM matches a preset, else the BPM number."""
+        return next((name for name, bpm in TEMPO_PRESETS if bpm == self.metro.bpm), str(self.metro.bpm))
+
+    def _open_metro_tempo(self):
+        items = [Item(f"{name}  ({bpm})", on_select=(lambda b=bpm: self._choose_metro_tempo(b)),
+                      marker=(lambda b=bpm: self.metro.bpm == b)) for name, bpm in TEMPO_PRESETS]
+        self.stack.append(MenuScreen("Tempo", items))
+
+    def _choose_metro_tempo(self, bpm):
+        self.metro.bpm = bpm
+        self._save_metro()
+        self.metro.reload()                          # fluid mode picks up the new tempo (#655)
+        self.toast(f"{self._metro_tempo_label()} = {bpm} BPM")
+
     def _metro_beats(self, delta):
         self.metro.beats = max(1, min(8, self.metro.beats + delta))
         self._save_metro()
@@ -59,7 +82,7 @@ class MetronomeMixin:
         self._save_metro()
         if self.stack and self.stack[-1].title == "Metronome":   # rebuild: Output ↔ Click sound swaps
             m = self._metronome_menu()
-            m.idx = 4                                # keep the cursor on the Mode row (Start/Stop is now first)
+            m.idx = 5                                # keep the cursor on the Mode row (Start/Stop, BPM, Tempo before it)
             self.stack[-1] = m
 
     def _open_metro_click_sf(self):

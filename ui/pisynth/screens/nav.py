@@ -33,13 +33,13 @@ from ..ui.menu import Item, MenuScreen
 # edge so no separate "Page" key is needed. Sélection = tap (enter/choose). Retour is an
 # OPTIONAL extra (david: « pas essentiel ») — unbound by default since the 5-button D-pad
 # is fully used; map it to any key via learn-by-press if wanted.
-NAV_ACTIONS = [("up", "Haut"), ("down", "Bas"), ("left", "Gauche"),
-               ("right", "Droite"), ("select", "Sélection"), ("back", "Retour")]
+NAV_ACTIONS = [("up", "Up"), ("down", "Down"), ("left", "Left"),
+               ("right", "Right"), ("select", "Select"), ("back", "Back")]
 # Defaults = the Keystation D-pad notes (nanosynth: ↑96 ↓97 ←98 →99 ●100); Retour unbound.
 NAV_DEFAULT_BINDINGS = {"up": 96, "down": 97, "left": 98, "right": 99,
                         "select": 100, "back": None}
 # Selectable beep sounds — generated WAVs (#378), soundfont-independent. key → label.
-NAV_BEEPS = [("aigu", "Aigu"), ("grave", "Grave"), ("blip", "Blip"), ("click", "Click")]
+NAV_BEEPS = [("aigu", "High"), ("grave", "Low"), ("blip", "Blip"), ("click", "Click")]
 NAV_DEFAULT_BEEP = "aigu"
 NAV_DEFAULT_VOL = 40        # beep loudness 0-100% → WAV amplitude (#373/#378)
 
@@ -139,7 +139,7 @@ class NavMixin:
             self.nav_cfg["bindings"][self._nav_learn] = notes[-1]
             self._nav_learn = None
             self._nav_save()
-            self.toast(f"touche {notes[-1]} assignée")
+            self.toast(f"key {notes[-1]} bound")
             self.render()
             return
         if not self.nav_cfg["enabled"]:
@@ -228,7 +228,7 @@ class NavMixin:
 
     def _nav_menu(self):
         items = [
-            Item("Activer", on_select=self._nav_toggle_enabled,
+            Item("Enable", on_select=self._nav_toggle_enabled,
                  value=(lambda: "on" if self.nav_cfg["enabled"] else "off")),
             Item("Port", on_select=self._nav_open_port,
                  value=(lambda: self._nav_resolve_port() or "—"), submenu=True),
@@ -237,9 +237,9 @@ class NavMixin:
             items.append(Item(label, on_select=(lambda k=key: self._nav_learn_start(k)),
                               value=(lambda k=key: self._nav_key_label(k))))
         items += [
-            Item("Son", on_select=self._nav_toggle_sound,
+            Item("Sound", on_select=self._nav_toggle_sound,
                  value=(lambda: "on" if self.nav_cfg["sound"] else "off")),
-            Item("Bip", on_select=self._nav_open_beep, value=self._nav_beep_label, submenu=True),
+            Item("Beep", on_select=self._nav_open_beep, value=self._nav_beep_label, submenu=True),
             Item("Volume", on_adjust=self._nav_vol_adjust,
                  value=(lambda: f"{self.nav_cfg['beep_vol']}%"),
                  bar=(lambda: self.nav_cfg["beep_vol"] / 100.0)),
@@ -273,10 +273,10 @@ class NavMixin:
         self._nav_learn = key
         self._nav_reconcile()                            # ensure navmon is up to capture
         label = dict(NAV_ACTIONS).get(key, key)
-        self.toast(f"appuie une touche pour « {label} »…", secs=10)
+        self.toast(f'press a key for "{label}"…', secs=10)
 
     def _nav_open_port(self):
-        items = [Item("Auto (2e/dernier)", on_select=(lambda: self._nav_set_port("")),
+        items = [Item("Auto (2nd/last)", on_select=(lambda: self._nav_set_port("")),
                       marker=(lambda: not self.nav_cfg["port"]))]
         for spec, label in list_midi_ports():
             sounds = spec.endswith(":0")                 # :0 is usually the main keyboard → it sounds
@@ -295,7 +295,7 @@ class NavMixin:
         for prog, name in NAV_BEEPS:
             items.append(Item(name, on_select=(lambda p=prog: self._nav_set_beep(p)),
                               marker=(lambda p=prog: self.nav_cfg["beep"] == p)))
-        self.stack.append(MenuScreen("Bip", items))
+        self.stack.append(MenuScreen("Beep", items))
 
     def _nav_set_beep(self, prog):
         self.nav_cfg["beep"] = prog

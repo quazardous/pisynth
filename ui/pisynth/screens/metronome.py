@@ -20,9 +20,9 @@ class MetronomeMixin:
         items = [
             Item("Start / Stop", on_select=self._metro_toggle,    # first — the primary action (david)
                  value=(lambda: "running" if self.metro.running else "stopped")),
+            Item("Tempo", on_select=self._open_metro_tempo, submenu=True,    # 2nd, after Start/Stop (david)
+                 value=self._metro_tempo_label),     # classic tempo presets → BPM
             Item("BPM", on_adjust=self._metro_bpm, value=(lambda: str(self.metro.bpm))),
-            Item("Tempo", on_select=self._open_metro_tempo, submenu=True,
-                 value=self._metro_tempo_label),     # classic tempo presets → BPM (david)
             Item("Beats/bar", on_adjust=self._metro_beats, value=(lambda: str(self.metro.beats))),
             Item("Volume", on_adjust=self._metro_vol, value=(lambda: f"{self.metro.vol}%")),
             Item("Mode", on_adjust=self._metro_mode, value=self._metro_mode_label),

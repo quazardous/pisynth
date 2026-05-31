@@ -1,6 +1,6 @@
 # Local preferences — `settings.yaml`
 
-> Ticket #303. pisynth's **UI-driven** preferences live in a single documented YAML file.
+> pisynth's **UI-driven** preferences live in a single documented YAML file.
 > A reference template is committed as [`settings.yaml.dist`](../settings.yaml.dist).
 
 ## Where
@@ -20,7 +20,7 @@ strips comments) and writes atomically (`tmp` + `os.replace`).
 ## What belongs here — and what doesn't
 
 This file holds **only preferences you change from the screen** (the Settings menu).
-David's rule (#303): keep UI-driven prefs distinct from system/deploy config. The
+Keep UI-driven prefs distinct from system/deploy config. The
 **non-UI / "root" config stays in separate files** and is *not* mirrored here:
 
 | Layer | File | Format | Examples |
@@ -39,11 +39,11 @@ David's rule (#303): keep UI-driven prefs distinct from system/deploy config. Th
 | `page_tiles` | int | `6` | Settings → Display → Tiles per page | soundfont tiles per Home page (4/6/9/12). |
 | `preset` | map | unset | Home: tap soundfont → preset | `{font, bank, prog, name}`; `font` = soundfont basename; re-applied when the synth comes online. |
 | `metro` | map | `{bpm:100, beats:4, card:""}` | Settings → Tools → Metronome | `bpm` 40-240, `beats` 1-8, `card` = ALSA card for the click (`""` = system default; pick a card *different* from `soundcard`). |
-| `bluetooth` | map | `{audio_sink:"", ble_midi:"", known:{}}` | Settings → Connectivity → Bluetooth devices | `audio_sink`/`ble_midi` = MACs of preferred devices (pisynth's *choices*; populated by the BT manager, #303 slice B). `known` = MAC→friendly-name cache so known devices keep a name with scan off / before BlueZ resolves it (#301, auto-managed). Pairing/trust itself is owned by BlueZ. |
+| `bluetooth` | map | `{audio_sink:"", ble_midi:"", known:{}}` | Settings → Connectivity → Bluetooth devices | `audio_sink`/`ble_midi` = MACs of preferred devices (pisynth's *choices*; populated by the BT manager). `known` = MAC→friendly-name cache so known devices keep a name with scan off / before BlueZ resolves it (auto-managed). Pairing/trust itself is owned by BlueZ. |
 
 ## Migration from `settings.json`
 
-Before #303 these prefs were in `~/.config/pisynth/settings.json`. On the first UI run
+Earlier, these prefs were in `~/.config/pisynth/settings.json`. On the first UI run
 after upgrading, `load_settings()` imports the legacy JSON once and rewrites it as YAML
 (zero data loss). `start-piano.sh` also falls back to reading the old JSON for `soundcard`
 until the UI has run once. `Settings → System → Reset config` removes both files.

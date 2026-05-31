@@ -13,7 +13,7 @@ shot.sh                # laptop: pull a PNG of the Pi screen (via tools/fbshot.p
 ctl.sh                 # laptop: send a command to the UI control socket (:9810)
 pisynth.conf(.dist)    # deployment config (PISYNTH_HOST); pisynth.conf is gitignored
 ui/pisynth/            # the framebuffer touch UI package (run via `python3 -m pisynth`)
-                       #   app.py = controller; io/ · core/ · ui/ being extracted (#308)
+                       #   app.py = controller; io/ · core/ · ui/ being extracted
 tools/fbshot.py        # dump /dev/fb0 (RGB565) to PNG
 tools/preview.py       # render the UI to PNGs locally (mock fb/touch) — no Pi needed
 start-piano.sh         # fluidsynth launcher (ALSA direct, TCP shell :9800)
@@ -48,7 +48,7 @@ Runtime config lives in the run-as user's home (not in the repo):
 
 | Path | What | Set by |
 |---|---|---|
-| `~/.config/pisynth/settings.yaml` | UI prefs: `soundcard`, `sleep_after`, `page_tiles`, `preset`, `metro`, `bluetooth` (#303). Documented; template = `settings.yaml.dist`, schema = [preferences.md](preferences.md) | the touch UI |
+| `~/.config/pisynth/settings.yaml` | UI prefs: `soundcard`, `sleep_after`, `page_tiles`, `preset`, `metro`, `bluetooth`. Documented; template = `settings.yaml.dist`, schema = [preferences.md](preferences.md) | the touch UI |
 | `~/.config/pisynth/touch_cal.json` | touch calibration (affine transform) | first-run / Settings → Display → Calibrate |
 | `~/.config/pisynth/sounds/` | generated metronome click WAVs | the UI (auto-generated) |
 | `~/.local/synth.conf` | synth config: `GAIN`, `SOUNDCARD`, latency, soundfont dir | migration 002 (from `synth.conf.example`); editable |
@@ -120,7 +120,7 @@ python3 tools/preview.py [outdir]   # render Home + Settings to PNGs locally (no
     `nav_move / nav_select / nav_adjust / nav_back / nav_page`, so touch, the control socket, and
     (later) the Keystation D-pad all drive the same code. Tile grids paginate at `PAGE_TILES` (9)
     with a `p/N` indicator top-right (tap to flip); tabular sub-screens have a standardized back button.
-  - **Two-level soundfont UI** (ticket #276): Home tiles come from fluidsynth `fonts` (one per
+  - **Two-level soundfont UI**: Home tiles come from fluidsynth `fonts` (one per
     loaded soundfont); tapping one drills into its presets from `inst <id>` (bank-0 first); tapping
     a preset issues `select <ch> <sfid> <bank> <prog>` on the keyboard channels (0–14, 15 reserved
     for the bridge SFX). Offline, Home shows a "Waiting for synth…" tile and refreshes once :9800 is up.

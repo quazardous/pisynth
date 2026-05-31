@@ -115,5 +115,5 @@ total, ~6 ms per period at 44.1 kHz). Smaller = lower latency, higher xrun risk.
 | `audio.period-size` | 256 | 128 once stable | `synth.conf` |
 
 Already in place (baseline): RT scheduling + memlock on `piano.service`, `CPUQuota=200%`,
-ALSA-direct output, `synth.dynamic-sample-loading=1`, one-soundfont-resident mode (#334),
+ALSA-direct output, `synth.dynamic-sample-loading=1`, one-soundfont-resident mode,
 PipeWire masked off the USB card.

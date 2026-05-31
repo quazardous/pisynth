@@ -4,7 +4,7 @@ Planned and deferred work for pisynth. Items listed here are **not yet implement
 
 ## Hardware mods
 
-### Software-controllable screen backlight (#277)
+### Software-controllable screen backlight
 
 The bundled 3.5" goodtft display (ILI9486 + ADS7846, `dtoverlay=piscreen`) wires its
 LED backlight **permanently on** — it cannot be switched off in software. Confirmed on

@@ -9,10 +9,19 @@ All notable changes to pisynth, in plain language. Newest first.
   comes out of the same speakers as the piano (Settings → Metronome → Mode). The click
   sound is a soundfont you can choose; the classic "Separate" mode (its own output card)
   stays available.
+- **Tempo presets** — pick a classic tempo (Largo … Presto) on the Metronome screen; the
+  BPM stepper still fine-tunes.
+- **Home beat pulse** — optional: the Home-screen metronome icon flashes on each beat
+  (Settings → Metronome → Home pulse).
 
 ### Changed
-- **Metronome beat indicator** — replaced the row of dots with a single dot in the header
-  that blinks in time: yellow on the strong beat (1), blue on the others.
+- **Metronome beat indicator** — a single metronome glyph in the header that blinks in
+  time (yellow on the strong beat, blue on the others), instead of a row of dots.
+- The Navigation screen is now in English.
+
+### Fixed
+- System health no longer warns when the optional MIDI-bridge service is down — only the
+  synth (sound) and power/thermal state drive the health indicator.
 
 ## 0.4.0 — 2026-05-30
 

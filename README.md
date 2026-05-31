@@ -108,9 +108,12 @@ full architecture.
 
 ## SoundFonts
 
-Drop `.sf2` / `.sf3` files into [`soundfonts/`](soundfonts/README.md) and run `./deploy.sh`;
-they're synced to the Pi and loaded at startup. System SoundFonts (MuseScore General,
-FluidR3 GM) are installed automatically.
+Just copy your own `.sf2` / `.sf3` files into the SoundFonts folder on the Pi
+(`~/soundfonts/`) — they're loaded next time it starts. The base SoundFonts (MuseScore
+General, FluidR3 GM) are installed automatically.
+
+> Developing from a laptop? Drop them in the repo's [`soundfonts/`](soundfonts/README.md)
+> and re-deploy instead.
 
 ## Development
 

@@ -54,13 +54,20 @@ class MetronomeMixin:
         self.metro.reload()                          # regenerate the SMF at the new tempo (#655)
 
     # ---- classic tempo presets (#668) ----
+    def _metro_nearest_preset(self):
+        """The (name, bpm) classic preset closest to the current BPM. Tempo markings are
+        ranges, so a custom BPM (e.g. 80) still maps to a marking (Andante) (#668, david)."""
+        return min(TEMPO_PRESETS, key=lambda nb: abs(nb[1] - self.metro.bpm))
+
     def _metro_tempo_label(self):
-        """Tempo name if the current BPM matches a preset, else the BPM number."""
-        return next((name for name, bpm in TEMPO_PRESETS if bpm == self.metro.bpm), str(self.metro.bpm))
+        """The tempo marking for the current BPM (nearest preset) — always a name, never a
+        bare number (#668, david: the Tempo value showed '80' with no name)."""
+        return self._metro_nearest_preset()[0]
 
     def _open_metro_tempo(self):
+        # Mark the preset nearest the current BPM so there's always a "you are here" (#668).
         items = [Item(f"{name}  ({bpm})", on_select=(lambda b=bpm: self._choose_metro_tempo(b)),
-                      marker=(lambda b=bpm: self.metro.bpm == b)) for name, bpm in TEMPO_PRESETS]
+                      marker=(lambda b=bpm: self._metro_nearest_preset()[1] == b)) for name, bpm in TEMPO_PRESETS]
         self.stack.append(MenuScreen("Tempo", items))
 
     def _choose_metro_tempo(self, bpm):

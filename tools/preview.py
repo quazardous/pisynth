@@ -239,9 +239,6 @@ app._open_metro_tempo()                                # Metronome → Tempo (cl
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-metronome-tempo.png"))
 app.stack.pop()                                        # back to the Metronome menu
 app.metro.running = False; app.metro.beat = 0; app.metro.flash = False   # leave it stopped (preview only)
-app.metro.device = "card:Headphones"                   # show a chosen output device (#668)
-app._open_metro_output()                               # Metronome → Output (device picker, #668)
-app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-metronome-output.png"))
 
 # ---- offline (no synth): catalog read straight from the .sf files (#276) ----
 go_offline()

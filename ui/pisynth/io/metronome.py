@@ -101,16 +101,11 @@ def ensure_test_tune():
 
 
 class Metronome:
-    """Background metronome (#287/#655/#668). The click is ALWAYS rendered by fluidsynth from
-    a generated SMF on channel 9 (percussion) and clocked by aplaymidi through a synth's
-    ALSA-seq port — so the tempo is paced by the seq queue, no per-beat fork, no PCM stream.
-
-    Two output paths, chosen by `device` (#668):
-      - empty `device`  → the MAIN piano fluidsynth plays the click too (same speakers as the
-        piano). `fluid_setup`/`fluid_teardown` (injected by the app) load the click font on
-        ch9 and return the seq port; `_start_piano` then launches aplaymidi at it.
-      - a `device` set   → a DEDICATED fluidsynth bound to that device plays the click alone
-        (so it can run while the piano is silent / on another card) — slice 2.
+    """Background metronome (#287/#655/#668). The click is rendered by the MAIN piano
+    fluidsynth from a generated SMF on channel 9 (percussion) and clocked by aplaymidi
+    through its ALSA-seq port — so it comes out of the piano's speakers, the tempo is paced
+    by the seq queue (no per-beat fork, no PCM stream). `fluid_setup`/`fluid_teardown`
+    (injected by the app) load the click font + a drum kit on ch9 and return the seq port.
 
     A separate light thread drives the on-screen beat dots off a monotonic clock. Keeps
     running when you leave the screen ('son seulement'). `vol` (0-100) scales the click
@@ -121,15 +116,11 @@ class Metronome:
     def __init__(self):
         self.bpm = 100
         self.beats = 4
-        self.vol = 80                                # click volume 0-100 → SMF velocity (#668)
-        # Output (#668): "" = same card as the piano (click via the MAIN fluidsynth, mixed in);
-        # "card:<name>" / "bt:<mac>" = a DEDICATED fluidsynth bound to that device.
-        self.device = ""
+        self.vol = 80                                # click volume 0-100 → SMF velocity (#655)
         self.home_pulse = False                      # pulse the Home metronome icon on each beat (#668)
-        self.click_cmd = None                        # injected (midi_path, seq_port) -> aplaymidi argv (#655/#668)
+        self.click_cmd = None                        # injected (midi_path, seq_port) -> aplaymidi argv (#655)
         self.fluid_setup = None                      # injected () -> main FLUID Synth seq port (str), "" on failure (#655)
         self.fluid_teardown = None                   # injected () -> None: silence the click channel on the main fluid (#655)
-        self.dedicated_cmd = None                    # injected (device) -> (argv, env|None) for a dedicated fluidsynth (#668 slice 2)
         self.running = False
         self.beat = 0                                # current beat 1..beats, 0 when stopped
         self.flash = False                           # True for a short window on each beat → blink the icon (#648)
@@ -138,7 +129,6 @@ class Metronome:
         self._beat_t = None                          # visual beat thread
         self._proc = None                            # aplaymidi process
         self._fluid_t = None                         # aplaymidi relaunch watcher (#655)
-        self._dedicated = None                       # dedicated fluidsynth process (#668 slice 2), or None
         self._port = ""                              # ALSA-seq target for aplaymidi, resolved on start
         self._wake = None                            # write-end of a pipe; ping the UI per beat
 
@@ -155,8 +145,7 @@ class Metronome:
             return
         self.err = ""
         self._stop.clear()
-        ok = self._start_dedicated() if self.device else self._start_piano()
-        if not ok:                                   # err set by the starter
+        if not self._start_piano():                  # err set by the starter
             self._stop.set()
             return
         self.running = True
@@ -164,10 +153,10 @@ class Metronome:
         self._beat_t.start()
 
     def _start_piano(self):
-        """Default output (#668): the click is played by the MAIN fluidsynth (same card as
-        the piano), mixed in. fluid_setup loads the click font + a drum kit on ch9 and returns
-        the main FLUID Synth seq port; we then aplaymidi the click SMF to it — the ALSA-seq
-        queue keeps the tempo steady (#655)."""
+        """The click is played by the MAIN fluidsynth (same card as the piano), mixed in.
+        fluid_setup loads the click font + a drum kit on ch9 and returns the FLUID Synth
+        seq port; we then aplaymidi the click SMF to it — the ALSA-seq queue keeps the tempo
+        steady (#655)."""
         if not (self.fluid_setup and self.click_cmd):
             self.err = "metronome: not wired"
             return False
@@ -176,12 +165,6 @@ class Metronome:
             self.err = "metronome: click soundfont unavailable"
             return False
         return self._launch_aplaymidi()
-
-    def _start_dedicated(self):
-        """Non-piano output (#668 slice 2): a DEDICATED fluidsynth bound to the chosen device
-        plays the click. Not wired yet — surfaced as an error so the UI toasts it."""
-        self.err = "metronome: separate output coming soon (v2)"
-        return False
 
     def _launch_aplaymidi(self):
         self._proc = self._spawn_aplaymidi()
@@ -244,16 +227,10 @@ class Metronome:
         self._teardown_audio()
 
     def _teardown_audio(self):
-        """Release the click's sound path on stop/failure (#668): silence the click channel
-        on the MAIN fluid (piano output), and/or kill the dedicated fluidsynth (separate)."""
-        if not self.device and self.fluid_teardown:
+        """Release the click on stop/failure (#655): silence the click channel on the main
+        (piano) fluidsynth — the light click font stays resident, spared by the loader."""
+        if self.fluid_teardown:
             self.fluid_teardown()
-        d, self._dedicated = self._dedicated, None
-        if d:
-            try:
-                d.terminate()
-            except OSError:
-                pass
 
     def _ping(self):
         if self._wake is not None:

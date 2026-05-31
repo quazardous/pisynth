@@ -6,10 +6,8 @@ All notable changes to pisynth, in plain language. Newest first.
 
 ### Added
 - **Metronome click on the piano speakers** — the click is played by the synth itself, so
-  it comes out of the same speakers as the piano. A single **Output** setting (Settings →
-  Metronome → Output) keeps it on the piano ("Piano (synth)") or, later, routes it to a
-  separate audio device. This replaces the old Mode toggle, the separate-WAV path and the
-  click-sound picker — the click now uses a fixed light drum soundfont.
+  it always comes out of the same speakers as the piano, using a fixed light drum soundfont.
+  This replaces the old Mode toggle, the separate-output WAV path and the click-sound picker.
 - **Tempo presets** — pick a classic tempo (Largo … Presto) on the Metronome screen; the
   BPM stepper still fine-tunes, and the Tempo row shows the matching marking name even for
   in-between tempos (the nearest one).

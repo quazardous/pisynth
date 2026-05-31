@@ -168,20 +168,10 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         self.metro.beats = _m.get("beats", 4)
         self.metro.vol = _m.get("vol", 80)          # metronome click volume 0-100 → SMF velocity (#655)
         self.metro.home_pulse = _m.get("home_pulse", False)   # pulse the Home metronome icon (#668)
-        # Output (#668): "" = click via the piano synth (same speakers); "card:<name>" / "bt:<mac>"
-        # = a dedicated fluidsynth on that device. Migrate the pre-v2 mode/card/bt_sink keys.
-        dev = _m.get("device")
-        if dev is None:                              # pre-v2 settings → derive a device (#668)
-            if _m.get("mode") == "separate":
-                c, b = _m.get("card", ""), _m.get("bt_sink", "")
-                dev = f"bt:{b}" if b else (f"card:{c}" if c else "")
-            else:                                    # "fluid"/default → click via the piano synth
-                dev = ""
-        self.metro.device = dev
-        # The click SMF is played into a fluidsynth via aplaymidi (#655/#668); `port` is the
-        # synth's ALSA-seq target, resolved at start by fluid_setup (piano) or the dedicated one.
+        # The click always plays through the piano synth (#655/#668: no separate output). The
+        # SMF is sent to fluidsynth via aplaymidi; `port` is its ALSA-seq target from fluid_setup.
         self.metro.click_cmd = lambda midi, port: metro_click_argv(midi, port)
-        self.metro.fluid_setup = self._metro_fluid_setup       # piano path: load click font on ch9 → seq port
+        self.metro.fluid_setup = self._metro_fluid_setup       # load click font on ch9 → seq port
         self.metro.fluid_teardown = self._metro_fluid_teardown
         self.stack = [self._home_menu()]
         cal = load_cal()
@@ -340,12 +330,10 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
 
     def _load_keep(self, path):
         """Soundfont keys the unload sweep must SPARE: the piano target (#334 keeps one), plus
-        — when the metronome clicks through the piano synth (device "") — the light click font
-        so it stays resident across preset changes (david: « garder la soundfont légère du
-        métronome ») (#655/#668)."""
+        the light metronome click font so it stays resident across preset changes (david:
+        « garder la soundfont légère du métronome ») (#655)."""
         keep = {sf_key(path)}
-        if not getattr(self.metro, "device", ""):    # piano-output metronome → spare its click font
-            keep.add(sf_key(self._click_sf_path()))  # realpath → matches loaded basename (#655)
+        keep.add(sf_key(self._click_sf_path()))      # realpath → matches loaded basename (#655)
         return keep
 
     def _load_worker(self, path, bp):
@@ -585,7 +573,6 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         self.metro.stop()
         self.metro.bpm, self.metro.beats, self.metro.vol = 100, 4, 80
         self.metro.home_pulse = False
-        self.metro.device = ""                       # back to click-via-piano (#668)
         self.bt_names = {}; self._bt_names_dirty = False
         self.bt_sink = ""
         self.nav_cfg = self._nav_cfg_from({})        # MIDI nav back to defaults (off) (#373)

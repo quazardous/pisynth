@@ -85,7 +85,7 @@ from .screens import AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin
 # here so the rest of app.py — and preview.py's monkeypatches — keep using the
 # bare names (Framebuffer, Fluid, Bluetooth, ...).
 from .io import (Backlight, Bluetooth, Fluid, Framebuffer, Metronome, MidiMonitor,
-                 Touch, bt_any_connected, ensure_clicks)
+                 Touch, bt_any_connected)
 
 
 # Domain / pure-logic layer (#308). Re-exported into app's namespace so existing
@@ -93,7 +93,7 @@ from .io import (Backlight, Bluetooth, Fluid, Framebuffer, Metronome, MidiMonito
 # / ...) — keep working on the bare names.
 from .core.audio import (GAIN_DEFAULT, GAIN_MAX, GAIN_MIN, GAIN_STEP, audio_active,
                          audio_output_present, fluid_seq_port, list_midi_inputs,
-                         metro_click_argv, metro_stream_argv, midi_input_present, play_test)
+                         metro_click_argv, midi_input_present, play_test)
 from .core.geometry import solve_affine
 from .core.settings import (CAL_PATH, SETTINGS_PATH, _legacy_json_path, load_cal,
                             load_settings, save_cal, save_settings)
@@ -162,25 +162,26 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         self.midi_keyboard = s.get("midi_keyboard", "")   # chosen MIDI keyboard name; "" = auto (all) (#326)
         self.midimon = MidiMonitor()                 # MIDI test-keyboard reader (#331)
         self._nav_init(s)                            # MIDI navigation: cfg + its own monitor (#373)
-        self.metro = Metronome(*ensure_clicks())     # background metronome (#287)
+        self.metro = Metronome()                     # background metronome (#287/#655/#668)
         _m = s.get("metro", {})
         self.metro.bpm = _m.get("bpm", 100)
         self.metro.beats = _m.get("beats", 4)
-        self.metro.vol = _m.get("vol", 80)          # metronome click volume 0-100 (#648)
-        self.metro.mode = _m.get("mode", "separate") # "separate" PCM (#648) | "fluid" via synth (#655)
+        self.metro.vol = _m.get("vol", 80)          # metronome click volume 0-100 → SMF velocity (#655)
         self.metro.home_pulse = _m.get("home_pulse", False)   # pulse the Home metronome icon (#668)
-        self.metro.click_sf = _m.get("click_sf", "") # fluid mode: click soundfont basename (#655)
-        self.metro.card = _m.get("card", "")        # metronome output card (#287)
-        self.metro.bt_sink = _m.get("bt_sink", "")  # metronome BT sink output (#287)
-        # one-shot test click routes like the synth/test: ALSA via aplay, BT via pw-play (#287)
-        self.metro.play_fn = lambda wav: play_test(wav, self.metro.card, self.metro.bt_sink)
-        # the running metronome streams PCM into a persistent player (#648); build its argv
-        # from the current output (resolved at start, so the card picker takes effect).
-        self.metro.stream_cmd = lambda: metro_stream_argv(self.metro.card, self.metro.bt_sink)
-        # fluid mode (#655): play the click SMF into FLUID Synth via aplaymidi, with the click
-        # font loaded + a GM drum kit selected on the reserved channel 9 (the loader spares it).
-        self.metro.click_cmd = lambda midi: metro_click_argv(midi, fluid_seq_port())
-        self.metro.fluid_setup = self._metro_fluid_setup
+        # Output (#668): "" = click via the piano synth (same speakers); "card:<name>" / "bt:<mac>"
+        # = a dedicated fluidsynth on that device. Migrate the pre-v2 mode/card/bt_sink keys.
+        dev = _m.get("device")
+        if dev is None:                              # pre-v2 settings → derive a device (#668)
+            if _m.get("mode") == "separate":
+                c, b = _m.get("card", ""), _m.get("bt_sink", "")
+                dev = f"bt:{b}" if b else (f"card:{c}" if c else "")
+            else:                                    # "fluid"/default → click via the piano synth
+                dev = ""
+        self.metro.device = dev
+        # The click SMF is played into a fluidsynth via aplaymidi (#655/#668); `port` is the
+        # synth's ALSA-seq target, resolved at start by fluid_setup (piano) or the dedicated one.
+        self.metro.click_cmd = lambda midi, port: metro_click_argv(midi, port)
+        self.metro.fluid_setup = self._metro_fluid_setup       # piano path: load click font on ch9 → seq port
         self.metro.fluid_teardown = self._metro_fluid_teardown
         self.stack = [self._home_menu()]
         cal = load_cal()
@@ -339,11 +340,12 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
 
     def _load_keep(self, path):
         """Soundfont keys the unload sweep must SPARE: the piano target (#334 keeps one), plus
-        — in fused metronome mode — the light click font so it stays resident across preset
-        changes (david: « garder la soundfont légère du métronome ») (#655)."""
+        — when the metronome clicks through the piano synth (device "") — the light click font
+        so it stays resident across preset changes (david: « garder la soundfont légère du
+        métronome ») (#655/#668)."""
         keep = {sf_key(path)}
-        if getattr(self.metro, "mode", "") == "fluid":
-            keep.add(sf_key(self._click_sf_path(self.metro.click_sf)))   # realpath → matches loaded basename (#655)
+        if not getattr(self.metro, "device", ""):    # piano-output metronome → spare its click font
+            keep.add(sf_key(self._click_sf_path()))  # realpath → matches loaded basename (#655)
         return keep
 
     def _load_worker(self, path, bp):
@@ -394,16 +396,13 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
             self.toast("load failed")
         self.render()                                # frame back to green (ready) now
 
-    # ---- fused metronome: click played BY fluidsynth (#655) ----
-    def _click_sf_path(self, name):
-        """Absolute REAL path of the click soundfont (name or the default), symlinks
-        resolved (#655). fluidsynth reports the resolved basename, so we match on the real
-        path everywhere (load id lookup + the loader keep-set), or the click is never
-        found/kept. For the DEFAULT (TimGM6mb), the `~/soundfonts/06-…` symlink may be
-        absent (install-soundfonts.sh not re-run) → fall back to the apt path so the fused
-        metronome works out of the box."""
-        if name:
-            return os.path.realpath(os.path.join(SOUNDFONT_DIR, name))
+    # ---- piano-output metronome: click played BY the main fluidsynth (#655/#668) ----
+    def _click_sf_path(self):
+        """Absolute REAL path of the click soundfont (the light default TimGM6mb), symlinks
+        resolved (#655/#668). fluidsynth reports the resolved basename, so we match on the
+        real path everywhere (load id lookup + the loader keep-set), or the click is never
+        found/kept. The `~/soundfonts/06-…` symlink may be absent (install-soundfonts.sh not
+        re-run) → fall back to the apt path so the metronome works out of the box."""
         for cand in (os.path.join(SOUNDFONT_DIR, METRO_CLICK_SF_DEFAULT),
                      "/usr/share/sounds/sf2/TimGM6mb.sf2"):     # apt timgm6mb-soundfont
             real = os.path.realpath(cand)
@@ -411,20 +410,21 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
                 return real
         return os.path.realpath(os.path.join(SOUNDFONT_DIR, METRO_CLICK_SF_DEFAULT))
 
-    def _metro_fluid_setup(self, click_sf):
-        """Make the click playable by fluidsynth: load its (light) soundfont and select a GM
-        drum kit (bank 128) on the reserved channel 9, so aplaymidi's notes 76/77 sound as a
-        woodblock mixed with the piano on the same card. Returns True when ready (#655)."""
+    def _metro_fluid_setup(self):
+        """Make the click playable by the MAIN fluidsynth (piano output, device ""): load its
+        (light) soundfont and select a GM drum kit (bank 128) on the reserved channel 9, so
+        aplaymidi's notes 76/77 sound as a woodblock mixed with the piano on the same card.
+        Returns the synth's ALSA-seq port (for aplaymidi), or "" on failure (#655/#668)."""
         if not (self.fs.online or self.fs.connect()):
-            return False
-        path = self._click_sf_path(click_sf)
+            return ""
+        path = self._click_sf_path()
         if not os.path.exists(path):
-            return False
+            return ""
         sfid = self._sfid_for_path(path) or self.fs.load(path)   # loader spares it after (#655)
         if sfid is None:
-            return False
+            return ""
         self.fs.select_one(9, sfid, 128, 0)          # GM standard drum kit on the click channel
-        return True
+        return fluid_seq_port()                      # aplaymidi target into the piano synth
 
     def _metro_fluid_teardown(self):
         """Silence the click channel when the fused metronome stops (#655). The light font
@@ -584,9 +584,8 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         self.cur_font_path, self.cur_bp, self.cur_preset_name = None, None, ""
         self.metro.stop()
         self.metro.bpm, self.metro.beats, self.metro.vol = 100, 4, 80
-        self.metro.mode, self.metro.click_sf = "separate", ""
         self.metro.home_pulse = False
-        self.metro.card = self.metro.bt_sink = ""
+        self.metro.device = ""                       # back to click-via-piano (#668)
         self.bt_names = {}; self._bt_names_dirty = False
         self.bt_sink = ""
         self.nav_cfg = self._nav_cfg_from({})        # MIDI nav back to defaults (off) (#373)

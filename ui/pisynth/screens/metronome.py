@@ -1,10 +1,10 @@
-"""Metronome screens (#287), split out of the controller (#308).
+"""Metronome screens (#287/#655/#668), split out of the controller (#308).
 
-Mixin for app.App: BPM/beats steppers + the output picker (ALSA cards or a BT sink,
-routed through the injected `metro.play_fn`). Cross-feature helpers (toast,
-_update_settings) resolve via the MRO.
+Mixin for app.App: Start/Stop, classic tempo presets, BPM/beats/volume steppers, a
+Home-pulse toggle, and a single Output picker (#668): "Piano (synth)" plays the click
+through the piano fluidsynth (same speakers), or pick an audio device for a dedicated
+metronome output. Cross-feature helpers (toast, _update_settings) resolve via the MRO.
 """
-from ..core.soundfonts import list_soundfont_files, sf_key
 from ..ui.menu import Item, MenuScreen
 from .devices import output_label, output_picker_items
 
@@ -13,11 +13,22 @@ from .devices import output_label, output_picker_items
 TEMPO_PRESETS = [("Largo", 50), ("Adagio", 66), ("Andante", 92), ("Moderato", 114),
                  ("Allegro", 138), ("Vivace", 166), ("Presto", 184)]
 
+# Output device (#668) is one string: "" = via the piano synth; "card:<name>" / "bt:<mac>".
+_PIANO_OUTPUT = "Piano (synth)"
+
+
+def _dev_card(device):
+    return device[5:] if device.startswith("card:") else ""
+
+
+def _dev_bt(device):
+    return device[3:] if device.startswith("bt:") else ""
+
 
 class MetronomeMixin:
-    # ---- metronome (#287) ----
+    # ---- metronome (#287/#655/#668) ----
     def _metronome_menu(self):
-        items = [
+        return MenuScreen("Metronome", [
             Item("Start / Stop", on_select=self._metro_toggle,    # first — the primary action (david)
                  value=(lambda: "running" if self.metro.running else "stopped")),
             Item("Tempo", on_select=self._open_metro_tempo, submenu=True,    # 2nd, after Start/Stop (david)
@@ -25,29 +36,22 @@ class MetronomeMixin:
             Item("BPM", on_adjust=self._metro_bpm, value=(lambda: str(self.metro.bpm))),
             Item("Beats/bar", on_adjust=self._metro_beats, value=(lambda: str(self.metro.beats))),
             Item("Volume", on_adjust=self._metro_vol, value=(lambda: f"{self.metro.vol}%")),
-            Item("Mode", on_adjust=self._metro_mode, value=self._metro_mode_label),
+            Item("Output", on_select=self._open_metro_output, submenu=True,   # device picker (#668)
+                 value=self._metro_output_label),
             Item("Home pulse", on_select=self._metro_toggle_home_pulse,   # beat indicator on Home (#668)
                  value=(lambda: "on" if self.metro.home_pulse else "off")),
-        ]
-        if self.metro.mode == "fluid":               # click via the synth (#655) → pick its soundfont
-            items.append(Item("Click sound", on_select=self._open_metro_click_sf, submenu=True,
-                              value=(lambda: self.metro.click_sf or "default")))
-        else:                                        # separate output (#648/#287) → pick its card/sink
-            items.append(Item("Output", on_select=self._open_metro_audio, submenu=True,
-                              value=self._metro_card_label))
-        return MenuScreen("Metronome", items)
+        ])
 
     def _save_metro(self):
         """Persist all metronome prefs together so writing one never drops another (#287)."""
         self._update_settings(metro={"bpm": self.metro.bpm, "beats": self.metro.beats,
-                                     "vol": self.metro.vol, "mode": self.metro.mode,
-                                     "click_sf": self.metro.click_sf, "card": self.metro.card,
-                                     "bt_sink": self.metro.bt_sink, "home_pulse": self.metro.home_pulse})
+                                     "vol": self.metro.vol, "device": self.metro.device,
+                                     "home_pulse": self.metro.home_pulse})
 
     def _metro_bpm(self, delta):
         self.metro.bpm = max(40, min(240, self.metro.bpm + 5 * delta))
         self._save_metro()
-        self.metro.reload()                          # fluid mode: regenerate the SMF at the new tempo (#655)
+        self.metro.reload()                          # regenerate the SMF at the new tempo (#655)
 
     # ---- classic tempo presets (#668) ----
     def _metro_tempo_label(self):
@@ -62,47 +66,17 @@ class MetronomeMixin:
     def _choose_metro_tempo(self, bpm):
         self.metro.bpm = bpm
         self._save_metro()
-        self.metro.reload()                          # fluid mode picks up the new tempo (#655)
+        self.metro.reload()                          # picks up the new tempo (#655)
         self.toast(f"{self._metro_tempo_label()} = {bpm} BPM")
 
     def _metro_beats(self, delta):
         self.metro.beats = max(1, min(8, self.metro.beats + delta))
         self._save_metro()
-        self.metro.reload()                          # fluid mode: regenerate the SMF (#655)
+        self.metro.reload()                          # regenerate the SMF (#655)
 
     def _metro_vol(self, delta):
-        self.metro.set_volume(self.metro.vol + 5 * delta)   # live: rebuilt for the next bar (#648)
+        self.metro.set_volume(self.metro.vol + 5 * delta)   # live: regenerated at the new velocity (#655)
         self._save_metro()
-
-    # ---- output mode: separate card (#648) vs via the synth (#655) ----
-    def _metro_mode_label(self):
-        return "Piano" if self.metro.mode == "fluid" else "Separate"
-
-    def _metro_mode(self, delta):
-        self.metro.stop()                            # mode change → stop; restart in the new mode
-        self.metro.mode = "fluid" if self.metro.mode == "separate" else "separate"
-        self._save_metro()
-        if self.stack and self.stack[-1].title == "Metronome":   # rebuild: Output ↔ Click sound swaps
-            m = self._metronome_menu()
-            m.idx = 5                                # keep the cursor on the Mode row (Start/Stop, BPM, Tempo before it)
-            self.stack[-1] = m
-
-    def _open_metro_click_sf(self):
-        """Pick the soundfont that provides the click in fluid mode (#655)."""
-        items = [Item("Default", on_select=(lambda: self._choose_metro_click_sf("")),
-                      marker=(lambda: not self.metro.click_sf))]
-        for path in list_soundfont_files():
-            name = sf_key(path)
-            items.append(Item(name, on_select=(lambda n=name: self._choose_metro_click_sf(n)),
-                              marker=(lambda n=name: self.metro.click_sf == n)))
-        self.stack.append(MenuScreen("Click sound", items))
-
-    def _choose_metro_click_sf(self, name):
-        self.metro.click_sf = name
-        self._save_metro()
-        if self.metro.running and self.metro.mode == "fluid":
-            self.metro.stop()                        # font changed → restart to reload it
-        self.toast("Click sound: " + (name or "default"))
 
     def _metro_toggle_home_pulse(self):
         self.metro.home_pulse = not self.metro.home_pulse
@@ -113,34 +87,39 @@ class MetronomeMixin:
             self.metro.stop()
         else:
             self.metro.start()
-            if not self.metro.running and self.metro.err:    # output failed to open (#648)
+            if not self.metro.running and self.metro.err:    # output failed to open (#655/#668)
                 self.toast(self.metro.err, secs=4)
 
-    # ---- metronome output device (#287) ----
-    def _metro_card_label(self):
-        """Friendly name of the metronome's output (BT sink, ALSA card, or 'Default')."""
-        return output_label(self.metro.card, self.metro.bt_sink, self.bt_names, "Default")
+    # ---- metronome output (#668): the piano synth, or a dedicated device ----
+    def _metro_output_label(self):
+        """Friendly name of the metronome output: 'Piano (synth)' (device ""), an ALSA card,
+        or a BT sink."""
+        dev = self.metro.device
+        if not dev:
+            return _PIANO_OUTPUT
+        return output_label(_dev_card(dev), _dev_bt(dev), self.bt_names, _PIANO_OUTPUT)
 
-    def _open_metro_audio(self):
-        # ALSA cards (incl. onboard jack) + connected BT sinks (#287). Exactly one active.
+    def _open_metro_output(self):
+        # "Piano (synth)" + ALSA cards + connected BT sinks (#668). Exactly one active.
         self.stack.append(MenuScreen("Metronome output", output_picker_items(
-            "Default (system)", lambda: self.metro.card, lambda: self.metro.bt_sink,
-            lambda: self._choose_metro_card(""), self._choose_metro_card, self._choose_metro_bt)))
+            _PIANO_OUTPUT,
+            lambda: _dev_card(self.metro.device), lambda: _dev_bt(self.metro.device),
+            lambda: self._choose_metro_output(""),
+            lambda n: self._choose_metro_output(f"card:{n}"),
+            self._choose_metro_bt)))
 
-    def _choose_metro_card(self, name):
-        self.metro.card = name
-        self.metro.bt_sink = ""                      # ALSA card → drop any BT sink (#287)
+    def _choose_metro_output(self, device):
+        was_running = self.metro.running
+        self.metro.stop()                            # device change → stop; restart in the new path
+        self.metro.device = device
         self._save_metro()
-        if name and name == self.soundcard:          # the synth holds its card exclusively (direct
-            self.toast("⚠ synth's card — no sound, pick another output", secs=4)  # ALSA) → busy (#648)
-            return
-        self.metro.test_click()                     # immediate feedback so the device is testable
-        self.toast("Test click played")
+        if was_running:
+            self.metro.start()
+            if not self.metro.running and self.metro.err:
+                self.toast(self.metro.err, secs=4)
+                return
+        self.toast("Output: " + self._metro_output_label())
 
     def _choose_metro_bt(self, mac, label=""):
-        self.metro.bt_sink = mac
-        self.metro.card = ""                         # BT sink → drop any ALSA card (#287)
         self._remember_bt_name(mac, label)
-        self._save_metro()
-        self.metro.test_click()
-        self.toast("Test click played")
+        self._choose_metro_output(f"bt:{mac}")

@@ -294,23 +294,6 @@ def play_test(wav, soundcard="", bt_sink=""):
         return False
 
 
-def metro_stream_argv(soundcard="", bt_sink="", sr=44100):
-    """(argv, env) for a PERSISTENT raw-PCM player (S16_LE mono) the metronome streams its
-    bars into (#648) — the streaming replaces the old per-beat fork. BT sink → pw-cat to
-    its node; ALSA card → aplay -D plughw:<card>; else the system default. The player reads
-    raw PCM from stdin ('-'). env is for pw-cat's PipeWire session, None for aplay."""
-    if bt_sink:
-        name = _bt_sink_name(bt_sink)                # pw-cat --target = node NAME/serial, not id (#318)
-        if name:
-            return (["pw-cat", "--playback", "--format", "s16", "--rate", str(sr),
-                     "--channels", "1", "--target", name, "-"], _pw_env())
-    cmd = ["aplay", "-q", "-t", "raw", "-f", "S16_LE", "-c", "1", "-r", str(sr)]
-    if soundcard:
-        cmd += ["-D", f"plughw:{soundcard}"]
-    cmd.append("-")
-    return (cmd, None)
-
-
 def fluid_seq_port():
     """ALSA-seq address of the running FLUID Synth input port (e.g. '129:0'), or '' (#655).
     Target for `aplaymidi -p` in the fused metronome mode."""

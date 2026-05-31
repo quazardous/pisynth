@@ -1,0 +1,39 @@
+/* pisynth web companion — mobile-first dark theme (#659). */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #121218; --bar: #22222e; --fg: #ebebf0; --muted: #787c8c;
+  --accent: #5aa0ff; --yellow: #ffd23f; --key: #f4f4f8; --keyon: #5aa0ff; --black: #16161c;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); display: flex; flex-direction: column;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-user-select: none; user-select: none; overflow: hidden;
+}
+header {
+  background: var(--bar); display: flex; align-items: center; justify-content: space-between;
+  padding: env(safe-area-inset-top, 0) 16px 0; height: 52px; flex: 0 0 auto;
+}
+.title { font-weight: 700; letter-spacing: .5px; }
+.status { font-size: .8rem; padding: 3px 10px; border-radius: 999px; }
+.status.on { color: #0c0; background: rgba(0,200,0,.12); }
+.status.off { color: var(--muted); background: rgba(120,124,140,.12); }
+
+main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#readout {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 16px;
+}
+#chord { font-size: clamp(2.5rem, 14vw, 5rem); font-weight: 800; color: var(--yellow); min-height: 1.1em; }
+#notes { font-size: clamp(1rem, 5vw, 1.6rem); color: var(--muted); min-height: 1.2em; letter-spacing: 1px; }
+
+/* keyboard: white keys laid out left%, black keys overlaid */
+#keyboard {
+  position: relative; height: 34vh; min-height: 150px; flex: 0 0 auto;
+  background: var(--black); border-top: 2px solid #000;
+}
+.key { position: absolute; top: 0; bottom: 0; }
+.key.white { background: var(--key); border: 1px solid #999; border-radius: 0 0 4px 4px; }
+.key.black { height: 62%; background: var(--black); border: 1px solid #000; border-radius: 0 0 3px 3px; z-index: 2; }
+.key.white.on { background: var(--keyon); }
+.key.black.on { background: var(--accent); }

@@ -29,7 +29,7 @@ PipeWire/wireplumber/pipewire-pulse already run in the user session (no install 
 
 The Pi 3B+ has an onboard Bluetooth controller and the `bluetooth` service is active by default.
 
-## Pairing flow (cinématique)
+## Pairing flow
 
 **Settings → Connectivity → Bluetooth devices:**
 

@@ -396,10 +396,19 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
     # ---- fused metronome: click played BY fluidsynth (#655) ----
     def _click_sf_path(self, name):
         """Absolute REAL path of the click soundfont (name or the default), symlinks
-        resolved (#655). The default 06-TimGM6mb.sf2 is a symlink to TimGM6mb.sf2, so
-        fluidsynth reports the resolved basename — we must match on that everywhere
-        (load id lookup + the loader's keep set), or the click font is never found/kept."""
-        return os.path.realpath(os.path.join(SOUNDFONT_DIR, name or METRO_CLICK_SF_DEFAULT))
+        resolved (#655). fluidsynth reports the resolved basename, so we match on the real
+        path everywhere (load id lookup + the loader keep-set), or the click is never
+        found/kept. For the DEFAULT (TimGM6mb), the `~/soundfonts/06-…` symlink may be
+        absent (install-soundfonts.sh not re-run) → fall back to the apt path so the fused
+        metronome works out of the box."""
+        if name:
+            return os.path.realpath(os.path.join(SOUNDFONT_DIR, name))
+        for cand in (os.path.join(SOUNDFONT_DIR, METRO_CLICK_SF_DEFAULT),
+                     "/usr/share/sounds/sf2/TimGM6mb.sf2"):     # apt timgm6mb-soundfont
+            real = os.path.realpath(cand)
+            if os.path.exists(real):
+                return real
+        return os.path.realpath(os.path.join(SOUNDFONT_DIR, METRO_CLICK_SF_DEFAULT))
 
     def _metro_fluid_setup(self, click_sf):
         """Make the click playable by fluidsynth: load its (light) soundfont and select a GM
@@ -427,13 +436,13 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         def push(mk):
             return lambda: self.stack.append(mk())
         return MenuScreen("Settings", [
+            Item("Tools", on_select=push(self._tools_menu), submenu=True),   # first — most used (david)
             Item("Audio", on_select=push(self._audio_menu), submenu=True),
             Item("MIDI", on_select=self._open_midi, value=self._midi_label, submenu=True),
             Item("Navigation", on_select=self._open_nav, submenu=True,
                  value=(lambda: "on" if self.nav_cfg["enabled"] else "off")),    # MIDI nav (#373)
             Item("Display", on_select=push(self._display_menu), submenu=True),
             Item("Connectivity", on_select=push(self._connectivity_menu), submenu=True),
-            Item("Tools", on_select=push(self._tools_menu), submenu=True),
             Item("System", on_select=push(self._system_menu), submenu=True),
         ])
 

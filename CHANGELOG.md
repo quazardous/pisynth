@@ -2,6 +2,18 @@
 
 All notable changes to pisynth, in plain language. Newest first.
 
+## 0.5.0 — unreleased
+
+### Added
+- **Metronome "Piano" mode** — the click can now be played by the synth itself, so it
+  comes out of the same speakers as the piano (Settings → Metronome → Mode). The click
+  sound is a soundfont you can choose; the classic "Separate" mode (its own output card)
+  stays available.
+
+### Changed
+- **Metronome beat indicator** — replaced the row of dots with a single dot in the header
+  that blinks in time: yellow on the strong beat (1), blue on the others.
+
 ## 0.4.0 — 2026-05-30
 
 ### Added

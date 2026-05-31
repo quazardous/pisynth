@@ -234,6 +234,10 @@ app.stack = [app._home_menu()]
 app.stack.append(app._metronome_menu())               # Tools → Metronome (#287)
 app.metro.beats = 4; app.metro.running = True; app.metro.beat = 1; app.metro.flash = True  # strong-beat dot lit (#648)
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-metronome.png"))
+app.metro.bpm = 80                                     # david's live value — between presets (no exact match)
+app._open_metro_tempo()                                # Metronome → Tempo (classic presets, #668)
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-metronome-tempo.png"))
+app.stack.pop()                                        # back to the Metronome menu
 app.metro.running = False; app.metro.beat = 0; app.metro.flash = False   # leave it stopped (preview only)
 app.metro.device = "card:Headphones"                   # show a chosen output device (#668)
 app._open_metro_output()                               # Metronome → Output (device picker, #668)

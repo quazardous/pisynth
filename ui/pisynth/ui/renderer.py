@@ -172,9 +172,13 @@ class Renderer:
         metro_cx, metro_size, sep_x, small_x0, small_step = self._status_layout()
         cy = self.BAR_H // 2
         # metronome — big (the interactive one), tappable, pink while running (#287/#339).
-        # With the Home-pulse option on (#668), it flashes yellow on each beat instead.
+        # With the Home-pulse option on (#668), it flashes on each beat — yellow on the strong
+        # beat 1, blue on the others (matching the in-tool _metro_dot), pink between beats (david).
         if status.metro_running and status.metro_home_pulse:
-            metro_col = SEL_BORDER if status.metro_flash else PINK
+            if status.metro_flash:
+                metro_col = SEL_BORDER if status.metro_beat == 1 else ACCENT
+            else:
+                metro_col = PINK
         else:
             metro_col = self._ic_color(status.metro_running, PINK)
         self._glyph(d, "metronome", metro_cx, cy, metro_col, self.f_icon_big)

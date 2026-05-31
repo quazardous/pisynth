@@ -35,13 +35,16 @@ from ..ui.menu import Item, MenuScreen
 # OPTIONAL extra (david: « pas essentiel ») — unbound by default since the 5-button D-pad
 # is fully used; map it to any key via learn-by-press if wanted.
 NAV_ACTIONS = [("up", "Up"), ("down", "Down"), ("left", "Left"),
-               ("right", "Right"), ("select", "Select"), ("back", "Back")]
-# Defaults = the Keystation D-pad notes (nanosynth: ↑96 ↓97 ←98 →99 ●100); Retour unbound.
+               ("right", "Right"), ("select", "Select"), ("back", "Back"),
+               ("metro", "Metronome")]      # toggle the metronome from the D-pad (#673, david)
+# Defaults = the Keystation D-pad notes (nanosynth: ↑96 ↓97 ←98 →99 ●100); Back + Metro unbound
+# (assign any spare key via learn-by-press).
 NAV_DEFAULT_BINDINGS = {"up": 96, "down": 97, "left": 98, "right": 99,
-                        "select": 100, "back": None}
+                        "select": 100, "back": None, "metro": None}
 # Selectable beep sounds (#378) → mapped to GM percussion notes on channel 9 (#673),
-# soundfont-independent (the ch9 drum kit is fixed). key → label.
-NAV_BEEPS = [("aigu", "High"), ("grave", "Low"), ("blip", "Blip"), ("click", "Click")]
+# soundfont-independent (the ch9 drum kit is fixed). key → label = the actual percussion.
+NAV_BEEPS = [("aigu", "Woodblock hi"), ("grave", "Woodblock lo"),
+             ("blip", "Cowbell"), ("click", "Side stick")]
 NAV_DEFAULT_BEEP = "aigu"
 NAV_DEFAULT_VOL = 40        # beep loudness 0-100% → MIDI velocity (#373/#673)
 # GM percussion notes (bank 128) for each beep kind: high/low woodblock, cowbell, side stick.
@@ -170,6 +173,9 @@ class NavMixin:
             return
         if action == "back":
             self.nav_back()                              # optional, non-essential
+            return
+        if action == "metro":                            # toggle the metronome from the D-pad (#673)
+            self._metro_toggle()
             return
         n = len(self.cur.items)
         if n <= 1:

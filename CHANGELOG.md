@@ -13,6 +13,8 @@ All notable changes to pisynth, in plain language. Newest first.
   in-between tempos (the nearest one).
 - **Home beat pulse** — optional: the Home-screen metronome icon flashes on each beat —
   yellow on the strong beat, blue on the others (Settings → Metronome → Home pulse).
+- **D-pad metronome toggle** — bind a MIDI key to start/stop the metronome (Settings →
+  Navigation → Metronome, learn-by-press).
 
 ### Changed
 - **Metronome beat indicator** — a single metronome glyph in the header that blinks in

@@ -11,7 +11,8 @@ All notable changes to pisynth, in plain language. Newest first.
   separate audio device. This replaces the old Mode toggle, the separate-WAV path and the
   click-sound picker — the click now uses a fixed light drum soundfont.
 - **Tempo presets** — pick a classic tempo (Largo … Presto) on the Metronome screen; the
-  BPM stepper still fine-tunes.
+  BPM stepper still fine-tunes, and the Tempo row shows the matching marking name even for
+  in-between tempos (the nearest one).
 - **Home beat pulse** — optional: the Home-screen metronome icon flashes on each beat —
   yellow on the strong beat, blue on the others (Settings → Metronome → Home pulse).
 

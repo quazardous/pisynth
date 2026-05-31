@@ -5,22 +5,24 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
-- **Metronome "Piano" mode** — the click can now be played by the synth itself, so it
-  comes out of the same speakers as the piano (Settings → Metronome → Mode). The click
-  sound is a soundfont you can choose; the classic "Separate" mode (its own output card)
-  stays available.
+- **Metronome click on the piano speakers** — the click is played by the synth itself, so
+  it comes out of the same speakers as the piano. A single **Output** setting (Settings →
+  Metronome → Output) keeps it on the piano ("Piano (synth)") or, later, routes it to a
+  separate audio device. This replaces the old Mode toggle, the separate-WAV path and the
+  click-sound picker — the click now uses a fixed light drum soundfont.
 - **Tempo presets** — pick a classic tempo (Largo … Presto) on the Metronome screen; the
   BPM stepper still fine-tunes.
-- **Home beat pulse** — optional: the Home-screen metronome icon flashes on each beat
-  (Settings → Metronome → Home pulse).
+- **Home beat pulse** — optional: the Home-screen metronome icon flashes on each beat —
+  yellow on the strong beat, blue on the others (Settings → Metronome → Home pulse).
 
 ### Changed
 - **Metronome beat indicator** — a single metronome glyph in the header that blinks in
   time (yellow on the strong beat, blue on the others), instead of a row of dots.
 - The Navigation screen is now in English.
-- **Audio performance** — fluidsynth now renders polyphony across 2 CPU cores (was 1) and
-  the CPU governor is pinned to `performance`, for steadier timing and fewer glitches on
-  dense chords / large soundfonts.
+- **Audio performance** — fluidsynth now renders polyphony across 2 CPU cores (was 1), runs
+  its audio thread at real-time priority, the CPU governor is pinned to `performance`, swap
+  is kept off the audio process (`vm.swappiness=10`), and unused NFS/RPC daemons are masked
+  — for steadier timing and fewer glitches on dense chords / large soundfonts.
 
 ### Fixed
 - System health no longer warns when the optional MIDI-bridge service is down — only the

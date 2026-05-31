@@ -75,6 +75,9 @@ GAIN="${GAIN:-2.5}"
 PERIOD_SIZE="${PERIOD_SIZE:-256}"
 PERIODS="${PERIODS:-4}"
 WAIT_SECONDS="${WAIT_SECONDS:-60}"
+# Voice-rendering threads (#660, perf T1). fluidsynth defaults to 1 → all polyphony renders
+# on a single core; the Pi 3B+ has 4 → use 2 and leave 2 for the UI / web companion / system.
+CPU_CORES="${CPU_CORES:-2}"
 
 log() { echo "[piano] $*"; }
 
@@ -223,6 +226,7 @@ if [[ -n "$BT_SINK_MAC" ]]; then
             --midi-driver=alsa_seq \
             -o "audio.pulseaudio.device=${SINK}" \
             -o "audio.realtime-prio=0" \
+            -o "synth.cpu-cores=${CPU_CORES}" \
             -o "midi.autoconnect=${MIDI_AUTOCONNECT}" \
             -o "synth.dynamic-sample-loading=1" \
             -o "synth.gain=${GAIN}" \
@@ -258,6 +262,8 @@ exec /usr/bin/fluidsynth \
     -o "audio.alsa.device=plughw:${CARD}" \
     -o "audio.period-size=${PERIOD_SIZE}" \
     -o "audio.periods=${PERIODS}" \
+    -o "audio.realtime-prio=60" \
+    -o "synth.cpu-cores=${CPU_CORES}" \
     -o "midi.autoconnect=${MIDI_AUTOCONNECT}" \
     -o "synth.dynamic-sample-loading=1" \
     -o "synth.gain=${GAIN}" \

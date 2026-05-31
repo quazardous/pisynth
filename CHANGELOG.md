@@ -18,6 +18,9 @@ All notable changes to pisynth, in plain language. Newest first.
 - **Metronome beat indicator** — a single metronome glyph in the header that blinks in
   time (yellow on the strong beat, blue on the others), instead of a row of dots.
 - The Navigation screen is now in English.
+- **Audio performance** — fluidsynth now renders polyphony across 2 CPU cores (was 1) and
+  the CPU governor is pinned to `performance`, for steadier timing and fewer glitches on
+  dense chords / large soundfonts.
 
 ### Fixed
 - System health no longer warns when the optional MIDI-bridge service is down — only the

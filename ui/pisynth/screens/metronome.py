@@ -4,6 +4,7 @@ Mixin for app.App: BPM/beats steppers + the output picker (ALSA cards or a BT si
 routed through the injected `metro.play_fn`). Cross-feature helpers (toast,
 _update_settings) resolve via the MRO.
 """
+from ..core.soundfonts import list_soundfont_files, sf_key
 from ..ui.menu import Item, MenuScreen
 from .devices import output_label, output_picker_items
 
@@ -11,20 +12,27 @@ from .devices import output_label, output_picker_items
 class MetronomeMixin:
     # ---- metronome (#287) ----
     def _metronome_menu(self):
-        return MenuScreen("Metronome", [
+        items = [
             Item("BPM", on_adjust=self._metro_bpm, value=(lambda: str(self.metro.bpm))),
             Item("Beats/bar", on_adjust=self._metro_beats, value=(lambda: str(self.metro.beats))),
             Item("Volume", on_adjust=self._metro_vol, value=(lambda: f"{self.metro.vol}%")),
-            Item("Output", on_select=self._open_metro_audio, submenu=True,
-                 value=self._metro_card_label),
-            Item("Start / Stop", on_select=self._metro_toggle,
-                 value=(lambda: "running" if self.metro.running else "stopped")),
-        ])
+            Item("Mode", on_adjust=self._metro_mode, value=self._metro_mode_label),
+        ]
+        if self.metro.mode == "fluid":               # click via the synth (#655) → pick its soundfont
+            items.append(Item("Click sound", on_select=self._open_metro_click_sf, submenu=True,
+                              value=(lambda: self.metro.click_sf or "default")))
+        else:                                        # separate output (#648/#287) → pick its card/sink
+            items.append(Item("Output", on_select=self._open_metro_audio, submenu=True,
+                              value=self._metro_card_label))
+        items.append(Item("Start / Stop", on_select=self._metro_toggle,
+                          value=(lambda: "running" if self.metro.running else "stopped")))
+        return MenuScreen("Metronome", items)
 
     def _save_metro(self):
         """Persist all metronome prefs together so writing one never drops another (#287)."""
         self._update_settings(metro={"bpm": self.metro.bpm, "beats": self.metro.beats,
-                                     "vol": self.metro.vol, "card": self.metro.card,
+                                     "vol": self.metro.vol, "mode": self.metro.mode,
+                                     "click_sf": self.metro.click_sf, "card": self.metro.card,
                                      "bt_sink": self.metro.bt_sink})
 
     def _metro_bpm(self, delta):
@@ -38,6 +46,36 @@ class MetronomeMixin:
     def _metro_vol(self, delta):
         self.metro.set_volume(self.metro.vol + 5 * delta)   # live: rebuilt for the next bar (#648)
         self._save_metro()
+
+    # ---- output mode: separate card (#648) vs via the synth (#655) ----
+    def _metro_mode_label(self):
+        return "Piano" if self.metro.mode == "fluid" else "Séparé"
+
+    def _metro_mode(self, delta):
+        self.metro.stop()                            # mode change → stop; restart in the new mode
+        self.metro.mode = "fluid" if self.metro.mode == "separate" else "separate"
+        self._save_metro()
+        if self.stack and self.stack[-1].title == "Metronome":   # rebuild: Output ↔ Click sound swaps
+            m = self._metronome_menu()
+            m.idx = 3                                # keep the cursor on the Mode row
+            self.stack[-1] = m
+
+    def _open_metro_click_sf(self):
+        """Pick the soundfont that provides the click in fluid mode (#655)."""
+        items = [Item("Default", on_select=(lambda: self._choose_metro_click_sf("")),
+                      marker=(lambda: not self.metro.click_sf))]
+        for path in list_soundfont_files():
+            name = sf_key(path)
+            items.append(Item(name, on_select=(lambda n=name: self._choose_metro_click_sf(n)),
+                              marker=(lambda n=name: self.metro.click_sf == n)))
+        self.stack.append(MenuScreen("Click sound", items))
+
+    def _choose_metro_click_sf(self, name):
+        self.metro.click_sf = name
+        self._save_metro()
+        if self.metro.running and self.metro.mode == "fluid":
+            self.metro.stop()                        # font changed → restart to reload it
+        self.toast("Click sound: " + (name or "default"))
 
     def _metro_toggle(self):
         if self.metro.running:

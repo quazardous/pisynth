@@ -86,8 +86,8 @@ from .io import (Backlight, Bluetooth, Fluid, Framebuffer, Metronome, MidiMonito
 # call sites — and preview.py's monkeypatches (list_audio_cards / read_sf_presets
 # / ...) — keep working on the bare names.
 from .core.audio import (GAIN_DEFAULT, GAIN_MAX, GAIN_MIN, GAIN_STEP, audio_active,
-                         audio_output_present, list_midi_inputs, metro_stream_argv,
-                         midi_input_present, play_test)
+                         audio_output_present, fluid_seq_port, list_midi_inputs,
+                         metro_click_argv, metro_stream_argv, midi_input_present, play_test)
 from .core.geometry import solve_affine
 from .core.settings import (CAL_PATH, SETTINGS_PATH, _legacy_json_path, load_cal,
                             load_settings, save_cal, save_settings)
@@ -161,6 +161,8 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         self.metro.bpm = _m.get("bpm", 100)
         self.metro.beats = _m.get("beats", 4)
         self.metro.vol = _m.get("vol", 80)          # metronome click volume 0-100 (#648)
+        self.metro.mode = _m.get("mode", "separate") # "separate" PCM (#648) | "fluid" via synth (#655)
+        self.metro.click_sf = _m.get("click_sf", "") # fluid mode: click soundfont basename (#655)
         self.metro.card = _m.get("card", "")        # metronome output card (#287)
         self.metro.bt_sink = _m.get("bt_sink", "")  # metronome BT sink output (#287)
         # one-shot test click routes like the synth/test: ALSA via aplay, BT via pw-play (#287)
@@ -168,6 +170,9 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         # the running metronome streams PCM into a persistent player (#648); build its argv
         # from the current output (resolved at start, so the card picker takes effect).
         self.metro.stream_cmd = lambda: metro_stream_argv(self.metro.card, self.metro.bt_sink)
+        # fluid mode (#655): play the click SMF into FLUID Synth via aplaymidi. fluid_setup
+        # (load click font + select on ch9) is wired separately once the loader spares it.
+        self.metro.click_cmd = lambda midi: metro_click_argv(midi, fluid_seq_port())
         self.stack = [self._home_menu()]
         cal = load_cal()
         if cal:
@@ -522,6 +527,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         self.cur_font_path, self.cur_bp, self.cur_preset_name = None, None, ""
         self.metro.stop()
         self.metro.bpm, self.metro.beats, self.metro.vol = 100, 4, 80
+        self.metro.mode, self.metro.click_sf = "separate", ""
         self.metro.card = self.metro.bt_sink = ""
         self.bt_names = {}; self._bt_names_dirty = False
         self.bt_sink = ""

@@ -117,6 +117,15 @@ class NavMixin:
         self._navmon_port = port
         self._nav_set_bridge(active=bool(port))          # pause/restore the D-pad bridge
 
+    def _nav_on_keyboard_back(self):
+        """A MIDI keyboard (re)appeared (#2410): the old aseqdump subscription died with it, and
+        fluidsynth's autoconnect has re-wired its ports to the synth — so re-subscribe navmon
+        and re-silence the nav port (_nav_reconcile alone is a no-op: same port name)."""
+        self._nav_reconcile()
+        if self._navmon_port:
+            self.navmon.open(self._navmon_port)
+            midi_route_to_fluid(self._navmon_port, connect=False)
+
     def _nav_on_synth_online(self):
         """Re-disconnect the nav port from the synth when it (re)connects (#373). At boot
         the UI runs _nav_reconcile before fluidsynth is up, so the one-shot disconnect is a

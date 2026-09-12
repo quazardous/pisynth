@@ -18,6 +18,12 @@ def list_audio_cards():
     devices (the Keystation) have no playback PCM and are skipped. HDMI (vc4hdmi)
     is skipped too: on this headless appliance it has no audio consumer, so the
     synth busy-loops at RT priority and freezes the UI (#311)."""
+    return [(name, desc.split(" - ", 1)[-1].strip() or name)   # "USB-Audio - M-Track Hub" -> "M-Track Hub"
+            for name, desc in _playback_cards()]
+
+
+def _playback_cards():
+    """[(name, desc), ...] of non-HDMI ALSA cards with a playback PCM, from /proc/asound."""
     cards = []
     try:
         text = open("/proc/asound/cards").read()
@@ -29,9 +35,32 @@ def list_audio_cards():
             continue                               # no playback PCM (e.g. USB-MIDI)
         if "hdmi" in (name + desc).lower():
             continue                               # HDMI = no consumer headless → runaway (#311)
-        label = desc.split(" - ", 1)[-1].strip() or name   # "USB-Audio - M-Track Hub" -> "M-Track Hub"
-        cards.append((name, label))
+        cards.append((name, desc))
     return cards
+
+
+def synth_card_candidates(soundcard=""):
+    """Card names the synth would play on (#2410): the chosen card if it is present, else —
+    like start-piano.sh's auto-detect — the USB-Audio playback cards. File-based, cheap."""
+    cards = _playback_cards()
+    if soundcard:
+        return {n for n, _ in cards if n == soundcard}
+    return {n for n, d in cards if d.startswith("USB-Audio")}
+
+
+def midi_hw_clients():
+    """Names of the kernel (hardware) ALSA-seq clients — USB-MIDI keyboards — read from
+    /proc/asound/seq/clients (no subprocess, #2410). System and Midi Through are excluded."""
+    try:
+        text = open("/proc/asound/seq/clients").read()
+    except OSError:
+        return set()
+    names = set()
+    for m in re.finditer(r'^Client\s+(\d+)\s*:\s*"(.+?)"\s*\[([^\]]*)\]', text, re.M):
+        cid, name, kind = int(m.group(1)), m.group(2), m.group(3)
+        if "Kernel" in kind and cid not in (0, 14):
+            names.add(name)
+    return names
 
 
 def alsa_mixer_control(card):

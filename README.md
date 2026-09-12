@@ -15,7 +15,8 @@ keyboard's D-pad.
 ## Features
 
 - 🎹 Boots straight into a playable instrument (any General MIDI SoundFont); hot-swap the
-  keyboard or audio interface and it recovers.
+  keyboard or audio interface and it recovers (sound comes back a few seconds after you
+  replug the interface).
 - 🖥️ 3.5" touchscreen UI — instrument **tiles** + a **Settings** menu: gain/volume, audio
   output (USB card **or Bluetooth** speaker), a **MIDI device picker + live test keyboard**,
   a **metronome**, system info & **health**, and touch calibration.

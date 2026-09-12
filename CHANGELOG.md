@@ -32,6 +32,10 @@ All notable changes to pisynth, in plain language. Newest first.
   — for steadier timing and fewer glitches on dense chords / large soundfonts.
 
 ### Fixed
+- **Replugging the sound card or keyboard** — unplugging the USB audio interface used to leave
+  the synth silent until a restart; it now restarts the sound by itself a few seconds after
+  you plug it back. Replugging the keyboard also restores MIDI navigation, keeps the D-pad
+  silent, and reconnects a keyboard you picked in Settings → MIDI.
 - **Synth control port no longer reachable from the network** — the synth's control port
   (9800) now only accepts connections from the Pi itself, so another computer on your
   network can't change the sound or load files.

@@ -78,7 +78,7 @@ from .ui.renderer import MidiState, Renderer, Status
 from .ui.theme import TILE_MUTED
 
 # Per-feature controller mixins (#308): audio / bluetooth / metronome screens + handlers.
-from .screens import AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin
+from .screens import AudioMixin, BluetoothMixin, HotplugMixin, MetronomeMixin, NavMixin
 
 
 # Hardware / device-backend adapters live in the io/ layer (#308). Re-exported
@@ -105,7 +105,7 @@ from .core.system import (board_model, cpu_clock, cpu_temp, disk_info, health,
 
 
 
-class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
+class App(AudioMixin, BluetoothMixin, HotplugMixin, MetronomeMixin, NavMixin):
     def __init__(self):
         self.fb = Framebuffer(FB_DEV, RENDER_MODE == "partial")   # io adapter (#308)
         self.view = Renderer(self.fb)             # the display/view layer (#308 step 5)
@@ -163,6 +163,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         self.midi_keyboard = s.get("midi_keyboard", "")   # chosen MIDI keyboard name; "" = auto (all) (#326)
         self.midimon = MidiMonitor()                 # MIDI test-keyboard reader (#331)
         self._nav_init(s)                            # MIDI navigation: cfg + its own monitor (#373)
+        self._hotplug_init()                         # USB replug recovery: sound card + keyboards (#2410)
         self.metro = Metronome()                     # background metronome (#287/#655/#668)
         _m = s.get("metro", {})
         self.metro.bpm = _m.get("bpm", 100)
@@ -739,6 +740,8 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         self._st_bt_conn = self._st_bt and bt_any_connected()   # device connected? (#306)
         self._st_midi = midi_input_present()
         self._st_audio = audio_output_present(self.soundcard, self.bt_sink)   # sound card OK → audio icon (#327)
+        if not force:                                 # one reading per 3 s tick: `settle` counts ticks
+            self._hotplug_poll()                      # USB replug → restart synth / re-wire MIDI (#2410)
         if force or now - self._health_t0 >= 20.0:    # health smiley on its own slow throttle (#325)
             self._health_t0 = now                     # (vcgencmd + systemctl → don't run every 3 s)
             self._health = health()[0]

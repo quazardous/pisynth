@@ -17,6 +17,9 @@ All notable changes to pisynth, in plain language. Newest first.
   Navigation → Metronome, learn-by-press).
 
 ### Changed
+- **Gentler on the SD card** — logs are kept in memory, generated sounds live in memory too,
+  settings are written safely (a power cut can't leave them empty), and the system no
+  longer installs updates on its own in the background.
 - **Metronome beat indicator** — a single metronome glyph in the header that blinks in
   time (yellow on the strong beat, blue on the others), instead of a row of dots.
 - The Navigation screen is now in English.

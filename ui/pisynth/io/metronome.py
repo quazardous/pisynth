@@ -1,6 +1,6 @@
 """Metronome audio backend (#287/#655/#668): the click is rendered by fluidsynth from a
 generated SMF on channel 9 and clocked by aplaymidi (no per-beat fork). Also hosts the
-generated nav-beep / audio-test WAVs. Self-contained (reads PISYNTH_SOUNDS from the env).
+generated nav-beep / audio-test WAVs. Self-contained (sounds_dir() reads the env).
 """
 import math
 import os
@@ -44,10 +44,22 @@ def _gen_tune(path, notes, sr=44100):
         w.writeframes(bytes(frames))
 
 
+def sounds_dir():
+    """Where the generated sounds go (#681): PISYNTH_SOUNDS if set, else the service's
+    tmpfs RuntimeDirectory (/run/pisynth, pisynth-ui.service) — everything here is
+    regenerated on demand, so it never needs to hit the SD card. Falls back to
+    ~/.config/pisynth/sounds when run outside the unit."""
+    if os.environ.get("PISYNTH_SOUNDS"):
+        return os.path.expanduser(os.environ["PISYNTH_SOUNDS"])
+    if os.environ.get("RUNTIME_DIRECTORY"):
+        return os.path.join(os.environ["RUNTIME_DIRECTORY"].split(":")[0], "sounds")
+    return os.path.expanduser("~/.config/pisynth/sounds")
+
+
 def ensure_test_tune():
     """Generate the audio-test tune WAV once and return (path, duration_ms), or
     (None, 0) on failure (#318)."""
-    d = os.path.expanduser(os.environ.get("PISYNTH_SOUNDS", "~/.config/pisynth/sounds"))
+    d = sounds_dir()
     ms = sum(n[1] for n in _TEST_TUNE)
     try:
         os.makedirs(d, exist_ok=True)
@@ -136,7 +148,7 @@ class Metronome:
         return True
 
     def _spawn_aplaymidi(self):
-        d = os.path.expanduser(os.environ.get("PISYNTH_SOUNDS", "~/.config/pisynth/sounds"))
+        d = sounds_dir()
         try:
             os.makedirs(d, exist_ok=True)
             midi = click_midi_file(os.path.join(d, "metro-click.mid"), self.bpm, self.beats, vol=self.vol)

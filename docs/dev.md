@@ -50,7 +50,7 @@ Runtime config lives in the run-as user's home (not in the repo):
 |---|---|---|
 | `~/.config/pisynth/settings.yaml` | UI prefs: `soundcard`, `sleep_after`, `page_tiles`, `preset`, `metro`, `bluetooth`. Documented; template = `settings.yaml.dist`, schema = [preferences.md](preferences.md) | the touch UI |
 | `~/.config/pisynth/touch_cal.json` | touch calibration (affine transform) | first-run / Settings → Display → Calibrate |
-| `~/.config/pisynth/sounds/` | generated metronome click WAVs | the UI (auto-generated) |
+| `/run/pisynth/sounds/` | generated sounds (metronome click SMF, test tune) — tmpfs, regenerated on demand | the UI (`RuntimeDirectory=`, #681) |
 | `~/.local/synth.conf` | synth config: `GAIN`, `SOUNDCARD`, latency, soundfont dir | migration 002 (from `synth.conf.example`); editable |
 | `~/soundfonts/` | loaded soundfonts (`.sf2/.sf3`, often symlinks) | migration 002 / `install-soundfonts.sh` / sideload |
 

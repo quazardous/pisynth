@@ -26,6 +26,24 @@ SETTINGS_HEADER = (
 )
 
 
+def _atomic_write(path, text):
+    """Write `text` to `path` so a power cut leaves either the old or the new file, never
+    an empty/partial one (#681): tmp file, fsync, rename over, fsync the directory."""
+    d = os.path.dirname(path)
+    os.makedirs(d, exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        f.write(text)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+    fd = os.open(d, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def load_cal():
     try:
         with open(CAL_PATH) as f:
@@ -35,9 +53,7 @@ def load_cal():
 
 
 def save_cal(coeffs):
-    os.makedirs(os.path.dirname(CAL_PATH), exist_ok=True)
-    with open(CAL_PATH, "w") as f:
-        json.dump({"affine": coeffs}, f)
+    _atomic_write(CAL_PATH, json.dumps({"affine": coeffs}))
 
 
 def _legacy_json_path():
@@ -71,12 +87,6 @@ def load_settings():
 
 
 def save_settings(d):
-    """Write UI preferences as documented YAML, atomically (tmp + os.replace)."""
-    os.makedirs(os.path.dirname(SETTINGS_PATH), exist_ok=True)
+    """Write UI preferences as documented YAML, atomically and durably (#681)."""
     body = yaml.safe_dump(d, default_flow_style=False, sort_keys=True, allow_unicode=True)
-    tmp = SETTINGS_PATH + ".tmp"
-    with open(tmp, "w") as f:
-        f.write(SETTINGS_HEADER)
-        f.write("\n")
-        f.write(body)
-    os.replace(tmp, SETTINGS_PATH)
+    _atomic_write(SETTINGS_PATH, SETTINGS_HEADER + "\n" + body)

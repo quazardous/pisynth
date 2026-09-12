@@ -12,6 +12,10 @@ SupplementaryGroups=video input
 ExecStartPre=+-/usr/bin/plymouth quit
 ExecStart=/usr/bin/python3 -m pisynth
 Environment=PYTHONPATH=/usr/local/lib/pisynth
+# tmpfs scratch dir for regenerable sounds (metronome click SMF, test tune) → /run/pisynth,
+# exported as $RUNTIME_DIRECTORY; keeps those rewrites off the SD card (#681).
+RuntimeDirectory=pisynth
+RuntimeDirectoryPreserve=restart
 Restart=always
 RestartSec=3
 Environment=PISYNTH_FB=/dev/fb0

@@ -1,6 +1,6 @@
 # Dev tooling only — pisynth is deployed by rsync (deploy.sh / sync.sh), not pip-installed.
 # Run from the repo root, nothing to install into the system Python:
-#   uvx ruff check ui tools tests
+#   uvx ruff check ui tools tests web
 #   uvx --with numpy,pillow,pyyaml pytest
 
 [project]
@@ -11,7 +11,7 @@ requires-python = ">=3.11"          # the Pi runs Debian 13's Python 3.13
 [tool.ruff]
 target-version = "py311"
 line-length = 120
-src = ["ui", "tools", "tests"]
+src = ["ui", "tools", "tests", "web"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "B"]    # import order left as written (sectioned on purpose)
@@ -29,5 +29,5 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["ui"]
+pythonpath = ["ui", "."]
 addopts = "-q"

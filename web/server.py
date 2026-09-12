@@ -1,82 +1,90 @@
-#!/usr/bin/env python3
-"""pisynth-web — the learning-companion web server (#658/#659).
+"""pisynth-web — the web companion's server (#658/#659). Thick phone, ultra-thin Pi.
 
-ONE asyncio process (mono-worker, david's call): serves the mobile-first static app
-once, then fans out the live MIDI stream to every connected browser over a WebSocket.
-Ultra-light on the wire — only note on/off events, a few bytes each; all rendering and
-exercise logic live in the browser (we exploit the phone, spare the Pi 3B+). The sound
-stays on the Pi (fluidsynth) — nothing audio crosses the wire.
+ONE long-lived asyncio process, warm from boot: everything is loaded at startup (app files
++ their gzip copies in RAM, TLS context, sessions), then the Pi only does what the phone
+physically can't:
 
-Stdlib only (asyncio) — no extra dependency — so it stays light and self-contained. The
-WebSocket framing is minimal on purpose: server→client text frames, plus enough client
-frame decoding to honour PING and CLOSE. The MIDI source is injected (a thread that
-calls `feed()`); io/midi_source.py provides the real ALSA-seq reader, tests a fake.
+- serve the app files (once — the page's service worker caches them),
+- pair a phone (one-time QR token → session cookie, see auth.py),
+- relay raw MIDI to every paired phone over one WebSocket, as 7-byte binary frames.
+
+Everything else (note names, chords, notation, latency analysis, storage) runs in the
+browser. Stdlib only. The public listener is HTTPS (the phone's mic and service worker
+need a secure context); a second, plain-HTTP listener bound to 127.0.0.1 is the admin API
+the touch UI uses to get a pairing token.
 """
 import asyncio
 import base64
+import collections
+import gzip
 import hashlib
 import json
 import os
+import socket
+import ssl
 import struct
+import time
+
+from .auth import Auth, cookie_value
 
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-_TYPES = {".html": "text/html; charset=utf-8", ".js": "application/javascript",
-          ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml",
-          ".ico": "image/x-icon"}
+SESSION_COOKIE = "pisynth_session"
+MAX_BODY = 1024
+MAX_WS_BACKLOG = 64 * 1024                      # a phone this far behind is dropped, not buffered
+
+_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+          ".mjs": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+          ".json": "application/json", ".webmanifest": "application/manifest+json",
+          ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon"}
+_REASON = {101: "Switching Protocols", 200: "OK", 204: "No Content", 304: "Not Modified",
+           400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found",
+           405: "Method Not Allowed", 413: "Payload Too Large"}
+_SECURITY_HEADERS = ("X-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\n"
+                     "Content-Security-Policy: default-src 'self'; img-src 'self' data:; "
+                     "connect-src 'self'; frame-ancestors 'none'\r\n")
+_ROUTES = {"/": "index.html", "/latency": "latency.html"}   # clean URLs → files
+
 
 # ---- WebSocket framing (RFC 6455, the slice we need) ----
-
 def accept_key(client_key):
     """Sec-WebSocket-Accept for a client's Sec-WebSocket-Key (RFC 6455 handshake)."""
     return base64.b64encode(hashlib.sha1((client_key + WS_GUID).encode()).digest()).decode()
 
 
-def encode_text(payload):
-    """A single unfragmented server→client TEXT frame (unmasked, as the server must)."""
-    data = payload.encode()
-    n = len(data)
-    hdr = bytearray([0x81])                          # FIN=1, opcode=1 (text)
+def encode_frame(payload, opcode=0x2):
+    """One unfragmented, unmasked server→client frame (binary by default)."""
+    n = len(payload)
     if n < 126:
-        hdr.append(n)
+        hdr = bytes((0x80 | opcode, n))
     elif n < 65536:
-        hdr.append(126)
-        hdr += struct.pack(">H", n)
+        hdr = bytes((0x80 | opcode, 126)) + struct.pack(">H", n)
     else:
-        hdr.append(127)
-        hdr += struct.pack(">Q", n)
-    return bytes(hdr) + data
+        hdr = bytes((0x80 | opcode, 127)) + struct.pack(">Q", n)
+    return hdr + payload
 
 
 def decode_frames(buf):
-    """Consume complete frames from bytearray `buf`, return [(opcode, payload_bytes), ...].
-    Leaves any partial trailing frame in `buf` for the next read. Client frames are masked."""
+    """Consume complete frames from bytearray `buf` → [(opcode, payload), ...]; a partial
+    trailing frame stays in `buf`. Client frames are masked."""
     out = []
-    while True:
-        if len(buf) < 2:
-            break
-        b0, b1 = buf[0], buf[1]
-        opcode = b0 & 0x0F
-        masked = b1 & 0x80
-        ln = b1 & 0x7F
-        idx = 2
+    while len(buf) >= 2:
+        opcode, masked, ln, idx = buf[0] & 0x0F, buf[1] & 0x80, buf[1] & 0x7F, 2
         if ln == 126:
             if len(buf) < 4:
                 break
-            ln = struct.unpack(">H", buf[2:4])[0]
-            idx = 4
+            ln, idx = struct.unpack(">H", buf[2:4])[0], 4
         elif ln == 127:
             if len(buf) < 10:
                 break
-            ln = struct.unpack(">Q", buf[2:10])[0]
-            idx = 10
+            ln, idx = struct.unpack(">Q", buf[2:10])[0], 10
         need = idx + (4 if masked else 0) + ln
         if len(buf) < need:
             break
         if masked:
             mask = buf[idx:idx + 4]
             idx += 4
-            payload = bytes(buf[idx + i] ^ mask[i % 4] for i in range(ln))
+            payload = bytes(b ^ mask[i % 4] for i, b in enumerate(buf[idx:idx + ln]))
         else:
             payload = bytes(buf[idx:idx + ln])
         del buf[:idx + ln]
@@ -84,60 +92,174 @@ def decode_frames(buf):
     return out
 
 
-def _parse_headers(blob):
-    """{lower-name: value} from a raw HTTP request head (bytes), + the request line."""
-    lines = blob.decode("latin1").split("\r\n")
-    req = lines[0] if lines else ""
+# ---- static files, loaded once ----
+Asset = collections.namedtuple("Asset", "body gz ctype etag")
+
+
+def load_static(static_dir=STATIC_DIR):
+    """{url path: Asset} for every file under static_dir, with a gzip copy and an ETag —
+    computed once at startup, so serving is a memory write."""
+    assets = {}
+    for root, _, files in os.walk(static_dir):
+        for name in files:
+            full = os.path.join(root, name)
+            rel = os.path.relpath(full, static_dir).replace(os.sep, "/")
+            with open(full, "rb") as f:
+                body = f.read()
+            ctype = _TYPES.get(os.path.splitext(name)[1].lower(), "application/octet-stream")
+            gz = gzip.compress(body, 9) if ctype.startswith(("text/", "application/j", "image/svg")) else None
+            etag = '"' + hashlib.sha256(body).hexdigest()[:16] + '"'
+            assets["/" + rel] = Asset(body, gz if gz and len(gz) < len(body) else None, ctype, etag)
+    for url, rel in _ROUTES.items():
+        if "/" + rel in assets:
+            assets[url] = assets["/" + rel]
+    return assets
+
+
+def cert_fingerprint(cert_path):
+    """SHA-256 fingerprint of a PEM certificate, as AA:BB:… (what browsers display)."""
+    with open(cert_path) as f:
+        der = ssl.PEM_cert_to_DER_cert(f.read())
+    h = hashlib.sha256(der).hexdigest().upper()
+    return ":".join(h[i:i + 2] for i in range(0, len(h), 2))
+
+
+class Request:
+    def __init__(self, method, path, headers, body=b""):
+        self.method, self.path, self.headers, self.body = method, path, headers, body
+
+
+async def read_request(reader):
+    """Parse one HTTP/1.1 request head (+ a small body) → Request, or None on garbage."""
+    head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=10)
+    lines = head.decode("latin1").split("\r\n")
+    parts = lines[0].split(" ")
+    if len(parts) < 2:
+        return None
     headers = {}
     for ln in lines[1:]:
         if ":" in ln:
             k, v = ln.split(":", 1)
             headers[k.strip().lower()] = v.strip()
-    return req, headers
+    body = b""
+    length = int(headers.get("content-length", "0") or 0)
+    if length > MAX_BODY:
+        return Request(parts[0], "", headers, None)           # flagged: too large
+    if length:
+        body = await asyncio.wait_for(reader.readexactly(length), timeout=10)
+    return Request(parts[0], parts[1].split("?", 1)[0], headers, body)
+
+
+def response(code, body=b"", ctype="text/plain; charset=utf-8", extra=""):
+    return (f"HTTP/1.1 {code} {_REASON.get(code, 'OK')}\r\nContent-Type: {ctype}\r\n"
+            f"Content-Length: {len(body)}\r\nConnection: close\r\n{_SECURITY_HEADERS}{extra}\r\n"
+            ).encode() + body
 
 
 class WebCompanion:
-    """The asyncio server: static files + a MIDI-fan-out WebSocket (#659)."""
-
-    def __init__(self, host="0.0.0.0", port=8080, static_dir=STATIC_DIR):
-        self.host, self.port, self.static_dir = host, port, static_dir
-        self.clients = set()                         # set[asyncio.StreamWriter] of live WS peers
+    def __init__(self, auth, assets, host="0.0.0.0", port=8443, admin_port=9811,
+                 ssl_ctx=None, fingerprint=""):
+        self.auth, self.assets = auth, assets
+        self.host, self.port, self.admin_port = host, port, admin_port
+        self.ssl_ctx, self.fingerprint = ssl_ctx, fingerprint
+        self.clients = set()                         # StreamWriters of live WebSockets
+        self.frames = 0
+        self.relay_us = collections.deque(maxlen=4096)   # seq read → frame queued to sockets
         self._loop = None
 
-    # ---- MIDI ingress (called from the reader thread) ----
-    def feed(self, msg):
-        """Thread-safe: queue a MIDI event dict for broadcast to all browsers (#659).
-        Tiny on the wire — e.g. {'t':'on','n':60,'v':100}."""
+    # ---- MIDI hot path (feed runs on the source thread) ----
+    def feed(self, payload, t_read_ns=None):
         loop = self._loop
         if loop is not None:
-            loop.call_soon_threadsafe(self._broadcast, json.dumps(msg, separators=(",", ":")))
+            loop.call_soon_threadsafe(self._broadcast, encode_frame(payload), t_read_ns)
 
-    def _broadcast(self, text):
-        frame = encode_text(text)
+    def _broadcast(self, frame, t_read_ns=None):
         for w in list(self.clients):
-            try:
-                w.write(frame)
-            except Exception:                        # dead peer → drop it
-                self.clients.discard(w)
+            if w.is_closing() or w.transport.get_write_buffer_size() > MAX_WS_BACKLOG:
+                self.clients.discard(w)              # dead or hopelessly slow phone
+                w.close()
+                continue
+            w.write(frame)
+        self.frames += 1
+        if t_read_ns is not None:
+            self.relay_us.append((time.monotonic_ns() - t_read_ns) // 1000)
 
-    # ---- connections ----
-    async def _handle(self, reader, writer):
+    # ---- public listener (HTTPS) ----
+    async def _handle_public(self, reader, writer):
         try:
-            head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=10)
-        except (asyncio.IncompleteReadError, asyncio.LimitOverrunError, asyncio.TimeoutError, OSError):
+            req = await read_request(reader)
+        except (asyncio.IncompleteReadError, asyncio.LimitOverrunError, asyncio.TimeoutError,
+                ValueError, OSError, ssl.SSLError):
             writer.close()
             return
-        req, headers = _parse_headers(head)
-        if headers.get("upgrade", "").lower() == "websocket":
-            await self._serve_ws(reader, writer, headers)
+        if req is None:
+            writer.write(response(400, b"bad request"))
+        elif req.body is None:
+            writer.write(response(413, b"too large"))
+        elif req.path == "/ws":
+            return await self._serve_ws(reader, writer, req)
+        elif req.path == "/pair":
+            writer.write(self._pair(req))
+        elif req.path == "/api/session":
+            ok = self.auth.valid(cookie_value(req.headers, SESSION_COOKIE))
+            writer.write(response(204 if ok else 401))
+        elif req.method in ("GET", "HEAD"):
+            writer.write(self._static(req))
         else:
-            await self._serve_static(writer, req)
+            writer.write(response(405, b"method not allowed"))
+        await self._finish(writer)
 
-    async def _serve_ws(self, reader, writer, headers):
-        key = headers.get("sec-websocket-key", "")
-        writer.write(("HTTP/1.1 101 Switching Protocols\r\n"
-                      "Upgrade: websocket\r\nConnection: Upgrade\r\n"
-                      f"Sec-WebSocket-Accept: {accept_key(key)}\r\n\r\n").encode())
+    def _pair(self, req):
+        if req.method != "POST":
+            return response(405, b"method not allowed")
+        try:
+            token = json.loads(req.body or b"{}").get("token", "")
+        except (ValueError, AttributeError):
+            return response(400, b"bad request")
+        session_id = self.auth.redeem(token)
+        if not session_id:
+            return response(403, b'{"error":"invalid or expired pairing code"}', "application/json")
+        cookie = (f"Set-Cookie: {SESSION_COOKIE}={session_id}; Path=/; Max-Age=315360000; "
+                  "HttpOnly; Secure; SameSite=Strict\r\n")
+        return response(200, b'{"paired":true}', "application/json", cookie)
+
+    def _static(self, req):
+        asset = self.assets.get(req.path)
+        if asset is None:
+            return response(404, b"not found")
+        cache = "Cache-Control: no-cache\r\n"        # revalidate by ETag; the service worker caches
+        if req.headers.get("if-none-match") == asset.etag:
+            return response(304, extra=f"ETag: {asset.etag}\r\n{cache}")
+        body, enc = asset.body, ""
+        if asset.gz and "gzip" in req.headers.get("accept-encoding", ""):
+            body, enc = asset.gz, "Content-Encoding: gzip\r\nVary: Accept-Encoding\r\n"
+        extra = f"ETag: {asset.etag}\r\n{cache}{enc}"
+        out = response(200, body, asset.ctype, extra)
+        if req.method == "HEAD":
+            out = out[:out.index(b"\r\n\r\n") + 4]
+        return out
+
+    async def _serve_ws(self, reader, writer, req):
+        h = req.headers
+        if not self.auth.valid(cookie_value(h, SESSION_COOKIE)):
+            writer.write(response(401, b"pair this phone first"))
+            return await self._finish(writer)
+        origin = h.get("origin", "")
+        if origin and origin.split("://", 1)[-1] != h.get("host", ""):
+            writer.write(response(403, b"cross-origin"))   # cross-site WebSocket hijacking
+            return await self._finish(writer)
+        if h.get("upgrade", "").lower() != "websocket" or not h.get("sec-websocket-key"):
+            writer.write(response(400, b"websocket upgrade expected"))
+            return await self._finish(writer)
+        sock = writer.get_extra_info("socket")
+        if sock is not None:
+            try:
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)   # no Nagle: notes leave now
+            except OSError:
+                pass
+        writer.write(("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
+                      f"Connection: Upgrade\r\nSec-WebSocket-Accept: {accept_key(h['sec-websocket-key'])}"
+                      "\r\n\r\n").encode())
         await writer.drain()
         self.clients.add(writer)
         buf = bytearray()
@@ -147,67 +269,90 @@ class WebCompanion:
                 if not data:
                     break
                 buf += data
+                if len(buf) > MAX_BODY * 16:
+                    break                            # phones only send tiny control frames
                 for opcode, payload in decode_frames(buf):
                     if opcode == 0x8:                # CLOSE
+                        writer.write(encode_frame(payload[:2], 0x8))
                         return
                     if opcode == 0x9:                # PING → PONG
-                        writer.write(bytes([0x8A, len(payload)]) + payload)
-                # (client→server data frames are ignored: the browser is display-only here)
-        except (OSError, asyncio.IncompleteReadError):
+                        writer.write(encode_frame(payload[:125], 0xA))
+                    # data frames (phone → Pi commands) come in a later slice
+        except (OSError, asyncio.IncompleteReadError, ssl.SSLError):
             pass
         finally:
             self.clients.discard(writer)
-            try:
-                writer.close()
-            except OSError:
-                pass
+            writer.close()
 
-    async def _serve_static(self, writer, req):
-        path = "/"
-        parts = req.split(" ")
-        method = parts[0] if parts else ""
-        if len(parts) >= 2:
-            path = parts[1].split("?", 1)[0]
-        if method != "GET":
-            self._http(writer, 405, b"method not allowed")
-        else:
-            self._http_file(writer, path)
+    @staticmethod
+    async def _finish(writer):
         try:
             await writer.drain()
-        except OSError:
+        except (OSError, ssl.SSLError):
             pass
         writer.close()
 
-    def _resolve(self, path):
-        """Map a URL path to a safe file under static_dir, or None if it escapes / is missing."""
-        rel = "index.html" if path in ("", "/") else path.lstrip("/")
-        full = os.path.normpath(os.path.join(self.static_dir, rel))
-        if not full.startswith(os.path.abspath(self.static_dir) + os.sep) and full != os.path.abspath(self.static_dir):
-            return None                              # path traversal → refuse
-        return full if os.path.isfile(full) else None
-
-    def _http_file(self, writer, path):
-        full = self._resolve(path)
-        if not full:
-            self._http(writer, 404, b"not found")
-            return
+    # ---- admin listener (plain HTTP, 127.0.0.1 only — the touch UI) ----
+    async def _handle_admin(self, reader, writer):
         try:
-            with open(full, "rb") as f:
-                body = f.read()
-        except OSError:
-            self._http(writer, 404, b"not found")
+            req = await read_request(reader)
+        except (asyncio.IncompleteReadError, asyncio.LimitOverrunError, asyncio.TimeoutError,
+                ValueError, OSError):
+            writer.close()
             return
-        ctype = _TYPES.get(os.path.splitext(full)[1].lower(), "application/octet-stream")
-        self._http(writer, 200, body, ctype)
+        if req is None or req.body is None:
+            writer.write(response(400))
+        elif (req.method, req.path) == ("POST", "/admin/token"):
+            token, ttl = self.auth.new_token()
+            writer.write(self._json({"token": token, "ttl": ttl, "port": self.port,
+                                     "fingerprint": self.fingerprint}))
+        elif (req.method, req.path) == ("POST", "/admin/forget"):
+            self.auth.forget_all()
+            for w in list(self.clients):             # paired phones are disconnected right away
+                w.close()
+            self.clients.clear()
+            writer.write(self._json({"sessions": 0}))
+        elif (req.method, req.path) == ("GET", "/admin/stats"):
+            writer.write(self._json(self.stats()))
+        else:
+            writer.write(response(404))
+        await self._finish(writer)
 
     @staticmethod
-    def _http(writer, code, body, ctype="text/plain; charset=utf-8"):
-        reason = {200: "OK", 404: "Not Found", 405: "Method Not Allowed"}.get(code, "OK")
-        writer.write((f"HTTP/1.1 {code} {reason}\r\nContent-Type: {ctype}\r\n"
-                      f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n").encode() + body)
+    def _json(obj):
+        return response(200, json.dumps(obj).encode(), "application/json")
+
+    def stats(self):
+        s = sorted(self.relay_us)
+
+        def pct(p):
+            return s[min(len(s) - 1, int(len(s) * p))] if s else None
+        return {"clients": len(self.clients), "sessions": self.auth.session_count,
+                "frames": self.frames, "relay_us": {"p50": pct(0.5), "p99": pct(0.99),
+                                                    "max": s[-1] if s else None, "n": len(s)}}
+
+    # ---- run ----
+    async def start(self):
+        self._loop = asyncio.get_running_loop()
+        public = await asyncio.start_server(self._handle_public, self.host, self.port, ssl=self.ssl_ctx)
+        admin = await asyncio.start_server(self._handle_admin, "127.0.0.1", self.admin_port)
+        return public, admin
 
     async def serve(self):
-        self._loop = asyncio.get_running_loop()
-        server = await asyncio.start_server(self._handle, self.host, self.port)
-        async with server:
-            await server.serve_forever()
+        public, admin = await self.start()
+        async with public, admin:
+            await asyncio.gather(public.serve_forever(), admin.serve_forever())
+
+
+def make_ssl_context(cert, key):
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.load_cert_chain(cert, key)
+    return ctx
+
+
+def make_app(**kw):
+    """Convenience for tests / __main__: Auth + preloaded assets + server."""
+    auth = kw.pop("auth", None) or Auth(kw.pop("sessions_path", None))
+    assets = kw.pop("assets", None) or load_static(kw.pop("static_dir", STATIC_DIR))
+    return WebCompanion(auth, assets, **kw)

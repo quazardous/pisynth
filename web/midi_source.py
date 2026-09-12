@@ -1,37 +1,49 @@
 """Live MIDI source for the web companion (#659).
 
-Reads note events straight off the ALSA sequencer via `aseqdump` on a background thread
-and hands each one to a callback (the web server's thread-safe `feed`). It takes its OWN
-aseqdump subscription to the keyboard, so it coexists with fluidsynth and the touch UI's
-monitor (ALSA-seq allows many subscribers). Stdlib only; no dependency on the pisynth
-package — the web service stays self-contained.
+One `aseqdump` subscription to the keyboard, opened once at startup and kept open, read on
+a dedicated thread (ALSA-seq allows many subscribers: fluidsynth and the touch UI keep
+theirs). Each event is packed into a 7-byte binary message — the raw MIDI bytes plus a
+timestamp — and handed to the server's thread-safe `feed`. No JSON, no interpretation:
+the phone decodes and does everything else.
 
-The reader is Pi-only (needs ALSA seq); `parse_note` is pure and unit-tested off-device.
+Wire format (big-endian): status u8 · data1 u8 · data2 u8 · t_ms u32 (monotonic ms, wraps).
+`parse_line` / `pack` are pure and unit-tested off-device; the reader needs ALSA seq.
 """
 import re
+import struct
 import subprocess
 import threading
+import time
 
-# aseqdump line, e.g.: " 24:0   Note on                 0, note 60, velocity 100"
-_NOTE_RE = re.compile(r"Note (on|off)\b.*?\bnote (\d+).*?\bvelocity (\d+)", re.I)
+FRAME = struct.Struct(">BBBI")
+
+# aseqdump lines, e.g. " 24:0   Note on                 0, note 60, velocity 100"
+#                      " 24:0   Control change          0, controller 64, value 127"
+_EVENT_RE = re.compile(
+    r"(Note on|Note off|Control change)\s+(\d+),\s+(?:note|controller)\s+(\d+),\s+(?:velocity|value)\s+(\d+)",
+    re.I)
+_STATUS = {"note on": 0x90, "note off": 0x80, "control change": 0xB0}
 
 
-def parse_note(line):
-    """An aseqdump line → {"t":"on","n":N,"v":V} / {"t":"off","n":N}, or None. Velocity-0
-    note-on is a note-off (MIDI convention)."""
-    m = _NOTE_RE.search(line)
+def parse_line(line):
+    """An aseqdump line → (status, data1, data2) raw MIDI bytes, or None for other events.
+    A velocity-0 note-on stays a note-on: that's what the keyboard sent (the phone knows)."""
+    m = _EVENT_RE.search(line)
     if not m:
         return None
-    on = m.group(1).lower() == "on"
-    note, vel = int(m.group(2)), int(m.group(3))
-    if on and vel > 0:
-        return {"t": "on", "n": note, "v": vel}
-    return {"t": "off", "n": note}
+    kind, ch, d1, d2 = m.group(1).lower(), int(m.group(2)), int(m.group(3)), int(m.group(4))
+    if not (0 <= ch <= 15 and 0 <= d1 <= 127 and 0 <= d2 <= 127):
+        return None
+    return (_STATUS[kind] | ch, d1, d2)
+
+
+def pack(status, d1, d2, t_ms):
+    return FRAME.pack(status, d1, d2, t_ms & 0xFFFFFFFF)
 
 
 def auto_port():
-    """Best-guess aseqdump target: the first hardware MIDI input (a client carrying
-    `card=`), port 0 — i.e. the keyboard. '' if none found (no keyboard plugged in)."""
+    """The first hardware MIDI input (client carrying `card=`), port 0 — the keyboard. ''
+    if none is plugged in."""
     try:
         out = subprocess.run(["aconnect", "-i"], capture_output=True, text=True, timeout=4).stdout
     except (OSError, subprocess.SubprocessError):
@@ -44,10 +56,10 @@ def auto_port():
 
 
 class AlsaSeqSource:
-    """Streams the keyboard's note events to `on_event` (a dict) off a background thread."""
+    """Streams the keyboard's events as packed frames to `on_frame(frame, t_read_ns)`."""
 
-    def __init__(self, on_event, port=""):
-        self.on_event = on_event
+    def __init__(self, on_frame, port=""):
+        self.on_frame = on_frame
         self.port = port
         self._proc = None
         self._thread = None
@@ -55,17 +67,17 @@ class AlsaSeqSource:
 
     def start(self):
         self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread = threading.Thread(target=self._loop, name="midi-source", daemon=True)
         self._thread.start()
 
     def stop(self):
         self._stop.set()
-        if self._proc is not None:
+        proc, self._proc = self._proc, None
+        if proc is not None:
             try:
-                self._proc.terminate()
+                proc.terminate()
             except OSError:
                 pass
-            self._proc = None
 
     def _loop(self):
         while not self._stop.is_set():
@@ -84,12 +96,14 @@ class AlsaSeqSource:
                 if self._stop.wait(2.0):
                     break
                 continue
-            for line in self._proc.stdout:            # blocks per line; terminate() ends it
+            proc = self._proc
+            for line in proc.stdout:                  # blocks per line; terminate() ends it
+                t_ns = time.monotonic_ns()
+                ev = parse_line(line)
+                if ev:
+                    self.on_frame(pack(*ev, t_ns // 1_000_000), t_ns)
                 if self._stop.is_set():
                     break
-                msg = parse_note(line)
-                if msg:
-                    self.on_event(msg)
             self._proc = None
-            if not self._stop.is_set():               # aseqdump died (keyboard unplugged?) → retry
+            if not self._stop.is_set():               # aseqdump ended (keyboard unplugged) → retry
                 self._stop.wait(1.0)

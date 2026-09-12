@@ -18,7 +18,7 @@ Every action goes through a navigation API (move / select / adjust / back /
 page) so it can be driven by touch, by the MIDI keyboard's D-pad (screens/nav.py),
 and by the control socket :9810 for remote testing:
     menu up|down|select|back|page   |  menu adjust <-1|+1>
-    action gain_up|gain_down|next_preset|prev_preset|next_font|prev_font|first_font|beep
+    action gain_up|gain_down|next_preset|prev_preset|next_font|prev_font|first_font|beep|restart_audio
     tap <x> <y>  |  state  |  render  |  calibrate  |  settings  |  sleep | wake
 
 Screen sleep (ticket #277): after an inactivity delay (Settings → Screen sleep)
@@ -1004,6 +1004,7 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
                 "prev_font": lambda: self._cycle_font(-1),
                 "first_font": lambda: self._cycle_font(0, first=True),
                 "beep": lambda: self._nav_beep(force=True),     # midi-bridge D-pad feedback
+                "restart_audio": self._restart_audio,     # debug / hot-plug test (#2410)
                 "gain_up": lambda: self._set_gain(self.gain + GAIN_STEP),
                 "gain_down": lambda: self._set_gain(self.gain - GAIN_STEP),
             }

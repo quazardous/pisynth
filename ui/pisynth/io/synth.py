@@ -14,6 +14,7 @@ class Fluid:
 
     def __init__(self, host, port, channels=range(16)):
         self.host, self.port, self.sock = host, port, None
+        self._hold_until = 0.0                          # close(hold_s): refuse to reconnect until then
         self.channels = channels                   # MIDI chans select() targets (#308, was KBD_CHANNELS)
 
     @property
@@ -21,6 +22,8 @@ class Fluid:
         return self.sock is not None
 
     def connect(self):
+        if time.monotonic() < self._hold_until:
+            return False
         try:
             self.sock = socket.create_connection((self.host, self.port), timeout=1)
             self._drain()                              # swallow any banner/prompt
@@ -45,6 +48,19 @@ class Fluid:
             self.sock = None
         finally:
             sock.settimeout(old)
+
+    def close(self, hold_s=0.0):
+        """Close the connection FIRST, before the synth is restarted: then the TCP TIME_WAIT
+        lands on this client side instead of fluidsynth's :9800, and the new fluidsynth can
+        bind right away (#2410 — else start-piano.sh waits ~60 s). `hold_s` keeps connect()
+        from reopening it before the old process is gone."""
+        sock, self.sock = self.sock, None
+        self._hold_until = time.monotonic() + hold_s
+        if sock is not None:
+            try:
+                sock.close()
+            except OSError:
+                pass
 
     def alive(self):
         """Cheap liveness check, no round-trip: drains buffered replies without waiting and

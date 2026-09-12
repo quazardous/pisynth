@@ -133,7 +133,12 @@ class AudioMixin:
         """Ask systemd to restart piano.service so the new device takes effect.
         Returns True if systemd accepted it (privilege present via migration 011),
         False otherwise — the choice is still persisted and start-piano.sh applies
-        it on the next start. Non-blocking so the UI never freezes on the restart."""
+        it on the next start. Non-blocking so the UI never freezes on the restart.
+        Our synth connections are closed first (and held off for a few seconds) so the
+        restarted fluidsynth can rebind its shell port immediately (#2410)."""
+        for fs in (self.fs, getattr(self, "_load_fs", None)):
+            if fs is not None:
+                fs.close(hold_s=4.0)
         try:
             r = subprocess.run(["systemctl", "restart", "--no-block", "piano.service"],
                                capture_output=True, timeout=5)

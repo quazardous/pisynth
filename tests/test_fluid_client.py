@@ -134,3 +134,12 @@ def test_alive_notices_a_restarted_synth_without_a_round_trip():
     while fs.alive() and time.monotonic() < deadline:
         time.sleep(0.01)
     assert not fs.alive() and not fs.online
+
+
+def test_close_holds_off_reconnects(fake):
+    fs = Fluid("127.0.0.1", fake.port)
+    assert fs.connect()
+    fs.close(hold_s=0.3)
+    assert not fs.online and fs.connect() is False            # held off: the old synth is still going down
+    time.sleep(0.35)
+    assert fs.connect() is True

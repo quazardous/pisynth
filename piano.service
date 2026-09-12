@@ -32,6 +32,13 @@ IOSchedulingPriority=2
 # them, so they don't run away.)
 CPUQuota=200%
 
+# The fluidsynth TCP shell (:9800) has no bind-address setting, so it listens on every
+# interface — anyone on the LAN could `load`/`gain`/`select`. Only local clients (the touch
+# UI) need it: drop every non-loopback packet to this unit's sockets (cgroup BPF filter).
+# MIDI (ALSA seq) and the Bluetooth path (PipeWire unix socket) are unaffected.
+IPAddressDeny=any
+IPAddressAllow=localhost
+
 # Logs to journald
 StandardOutput=journal
 StandardError=journal

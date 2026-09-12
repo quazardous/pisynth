@@ -26,6 +26,9 @@ All notable changes to pisynth, in plain language. Newest first.
   — for steadier timing and fewer glitches on dense chords / large soundfonts.
 
 ### Fixed
+- **Synth control port no longer reachable from the network** — the synth's control port
+  (9800) now only accepts connections from the Pi itself, so another computer on your
+  network can't change the sound or load files.
 - System health no longer warns when the optional MIDI-bridge service is down — only the
   synth (sound) and power/thermal state drive the health indicator.
 - **Navigation beep audible again** — it was silenced by the synth holding the sound card

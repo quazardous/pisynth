@@ -23,23 +23,34 @@ class Fluid:
     def connect(self):
         try:
             self.sock = socket.create_connection((self.host, self.port), timeout=1)
-            self.sock.settimeout(0.3)
             self._drain()                              # swallow any banner/prompt
         except OSError:
             self.sock = None
         return self.online
 
     def _drain(self):
+        """Discard whatever replies are already buffered, WITHOUT waiting (#2408: this used to
+        block 0.3 s on every command, on the UI thread). Marks the link down on EOF."""
+        sock = self.sock
+        old = sock.gettimeout()
+        sock.setblocking(False)                        # (MSG_DONTWAIT still waits on a timeout socket)
         try:
-            while self.sock.recv(4096):
-                pass
-        except OSError:
+            while True:
+                if not sock.recv(4096):                # server closed the connection
+                    self.sock = None
+                    return
+        except (BlockingIOError, InterruptedError):
             pass
+        except OSError:
+            self.sock = None
+        finally:
+            sock.settimeout(old)
 
     def send(self, *cmds):
         if not self.online and not self.connect():
             return False
         try:
+            self.sock.settimeout(1.0)
             self.sock.sendall(("\n".join(cmds) + "\n").encode())
             self._drain()                              # keep the socket reply buffer clean
             return True
@@ -48,25 +59,37 @@ class Fluid:
             return False
 
     def query(self, cmd, idle=0.3, overall=2.0):
-        """Send a command and collect the reply lines (read until idle)."""
+        """Send a command and collect the reply lines. Waits up to `overall` for the reply to
+        START — fluidsynth runs shell commands one at a time, so after a slow `load` the next
+        reply only comes once it is done (#375) — then stops after `idle` s of silence, since
+        the shell has no end-of-reply marker (#2408: it used to give up after the first `idle`
+        of silence, so `overall` never applied)."""
+        if not self.online and not self.connect():
+            return []
+        self._drain()                                  # stale replies must not pose as this one
         if not self.online and not self.connect():
             return []
         try:
-            self.sock.settimeout(idle)
+            self.sock.settimeout(1.0)
             self.sock.sendall((cmd + "\n").encode())
         except OSError:
             self.sock = None
             return []
-        chunks, deadline = [], time.time() + overall
-        while time.time() < deadline:
+        chunks, deadline = [], time.monotonic() + overall
+        while True:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                break
             try:
+                self.sock.settimeout(min(idle, left) if chunks else left)
                 data = self.sock.recv(4096)
             except socket.timeout:
                 break
             except OSError:
                 self.sock = None
                 break
-            if not data:
+            if not data:                               # server closed the connection
+                self.sock = None
                 break
             chunks.append(data)
         return b"".join(chunks).decode(errors="ignore").splitlines()

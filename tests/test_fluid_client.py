@@ -96,7 +96,6 @@ def test_quick_query_does_not_wait_for_the_overall_timeout(fake):
     assert time.monotonic() - t < 2.0
 
 
-@pytest.mark.xfail(strict=True, reason="#2408: query() gives up after 0.3 s of silence, so a slow load returns None")
 def test_slow_load_still_returns_the_new_font_id():
     fake = FakeFluid(load_delay=1.5)
     try:
@@ -106,7 +105,6 @@ def test_slow_load_still_returns_the_new_font_id():
         fake.close()
 
 
-@pytest.mark.xfail(strict=True, reason="#2408: send() blocks ~0.3 s in _drain() on every command")
 def test_send_does_not_block_the_caller(fake):
     fs = Fluid("127.0.0.1", fake.port)
     fs.connect()

@@ -12,6 +12,7 @@ __pycache__/
 
 # aiball dev-tooling state (local to the maintainer's workflow)
 /.aiball.yaml
+/.aiball-session_id
 # local MCP server config (machine-specific tooling)
 /.mcp.json
 

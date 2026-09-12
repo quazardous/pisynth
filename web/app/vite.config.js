@@ -3,6 +3,7 @@
 //
 // Dev server (#2415, `make dev`): HTTPS with the dev stack's cert (the phone's mic and service
 // worker need a secure context), proxying the Pi-side API to the pisynth-web container.
+import crypto from "node:crypto";
 import fs from "node:fs";
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
@@ -17,8 +18,37 @@ const https = !process.env.PISYNTH_DEV_PLAIN && certs && fs.existsSync(`${certs}
   : undefined;
 const api = { target: backend, secure: false, changeOrigin: false };
 
+// Emits sw.js with the build hash + the exact precache list (see src/sw.template.js).
+function serviceWorker() {
+  return {
+    name: "pisynth-service-worker",
+    apply: "build",
+    enforce: "post",
+    generateBundle(_, bundle) {
+      const files = Object.keys(bundle).filter(f => !f.endsWith(".map")).sort();
+      const h = crypto.createHash("sha256");
+      for (const f of files) {
+        const out = bundle[f];
+        h.update(f);
+        h.update(out.type === "chunk" ? out.code : out.source);
+      }
+      for (const f of fs.readdirSync("public").sort()) {         // manifest, icon: part of the app too
+        h.update(f);
+        h.update(fs.readFileSync(`public/${f}`));
+      }
+      const hash = h.digest("hex").slice(0, 12);
+      const precache = ["/", ...files.filter(f => f !== "index.html").map(f => `/${f}`),
+                        ...fs.readdirSync("public").sort().map(f => `/${f}`)];
+      const source = fs.readFileSync("src/sw.template.js", "utf8")
+        .replaceAll("__BUILD_HASH__", hash).replaceAll("__PRECACHE__", JSON.stringify(precache));
+      this.emitFile({ type: "asset", fileName: "sw.js", source });
+      this.emitFile({ type: "asset", fileName: "build.json", source: JSON.stringify({ hash }) + "\n" });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [svelte(), serviceWorker()],
   server: {
     https,
     port: 5173,

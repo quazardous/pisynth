@@ -16,6 +16,21 @@ QR_TITLE = "Pair a phone"
 REFRESH_MARGIN_S = 20                                   # mint a new code this long before expiry
 
 
+def companion_build():
+    """Build hash of the phone app pisynth-web serves (web/static/build.json, written by the
+    Svelte build — the same hash versions the service worker). '?' if unknown."""
+    import json
+    import os
+    here = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # …/lib/pisynth or ui/
+    for base in (os.path.join(here, "web"), os.path.join(os.path.dirname(here), "web")):
+        try:
+            with open(os.path.join(base, "static", "build.json")) as f:
+                return json.load(f).get("hash", "?")
+        except (OSError, ValueError):
+            continue
+    return "?"
+
+
 def companion_url(ip, port, token):
     return f"https://{ip}:{port}/#k={token}"
 

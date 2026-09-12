@@ -79,6 +79,7 @@ from .ui.theme import TILE_MUTED
 
 # Per-feature controller mixins (#308): audio / bluetooth / metronome screens + handlers.
 from .screens import AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMixin, NavMixin
+from .screens.companion import companion_build
 
 
 # Hardware / device-backend adapters live in the io/ layer (#308). Re-exported
@@ -636,6 +637,7 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
                           + " · BT " + ("off" if self._radio_blocked("bluetooth") else "on"))
         return self._info_rows("Software", [
             ("pisynth", VERSION),
+            ("Web app build", companion_build),           # hash versioning the phone app + its service worker (#659)
             ("OS", os_pretty()),
             ("Kernel", os.uname().release),
             ("Host", socket.gethostname()),

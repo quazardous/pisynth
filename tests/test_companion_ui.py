@@ -151,3 +151,10 @@ def test_pairing_warns_when_a_browser_is_paired_then_replaces(monkeypatch):
     assert h.companion.minted == 0                                  # no code shown before confirming
     h.dialog_yes()
     assert [m.title for m in h.stack] == ["pisynth", C.QR_TITLE]    # warning replaced by the QR
+
+
+def test_companion_build_reads_the_hash_of_the_built_app():
+    import json
+    from pathlib import Path
+    built = json.loads((Path(__file__).resolve().parents[1] / "web" / "static" / "build.json").read_text())
+    assert C.companion_build() == built["hash"] and len(built["hash"]) == 12

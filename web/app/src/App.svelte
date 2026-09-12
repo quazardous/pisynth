@@ -21,8 +21,10 @@
 
   const onFrame = fn => { listeners.add(fn); return () => listeners.delete(fn); };
 
-  ensurePaired().then(state => {
+  async function connect() {
+    const state = await ensurePaired();
     pairing = state;
+    if (state === "offline") { setTimeout(connect, 3000); return; }   // pisynth restarting / unreachable: retry
     if (state !== "paired") return;
     socket = openMidiSocket({
       onFrame: buf => listeners.forEach(fn => fn(buf)),
@@ -32,7 +34,8 @@
         listeners.forEach(fn => fn(null));        // null = link dropped: views reset held notes
       },
     });
-  });
+  }
+  connect();
   onDestroy(() => socket?.close());
 </script>
 
@@ -55,9 +58,10 @@
     {#if pairing === "expired"}
       <p>That pairing code has expired. Tap the QR icon next to the metronome on the pisynth screen and scan again.</p>
     {:else if pairing === "offline"}
-      <p>Can't reach pisynth. Is this phone on the same Wi-Fi?</p>
+      <p>Can't reach pisynth — retrying… Is this phone on the same Wi-Fi?</p>
     {:else}
       <p>On the pisynth screen, tap the <b>QR icon</b> next to the metronome, then scan the code with this phone.</p>
+      <p class="muted">Only one browser can be paired: if another one was paired after this one, this one was disconnected.</p>
     {/if}
   </section>
 {:else if path === "/latency"}

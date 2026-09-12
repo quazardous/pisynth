@@ -12,7 +12,9 @@ export async function ensurePaired() {
   }
   try {
     const s = await fetch("/api/session", { credentials: "same-origin", cache: "no-store" });
-    return s.status === 204 ? "paired" : "unpaired";
+    if (s.status === 204) return "paired";
+    if (s.status === 401) return "unpaired";      // only an explicit refusal means "pair again"
+    return "offline";                             // 5xx / proxy error: pisynth restarting — keep the session
   } catch {
     return "offline";
   }

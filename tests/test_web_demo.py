@@ -158,3 +158,64 @@ def test_phone_play_command_reaches_the_synth_shell(tmp_path, fake_shell):
             w.close()
         shell.close()
     run(go())
+
+
+def test_synth_settings_are_relayed_to_the_ui_and_state_pushed(tmp_path):
+    """#2417: phone {"t":"synth"} → pisynth-web → fake touch-UI JSON socket → reply; UI watch → phone."""
+    import shutil
+    import subprocess
+    from tests.test_web_server import Harness
+    if shutil.which("openssl") is None:
+        pytest.skip("needs openssl")
+    c, k = str(tmp_path / "c.pem"), str(tmp_path / "k.pem")
+    subprocess.run(["openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1",
+                    "-nodes", "-keyout", k, "-out", c, "-days", "1", "-subj", "/CN=t"], check=True, capture_output=True)
+    static = tmp_path / "static"
+    static.mkdir()
+    (static / "index.html").write_text("x")
+    seen, watchers = [], []
+
+    async def fake_ui(r, w):
+        msg = json.loads(await r.readline())
+        seen.append(msg)
+        if msg["op"] == "watch":
+            watchers.append(w)
+            w.write(b'{"state": {"gain": 2.5}}\n')
+            await w.drain()
+            await asyncio.sleep(5)
+            return
+        w.write(json.dumps({"ok": True, "state": {"gain": msg.get("value", 2.5)}}).encode() + b"\n")
+        await w.drain()
+        w.close()
+
+    async def ws_send(w, obj):
+        data = json.dumps(obj).encode()
+        mask = b"\x01\x02\x03\x04"
+        w.write(bytes((0x81, 0x80 | len(data))) + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(data)))
+
+    async def ws_json(r):
+        head = await asyncio.wait_for(r.readexactly(2), 5)
+        return json.loads(await r.readexactly(head[1]))
+
+    async def go():
+        ui = await asyncio.start_server(fake_ui, "127.0.0.1", 0)
+        async with Harness((c, k), str(static)) as h:
+            h.app.ui.port = ui.sockets[0].getsockname()[1]
+            h.app.ui._watch_task.cancel()
+            h.app.ui._watch_task = None
+            cookie = await h.pair()
+            _, r, w = await h.ws(cookie)
+            await asyncio.sleep(0.05)
+            h.app.ui.start_watch()
+            pushed = await ws_json(r)                                        # UI watch → phone
+            assert pushed == {"t": "synth", "state": {"gain": 2.5}}
+            await ws_send(w, {"t": "synth", "op": "set", "key": "gain", "value": 3.1, "req": 7})
+            reply = await ws_json(r)
+            assert reply["op"] == "set" and reply["req"] == 7 and reply["ok"] and reply["state"]["gain"] == 3.1
+            assert {"op": "set", "key": "gain", "value": 3.1} in seen
+            await ws_send(w, {"t": "synth", "op": "delete_everything"})           # not relayed
+            await asyncio.sleep(0.1)
+            assert all(m["op"] in ("watch", "set") for m in seen)
+            w.close()
+        ui.close()
+    run(go())

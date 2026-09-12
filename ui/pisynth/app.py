@@ -79,6 +79,7 @@ from .ui.theme import TILE_MUTED
 
 # Per-feature controller mixins (#308): audio / bluetooth / metronome screens + handlers.
 from .screens import AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMixin, NavMixin
+from .screens.synthapi import SynthApiMixin
 from .screens.companion import companion_build
 
 
@@ -106,7 +107,7 @@ from .core.system import (board_model, cpu_clock, cpu_temp, disk_info, health,
 
 
 
-class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMixin, NavMixin):
+class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMixin, NavMixin, SynthApiMixin):
     def __init__(self):
         self.fb = Framebuffer(FB_DEV, RENDER_MODE == "partial")   # io adapter (#308)
         self.view = Renderer(self.fb)             # the display/view layer (#308 step 5)
@@ -177,6 +178,8 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
         self.metro.click_cmd = lambda midi, port: metro_click_argv(midi, port)
         self.metro.fluid_setup = self._metro_fluid_setup       # load click font on ch9 → seq port
         self.metro.fluid_teardown = self._metro_fluid_teardown
+        self.gain = s.get("gain", GAIN_DEFAULT)      # persisted since #2417 (re-applied when the synth comes up)
+        self._synthapi_init(s)                       # synth settings API for the web companion (#2417)
         self.stack = [self._home_menu()]
         cal = load_cal()
         if cal:
@@ -220,6 +223,7 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
                 self.stack[0] = self._home_menu()
         if online and (not self._online or not was_up):   # (re)connected: re-apply the saved preset
             self._apply_preset()
+            self._synth_came_online()                # gain + reverb/chorus settings (#2417)
             self._ensure_click_channel()             # ch9 drum kit for the metro click + nav beep (#655/#673)
             self._nav_on_synth_online()              # re-silence the nav port (autoconnect race, #373)
         self._online = online
@@ -695,6 +699,7 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
         # to 2 dp so float fuzz never leaks into the `state` line or set_gain.
         self.gain = round(min(GAIN_MAX, max(GAIN_MIN, round(g / GAIN_STEP) * GAIN_STEP)), 2)
         self.fs.set_gain(self.gain)
+        self._gain_save_at = time.monotonic() + 1.0   # persisted once the stepper settles (#2417)
 
     def _open_settings(self):
         self.stack.append(self._settings_menu())
@@ -1019,6 +1024,32 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
             return "ok"
         return f"unknown: {line}"
 
+    def _handle_ctl(self, conn):
+        """One control-socket request: a text command (ctl.sh) or a JSON line (the web companion's
+        synth settings API, #2417). `{"op":"watch"}` keeps the connection to stream state."""
+        import json
+        keep = False
+        try:
+            conn.settimeout(1.0)
+            data = conn.recv(8192).decode(errors="ignore").strip()
+            if data.startswith("{"):
+                try:
+                    msg = json.loads(data)
+                except ValueError:
+                    msg = None
+                if isinstance(msg, dict) and msg.get("op") == "watch":
+                    self.add_watcher(conn)
+                    keep = True
+                else:
+                    conn.sendall((json.dumps(self.dispatch_json(msg)) + "\n").encode())
+            else:
+                conn.sendall((self.dispatch(data) + "\n").encode())
+        except OSError:
+            pass
+        finally:
+            if not keep:
+                conn.close()
+
     def _control_server(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -1053,6 +1084,7 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
         sel.register(nav_r, selectors.EVENT_READ, "navmon")
         self._nav_reconcile()                            # open the nav port now if enabled (#373)
         while True:
+            self.push_state_if_changed()             # web companion watchers, idle ticks included (#2417)
             now = time.monotonic()
             timeout = 2.0
             if self._hold_delta or self.touch.held_pos() is not None:  # hold-to-repeat tick (#314)
@@ -1103,6 +1135,9 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
                     self.render()                       # live CPU temp / clock / uptime / IP (#642)
                 if len(self.stack) == 1 and not self.asleep and self._st_companion == "demo":
                     self.render()                       # keep the Home demo indicator current (#2416)
+                if self._gain_save_at and now >= self._gain_save_at:
+                    self._gain_save_at = 0.0
+                    self._update_settings(gain=self.gain)
                 if self._companion_tick(now) and not self.asleep:
                     self.render()                       # pairing QR: fresh code + countdown (#659)
                 if (not self.asleep and self.sleep_after
@@ -1153,13 +1188,7 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
                         conn, _ = srv.accept()
                     except OSError:
                         continue
-                    with conn:
-                        conn.settimeout(1.0)
-                        try:
-                            data = conn.recv(256).decode(errors="ignore").strip()
-                            conn.sendall((self.dispatch(data) + "\n").encode())
-                        except OSError:
-                            pass
+                    self._handle_ctl(conn)
 
 
 def main():

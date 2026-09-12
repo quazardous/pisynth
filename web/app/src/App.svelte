@@ -6,8 +6,9 @@
   import Live from "./Live.svelte";
   import Latency from "./Latency.svelte";
   import Demo from "./Demo.svelte";
+  import Sound from "./Sound.svelte";
 
-  const ROUTES = ["/", "/latency", "/demo"];
+  const ROUTES = ["/", "/sound", "/latency", "/demo"];
   const route = () => (ROUTES.includes(location.pathname) ? location.pathname : "/");
   let path = $state(route());
   let pairing = $state("checking");               // checking | paired | unpaired | expired | offline
@@ -55,6 +56,7 @@
   {#if pairing === "paired"}
     <nav>
       <a href="/" class:active={path === "/"} onclick={e => go("/", e)}>Live</a>
+      <a href="/sound" class:active={path === "/sound"} onclick={e => go("/sound", e)}>Sound</a>
       <a href="/demo" class:active={path === "/demo"} onclick={e => go("/demo", e)}>Demo</a>
       <a href="/latency" class:active={path === "/latency"} onclick={e => go("/latency", e)}>Latency</a>
     </nav>
@@ -76,6 +78,8 @@
       <p class="muted">Only one browser can be paired: if another one was paired after this one, this one was disconnected.</p>
     {/if}
   </section>
+{:else if path === "/sound"}
+  <Sound {onMessage} {send} />
 {:else if path === "/demo"}
   <Demo {onFrame} {onMessage} {send} />
 {:else if path === "/latency"}

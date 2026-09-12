@@ -27,6 +27,7 @@ import time
 
 from .auth import Auth, cookie_value
 from .demo import DemoPlayer, ShellSink, validate_events
+from .uilink import UiLink
 
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -45,7 +46,7 @@ _REASON = {101: "Switching Protocols", 200: "OK", 204: "No Content", 304: "Not M
 _SECURITY_HEADERS = ("X-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\n"
                      "Content-Security-Policy: default-src 'self'; img-src 'self' data:; "
                      "connect-src 'self'; frame-ancestors 'none'\r\n")
-_ROUTES = {"/": "index.html", "/latency": "index.html"}   # single-page app routes → its shell
+_ROUTES = {"/": "index.html", "/latency": "index.html", "/demo": "index.html", "/sound": "index.html"}   # SPA routes → its shell
 
 
 # ---- WebSocket framing (RFC 6455, the slice we need) ----
@@ -176,7 +177,8 @@ def response(code, body=b"", ctype="text/plain; charset=utf-8", extra=""):
 
 class WebCompanion:
     def __init__(self, auth, assets, host="0.0.0.0", port=8443, admin_port=9811,
-                 ssl_ctx=None, fingerprint="", admin_host="127.0.0.1", synth=("127.0.0.1", 9800)):
+                 ssl_ctx=None, fingerprint="", admin_host="127.0.0.1", synth=("127.0.0.1", 9800),
+                 ui=("127.0.0.1", 9810)):
         self.auth, self.assets = auth, assets
         self.host, self.port, self.admin_port, self.admin_host = host, port, admin_port, admin_host
         self.ssl_ctx, self.fingerprint = ssl_ctx, fingerprint
@@ -185,6 +187,7 @@ class WebCompanion:
         self.relay_us = collections.deque(maxlen=4096)   # seq read → frame queued to sockets
         self.synth = synth
         self.demo = None                             # DemoPlayer, created with the loop (#2416)
+        self.ui = UiLink(*ui, on_state=self._broadcast_synth_state)   # synth settings API (#2417)
         self._loop = None
 
     # ---- MIDI hot path (feed runs on the source thread) ----
@@ -324,6 +327,15 @@ class WebCompanion:
         if not isinstance(msg, dict) or self.demo is None:
             return
         kind = msg.get("t")
+        if kind == "synth":                          # settings API (#2417): relayed to the touch UI
+            op = msg.get("op")
+            if op not in ("get", "set"):
+                return
+            fwd = {"op": op} if op == "get" else {"op": "set", "key": msg.get("key"), "value": msg.get("value")}
+            reply = await self.ui.request(fwd)
+            if not writer.is_closing():
+                self._send_json(writer, {"t": "synth", "op": op, "req": msg.get("req"), **reply})
+            return
         if kind == "stop":
             self.demo.stop()
             self._send_json(writer, {"t": "demo", "state": "stopped"})
@@ -339,6 +351,13 @@ class WebCompanion:
             n = self.demo.play(events, reset, owner=writer)
             if reset:
                 self._send_json(writer, {"t": "demo", "state": "playing", "lead_ms": 150, "scheduled": n})
+
+    def _broadcast_synth_state(self, state):
+        """The UI's watch stream → every paired phone (changes made on the box show up live)."""
+        frame = encode_frame(json.dumps({"t": "synth", "state": state}, separators=(",", ":")).encode(), 0x1)
+        for w in list(self.clients):
+            if not w.is_closing():
+                w.write(frame)
 
     @staticmethod
     def _send_json(writer, obj):
@@ -403,6 +422,7 @@ class WebCompanion:
     async def start(self):
         self._loop = asyncio.get_running_loop()
         self.demo = DemoPlayer(ShellSink(*self.synth), self._loop)
+        self.ui.start_watch()
         public = await asyncio.start_server(self._handle_public, self.host, self.port, ssl=self.ssl_ctx)
         admin = await asyncio.start_server(self._handle_admin, self.admin_host, self.admin_port)
         return public, admin

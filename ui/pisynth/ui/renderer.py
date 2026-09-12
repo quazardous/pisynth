@@ -7,6 +7,7 @@ holds NO application state — only the display, fonts, theme and layout — so 
 display" is: swap the Display, reuse this Renderer + the ui/ toolkit. The controller
 (app.App) passes a `Status` each frame instead of `self`.
 """
+import time
 from collections import namedtuple
 
 from PIL import Image, ImageDraw
@@ -151,18 +152,27 @@ class Renderer:
         d.line((x, cy - h, x, cy + h), fill=(72, 76, 96), width=2)
 
     def _status_layout(self):
-        """Home indicators geometry (#339): a BIG tappable metronome, a vertical
-        separator, then the 6 small status icons packed tightly (compact, like pre-#339).
+        """Home indicators geometry (#339): a BIG tappable metronome, the BIG tappable pairing
+        QR right next to it (#659), a vertical separator, then the 6 small status icons.
         Returns (metro_cx, metro_size, sep_x, small_x0, small_step)."""
         x0 = 64
         metro_size = self.BAR_H - 12
-        sep_x = x0 + metro_size + 6
+        sep_x = x0 + 2 * metro_size + 12
         return x0 + metro_size / 2, metro_size, sep_x, sep_x + 28, 32
+
+    def _home_qr_cx(self):
+        metro_cx, metro_size, _, _, _ = self._status_layout()
+        return metro_cx + metro_size + 6
 
     def _home_metro_hit(self, x):
         """True between the cog and the separator — the tappable metronome slot (#339)."""
-        _, _, sep_x, _, _ = self._status_layout()
-        return 57 <= x <= sep_x
+        metro_cx, metro_size, _, _, _ = self._status_layout()
+        return 57 <= x < metro_cx + metro_size / 2 + 3
+
+    def _home_qr_hit(self, x):
+        """True on the pairing-QR slot, between the metronome and the separator (#659)."""
+        metro_cx, metro_size, sep_x, _, _ = self._status_layout()
+        return metro_cx + metro_size / 2 + 3 <= x <= sep_x
 
     def _draw_status_icons(self, d, status):
         """Home indicators (#306/#339): a BIG tappable metronome (tap toggles it; pink
@@ -182,7 +192,8 @@ class Renderer:
         else:
             metro_col = self._ic_color(status.metro_running, PINK)
         self._glyph(d, "metronome", metro_cx, cy, metro_col, self.f_icon_big)
-        # vertical separator between the metronome and the status group (#339)
+        self._glyph(d, "qr_code", self._home_qr_cx(), cy, ACCENT, self.f_icon_big)   # pair a phone (#659)
+        # vertical separator between the interactive group and the status icons (#339)
         self._vsep(d, sep_x)
         # Bluetooth: dim (off) → blue `bluetooth` (radio on) → `bluetooth_connected` (#306)
         bt_glyph = "bluetooth_connected" if status.bt_conn else "bluetooth"
@@ -290,6 +301,31 @@ class Renderer:
             tw = d.textlength(s, font=self.f_small)
             d.text(((x0 + x1) / 2 - tw / 2, ty + 1), s, font=self.f_small, fill=SEL_SUB)
 
+    # ---- pairing QR panel (#659) ----
+    def _draw_panel(self, img, d, panel):
+        """QR code on the left (white card, full body height), text lines on the right, and a
+        countdown to the code's expiry at the bottom (it is refreshed before then)."""
+        top = self.BAR_H + 8
+        qr = panel.get("qr")
+        x_text = 12
+        if qr is not None:
+            pad = 6
+            d.rectangle((8, top, 8 + qr.width + 2 * pad, top + qr.height + 2 * pad), fill=(255, 255, 255))
+            img.paste(qr.convert("RGB"), (8 + pad, top + pad))
+            x_text = 8 + qr.width + 2 * pad + 14
+        else:
+            d.text((12, top + 8), "QR unavailable: install python3-segno", font=self.f_small, fill=ERR)
+        maxw = self.display.w - x_text - 8
+        y = top + 4
+        for i, line in enumerate(panel.get("lines", [])):
+            font = self.f_med if i == 0 else self.f_small
+            d.text((x_text, y), self._ellipsize(d, line, font, maxw), font=font,
+                   fill=FG if i == 0 else (ACCENT if line.startswith("https://") else MUTED))
+            y += 26 if i == 0 else 19
+        left = max(0, int(panel.get("expires", 0) - time.monotonic()))
+        d.text((x_text, self.display.h - 26), f"code valid {left // 60}:{left % 60:02d}",
+               font=self.f_small, fill=MUTED)
+
     # ---- MIDI test keyboard (#331) ----
     def _draw_keyboard(self, d, kbd):
         """Mini piano: white+black keys, active notes filled accent. Full 88-key range
@@ -362,7 +398,9 @@ class Renderer:
             self._tri(d, right - tw / 2, cy, 20, "right", SEL_BORDER)
             d.text((right - tw - gap - nw, cy - 10), num, font=self.f_med, fill=FG)
             self._tri(d, right - tw - gap - nw - gap - tw / 2, cy, 20, "left", SEL_BORDER)
-        if m.keyboard:
+        if getattr(m, "panel", None) is not None:
+            self._draw_panel(img, d, m.panel)
+        elif m.keyboard:
             self._draw_keyboard(d, status.kbd)
         elif m.tiles:
             self._draw_tiles(d, m, status.loading, status.load_anim, status.load_phase)

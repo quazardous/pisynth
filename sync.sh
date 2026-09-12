@@ -13,6 +13,9 @@ set -euo pipefail
 install -d -m 0755 /usr/local/lib/pisynth
 rm -f /usr/local/lib/pisynth/pisynth-ui.py          # superseded by the package
 rsync -a --delete --exclude __pycache__ "$REPO_DIR/ui/pisynth/" /usr/local/lib/pisynth/pisynth/
+# Web companion service (#659): the Python package + the BUILT phone app (web/static). The Svelte
+# sources (web/app) and their node_modules never go to the Pi.
+rsync -a --delete --exclude __pycache__ --exclude app/ "$REPO_DIR/web/" /usr/local/lib/pisynth/web/
 [[ -f "$REPO_DIR/tools/fbshot.py" ]] && install -m 0755 "$REPO_DIR/tools/fbshot.py" /usr/local/lib/pisynth/fbshot.py
 
 # Runtime shell scripts
@@ -22,13 +25,14 @@ install -m 0755 "$REPO_DIR/hdmi-connected.sh" /usr/local/bin/pisynth-hdmi-connec
 install -m 0755 "$REPO_DIR/readonly.sh"       /usr/local/sbin/pisynth-readonly   # read-only root helper (#681)
 
 # systemd units (so unit edits take effect every deploy)
-for u in piano midi-bridge pisynth-ui; do
+for u in piano midi-bridge pisynth-ui pisynth-web; do
     install -m 0644 "$REPO_DIR/$u.service" "/etc/systemd/system/$u.service"
 done
 sed -i -E "s/^User=.*/User=$TARGET_USER/" \
     /etc/systemd/system/piano.service \
     /etc/systemd/system/midi-bridge.service \
-    /etc/systemd/system/pisynth-ui.service
+    /etc/systemd/system/pisynth-ui.service \
+    /etc/systemd/system/pisynth-web.service
 systemctl daemon-reload
 
 # Sideloaded soundfonts: link any .sf2/.sf3 dropped in the repo's soundfonts/
@@ -47,4 +51,5 @@ shopt -u nullglob
 systemctl restart pisynth-ui.service 2>/dev/null || true
 systemctl is-active --quiet piano.service      && systemctl restart piano.service      || true
 systemctl is-active --quiet midi-bridge.service && systemctl restart midi-bridge.service || true
+systemctl is-enabled --quiet pisynth-web.service && systemctl restart pisynth-web.service || true   # warm again with the new code (#659)
 echo "[sync] code, units, soundfonts re-deployed."

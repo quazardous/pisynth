@@ -240,6 +240,17 @@ app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-metronome-tempo.png"))
 app.stack.pop()                                        # back to the Metronome menu
 app.metro.running = False; app.metro.beat = 0; app.metro.flash = False   # leave it stopped (preview only)
 
+# ---- web companion (#659): QR pairing screen + Settings entry, with a stubbed admin API ----
+app.stack = [app._home_menu()]
+app.companion.token = lambda: {"token": "PREVIEW-one-time-token", "ttl": 120, "port": 8443,
+                               "fingerprint": ":".join(["6B", "7E", "FB", "C5", "3A", "10"] + ["00"] * 26)}
+app.companion.stats = lambda: {"clients": 1, "sessions": 2, "frames": 0, "relay_us": {}}
+app._open_pair_qr()
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-companion-qr.png"))
+app.stack = [app._home_menu(), app._companion_menu()]
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-companion-menu.png"))
+app.stack = [app._home_menu()]
+
 # ---- offline (no synth): catalog read straight from the .sf files (#276) ----
 go_offline()
 off = pui.App()

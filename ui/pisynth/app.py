@@ -78,7 +78,7 @@ from .ui.renderer import MidiState, Renderer, Status
 from .ui.theme import TILE_MUTED
 
 # Per-feature controller mixins (#308): audio / bluetooth / metronome screens + handlers.
-from .screens import AudioMixin, BluetoothMixin, HotplugMixin, MetronomeMixin, NavMixin
+from .screens import AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMixin, NavMixin
 
 
 # Hardware / device-backend adapters live in the io/ layer (#308). Re-exported
@@ -105,7 +105,7 @@ from .core.system import (board_model, cpu_clock, cpu_temp, disk_info, health,
 
 
 
-class App(AudioMixin, BluetoothMixin, HotplugMixin, MetronomeMixin, NavMixin):
+class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMixin, NavMixin):
     def __init__(self):
         self.fb = Framebuffer(FB_DEV, RENDER_MODE == "partial")   # io adapter (#308)
         self.view = Renderer(self.fb)             # the display/view layer (#308 step 5)
@@ -164,6 +164,7 @@ class App(AudioMixin, BluetoothMixin, HotplugMixin, MetronomeMixin, NavMixin):
         self.midimon = MidiMonitor()                 # MIDI test-keyboard reader (#331)
         self._nav_init(s)                            # MIDI navigation: cfg + its own monitor (#373)
         self._hotplug_init()                         # USB replug recovery: sound card + keyboards (#2410)
+        self._companion_init()                       # web companion pairing (#659)
         self.metro = Metronome()                     # background metronome (#287/#655/#668)
         _m = s.get("metro", {})
         self.metro.bpm = _m.get("bpm", 100)
@@ -443,6 +444,7 @@ class App(AudioMixin, BluetoothMixin, HotplugMixin, MetronomeMixin, NavMixin):
                  value=(lambda: "on" if self.nav_cfg["enabled"] else "off")),    # MIDI nav (#373)
             Item("Display", on_select=push(self._display_menu), submenu=True),
             Item("Connectivity", on_select=push(self._connectivity_menu), submenu=True),
+            Item("Web companion", on_select=push(self._companion_menu), submenu=True),   # phone app (#659)
             Item("System", on_select=push(self._system_menu), submenu=True),
         ])
 
@@ -858,6 +860,8 @@ class App(AudioMixin, BluetoothMixin, HotplugMixin, MetronomeMixin, NavMixin):
             elif len(self.stack) == 1 and self.view._home_metro_hit(x):  # Home: tap metronome → toggle (#339)
                 self._metro_toggle()
                 self.render()
+            elif len(self.stack) == 1 and self.view._home_qr_hit(x):     # Home: QR → pair a phone (#659)
+                self._open_pair_qr()
             elif page and page[0] <= x <= page[2]:
                 self.nav_page(-1 if x < (page[0] + page[2]) / 2 else 1)
             return
@@ -1089,6 +1093,8 @@ class App(AudioMixin, BluetoothMixin, HotplugMixin, MetronomeMixin, NavMixin):
                     self.render()
                 if self.cur.title in ("Hardware", "Software") and not self.asleep:
                     self.render()                       # live CPU temp / clock / uptime / IP (#642)
+                if self._companion_tick(now) and not self.asleep:
+                    self.render()                       # pairing QR: fresh code + countdown (#659)
                 if (not self.asleep and self.sleep_after
                         and now - self.last_active >= self.sleep_after):
                     self.sleep_screen()

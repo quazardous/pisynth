@@ -25,6 +25,8 @@ keyboard's D-pad.
 - 🔧 One-command install, and an easy way to add your own SoundFonts (drop them in, run one
   command).
 - 🖧 No monitor needed: the desktop only starts if you actually plug in an HDMI screen.
+- 📱 Web companion: scan the QR code on the screen with your phone to see the keys and chords
+  you play live, and to measure the instrument's latency.
 
 ## Screenshots
 

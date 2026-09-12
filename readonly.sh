@@ -32,6 +32,7 @@ allowed() {
     local home; home="$(getent passwd "${SUDO_USER:-root}" | cut -d: -f6)"
     case "$1" in
         "$home/.config/pisynth/settings.yaml"|"$home/.config/pisynth/touch_cal.json") return 0 ;;
+        "$home/.config/pisynth/web_sessions.json") return 0 ;;      # paired phones (#659)
         /var/lib/bluetooth) return 0 ;;
     esac
     return 1

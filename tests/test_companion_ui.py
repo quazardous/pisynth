@@ -1,0 +1,123 @@
+"""Touch-UI side of the web companion (#659): admin client, QR panel, Home QR slot."""
+import json
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+import pytest
+
+from pisynth.io.companion import CompanionClient
+from pisynth.screens import companion as C
+from pisynth.ui.menu import MenuScreen
+
+
+def test_url_and_fingerprint_helpers():
+    assert C.companion_url("192.168.1.214", 8443, "tok") == "https://192.168.1.214:8443/#k=tok"
+    assert C.short_fingerprint("AA:BB:CC:DD:EE:FF:11:22") == "AA:BB:CC:DD:EE:FF…"
+    assert C.short_fingerprint("AA:BB") == "AA:BB" and C.short_fingerprint("") == ""
+
+
+@pytest.fixture
+def admin():
+    calls = []
+
+    class H(BaseHTTPRequestHandler):
+        def _send(self, obj):
+            body = json.dumps(obj).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self):
+            calls.append(self.path)
+            self._send({"token": "t1", "ttl": 120, "port": 8443, "fingerprint": "AA:BB"} if self.path == "/admin/token"
+                       else {"sessions": 0})
+
+        def do_GET(self):
+            calls.append(self.path)
+            self._send({"clients": 1, "sessions": 3, "frames": 9, "relay_us": {}})
+
+        def log_message(self, *a):
+            pass
+
+    srv = HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{srv.server_address[1]}", calls
+    srv.shutdown()
+
+
+def test_client_calls_the_admin_api(admin):
+    base, calls = admin
+    c = CompanionClient(base)
+    assert c.token()["token"] == "t1"
+    assert c.stats()["sessions"] == 3
+    assert c.forget_all() is True
+    assert calls == ["/admin/token", "/admin/stats", "/admin/forget"]
+
+
+def test_client_fails_soft_when_service_is_down():
+    c = CompanionClient("http://127.0.0.1:1", timeout=0.5)
+    assert c.token() is None and c.stats() is None and c.forget_all() is False
+
+
+class Host(C.CompanionMixin):
+    def __init__(self, client):
+        self.fb = type("FB", (), {"h": 320})()
+        self.view = type("V", (), {"BAR_H": 53})()
+        self.stack = [MenuScreen("pisynth", [])]
+        self.toasts, self.renders = [], 0
+        self._companion_init()
+        self.companion = client
+
+    cur = property(lambda self: self.stack[-1])
+
+    def toast(self, msg, secs=3.0):
+        self.toasts.append(msg)
+
+    def render(self):
+        self.renders += 1
+
+
+class FakeClient:
+    def __init__(self, up=True):
+        self.up, self.minted = up, 0
+
+    def token(self):
+        if not self.up:
+            return None
+        self.minted += 1
+        return {"token": f"t{self.minted}", "ttl": 120, "port": 8443, "fingerprint": "AA:BB"}
+
+    def stats(self):
+        return {"clients": 0, "sessions": 2} if self.up else None
+
+
+def test_qr_screen_opens_with_url_and_refreshes_before_expiry(monkeypatch):
+    monkeypatch.setattr(C, "local_ip", lambda: "10.0.0.5")
+    monkeypatch.setattr(C, "qr_image", lambda url, size: ("QR", url, size))
+    h = Host(FakeClient())
+    h._open_pair_qr()
+    panel = h.cur.panel
+    assert h.cur.title == C.QR_TITLE and panel["qr"] == ("QR", "https://10.0.0.5:8443/#k=t1", 320 - 53 - 16)
+    assert "https://10.0.0.5:8443" in panel["lines"]
+    assert h._companion_tick(h._qr_expires - C.REFRESH_MARGIN_S - 5) is True and h.companion.minted == 1
+    assert h._companion_tick(h._qr_expires - C.REFRESH_MARGIN_S + 1) is True and h.companion.minted == 2
+    h.stack.pop()
+    assert h._companion_tick(10**9) is False                    # not on the QR screen: nothing
+
+
+def test_qr_screen_toasts_when_service_is_off():
+    h = Host(FakeClient(up=False))
+    h._open_pair_qr()
+    assert h.toasts == ["Web companion not running"] and len(h.stack) == 1
+    assert h._paired_label() == "service off"
+
+
+def test_home_bar_hit_areas_do_not_overlap():
+    from pisynth.ui.renderer import Renderer
+    r = Renderer.__new__(Renderer)
+    r.BAR_H = 53
+    metro = [x for x in range(0, 480) if r._home_metro_hit(x)]
+    qr = [x for x in range(0, 480) if r._home_qr_hit(x)]
+    assert metro and qr and max(metro) < min(qr)
+    assert min(metro) > 56                                        # the cog keeps x ≤ 56

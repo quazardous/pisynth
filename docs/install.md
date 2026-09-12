@@ -117,7 +117,18 @@ Plug the USB MIDI keyboard and USB audio interface into the Pi. On first boot th
 touchscreen runs a **calibration** (tap the 4 targets). Home then shows your soundfonts as
 tiles — tap one to select its default sound, tap it again to pick a preset. Press a key.
 
-## 8. Optional: read-only mode (safe to unplug)
+## 8. Web companion on your phone
+
+Tap the **QR icon** next to the metronome on the home screen and scan it with your phone (it must
+be on the same Wi-Fi). The first time, the browser warns about the certificate: pisynth makes its
+own, so accept it (the screen shows its fingerprint if you want to compare). The page shows the
+keys and chords you play live; **Latency** measures the key-to-sound delay with the phone's
+microphone. Add it to your home screen to use it like an app.
+
+Only someone who can see the pisynth screen can pair a phone (the code works once, for 2 minutes).
+**Settings → Web companion → Forget all phones** disconnects and unpairs every phone.
+
+## 9. Optional: read-only mode (safe to unplug)
 
 A synth usually gets switched off at the wall, not shut down. Out of the box pisynth already
 keeps its writes to the SD card to a minimum. For full protection, turn on **read-only mode**:

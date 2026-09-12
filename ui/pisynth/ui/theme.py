@@ -38,7 +38,7 @@ def load_font(size):
     return ImageFont.load_default()
 
 
-# Bundled icon font (#306): an 11-glyph subset of Material Symbols Rounded (filled,
+# Bundled icon font (#306): a 13-glyph subset of Material Symbols Rounded (filled,
 # Apache-2.0). Lives in the package's assets/ dir (one level up from this ui/ module).
 ICON_FONT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                          "assets", "pisynth-icons.ttf")
@@ -46,7 +46,8 @@ ICON = {"settings": "\ue8b8", "wifi": "\ue63e", "bluetooth": "\ue1a7",
         "bluetooth_connected": "\ue1a8", "piano": "\ue521",
         "volume_up": "\ue050", "metronome": "\uf4ba", "synth": "\U000fffd8",
         "health_good": "\ue815", "health_warn": "\ue811", "health_crit": "\ue814",
-        "sync": "\ue627"}                          # loading badge on a font tile (#334)
+        "sync": "\ue627",                          # loading badge on a font tile (#334)
+        "qr_code": "\uef6b"}                       # web companion pairing, next to the metronome (#659)
 
 
 def load_icon_font(size):

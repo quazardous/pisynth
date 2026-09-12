@@ -1,0 +1,22 @@
+[Unit]
+Description=pisynth web companion (HTTPS app + MIDI relay for paired phones, #659)
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+# audio → /dev/snd/seq for the aseqdump MIDI subscription
+SupplementaryGroups=audio
+# One long-lived warm process (#659): app files, TLS context and sessions are loaded at start.
+# Normal priority on purpose: the synth's real-time audio thread always wins over the display.
+ExecStart=/usr/bin/python3 -m web
+Environment=PYTHONPATH=/usr/local/lib/pisynth
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

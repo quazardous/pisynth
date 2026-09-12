@@ -70,7 +70,7 @@ probe_backlight_toggle() {
 }
 
 probe_services() {
-    for u in piano pisynth-ui midi-bridge; do
+    for u in piano pisynth-ui midi-bridge pisynth-web; do
         section "$u.service"
         remote "systemctl is-active $u.service 2>&1; systemctl status $u.service --no-pager -n 8 2>&1 || true"
     done

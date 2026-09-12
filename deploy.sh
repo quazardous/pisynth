@@ -42,6 +42,13 @@ wait_for_reboot() {
 echo
 echo "===== deploy $(date -Is)  →  $PI ====="
 
+# Web companion (#659): rebuild the phone app when the Svelte toolchain is installed here, so
+# the Pi never serves a stale build. (web/static is committed; Node is never needed on the Pi.)
+if [[ -d "$REPO_DIR/web/app/node_modules" ]] && command -v npm >/dev/null; then
+    echo "→ build web companion (web/app → web/static)"
+    npm --prefix "$REPO_DIR/web/app" run --silent build >/dev/null
+fi
+
 rc=0
 for pass in 1 2; do
     echo "→ rsync  $REPO_DIR/  →  $PI:~/pisynth/"
@@ -50,6 +57,8 @@ for pass in 1 2; do
         --exclude '*.bak' \
         --exclude 'deploy.log' \
         --exclude 'last-shot.png' \
+        --exclude 'node_modules' \
+        --exclude '/dev/certs' --exclude '/dev/state' \
         "$REPO_DIR"/ "$PI":pisynth/
 
     echo "→ apply migrations + sync on $PI (sudo)"

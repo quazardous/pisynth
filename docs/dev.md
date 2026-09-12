@@ -101,7 +101,7 @@ status|enable|disable|persist`.
 - **Write-through:** code that saves user state calls `core.persist.request_persist(path)`.
   It is debounced 5 s and runs `sudo -n pisynth-readonly persist …` (grant: migration 021),
   which remounts `/media/root-ro` rw, copies (or deletes / mirrors) the path, then remounts ro.
-  Only whitelisted paths are accepted: `settings.yaml`, `touch_cal.json`, `/var/lib/bluetooth`.
+  Only whitelisted paths are accepted: `settings.yaml`, `touch_cal.json`, `web_sessions.json`, `/var/lib/bluetooth`.
   A new kind of persisted state must be added to that whitelist.
 - **Keep it off on a dev Pi:** every deploy then costs two reboots.
 

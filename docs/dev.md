@@ -114,8 +114,13 @@ status|enable|disable|persist`.
 ./ctl.sh menu adjust 1              # nudge the selected value (e.g. gain)
 ./ctl.sh action gain_up | gain_down | next_preset | prev_preset
 ./ctl.sh tap 120 200                # simulate a touch at screen coords
+./pair.sh [--open | --qr]           # one-time link to the web companion ON the Pi, auto-pairing
 python3 tools/preview.py [outdir]   # render Home + Settings to PNGs locally (no Pi)
 ```
+
+`pair.sh` does what the QR icon does, from your computer: it asks pisynth-web for a token over SSH
+and prints `https://<pi>:8443/#k=<token>` (2 min, single use). One browser is paired at a time, so
+using it unpairs your phone.
 
 `shot.sh` and `ctl.sh` need no sudo (the user is in `video`+`input`); only `apply.sh` does.
 `tools/preview.py` mocks the framebuffer/touch so you can iterate on the UI offline.

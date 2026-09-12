@@ -52,6 +52,8 @@ class CompanionMixin:
         st = self.companion.stats(timeout=0.5)
         if not st:
             return "none"
+        if (st.get("demo") or {}).get("active"):
+            return "demo"                                 # the phone is playing a demo through the synth (#2416)
         return "live" if st.get("clients") else "paired" if st.get("sessions") else "none"
 
     # ---- pairing QR ----
@@ -59,6 +61,11 @@ class CompanionMixin:
         """Home QR / Settings entry: when a browser is already paired, warn first — pairing
         another one disconnects it (one paired browser at a time)."""
         self._st_companion = self._companion_state()    # fresh, not the 3 s-old poll
+        if self._st_companion == "demo":                # while a demo plays, the slot is its stop button (#2416)
+            self.companion.stop_demo()
+            self._st_companion = "live"
+            self.toast("Demo stopped")
+            return
         if self._st_companion == "none":
             self._open_pair_qr()
             return

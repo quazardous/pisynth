@@ -5,8 +5,11 @@
   import { ensurePaired, openMidiSocket } from "./lib/pair.js";
   import Live from "./Live.svelte";
   import Latency from "./Latency.svelte";
+  import Demo from "./Demo.svelte";
 
-  let path = $state(location.pathname === "/latency" ? "/latency" : "/");
+  const ROUTES = ["/", "/latency", "/demo"];
+  const route = () => (ROUTES.includes(location.pathname) ? location.pathname : "/");
+  let path = $state(route());
   let pairing = $state("checking");               // checking | paired | unpaired | expired | offline
   let link = $state("…");
   const listeners = new Set();
@@ -17,9 +20,12 @@
     history.pushState(null, "", to);
     path = to;
   }
-  addEventListener("popstate", () => (path = location.pathname === "/latency" ? "/latency" : "/"));
+  addEventListener("popstate", () => (path = route()));
 
   const onFrame = fn => { listeners.add(fn); return () => listeners.delete(fn); };
+  const msgListeners = new Set();
+  const onMessage = fn => { msgListeners.add(fn); return () => msgListeners.delete(fn); };
+  const send = obj => socket?.send(obj) ?? false;
 
   async function connect() {
     const state = await ensurePaired();
@@ -28,6 +34,7 @@
     if (state !== "paired") return;
     socket = openMidiSocket({
       onFrame: buf => listeners.forEach(fn => fn(buf)),
+      onMessage: msg => msgListeners.forEach(fn => fn(msg)),
       onState: st => {
         if (st === "unpaired") pairing = "unpaired";
         link = st === "live" ? "live" : "reconnecting…";
@@ -44,6 +51,7 @@
   {#if pairing === "paired"}
     <nav>
       <a href="/" class:active={path === "/"} onclick={e => go("/", e)}>Live</a>
+      <a href="/demo" class:active={path === "/demo"} onclick={e => go("/demo", e)}>Demo</a>
       <a href="/latency" class:active={path === "/latency"} onclick={e => go("/latency", e)}>Latency</a>
     </nav>
     <span class="status" class:on={link === "live"}>{link}</span>
@@ -64,6 +72,8 @@
       <p class="muted">Only one browser can be paired: if another one was paired after this one, this one was disconnected.</p>
     {/if}
   </section>
+{:else if path === "/demo"}
+  <Demo {onFrame} {onMessage} {send} />
 {:else if path === "/latency"}
   <Latency {onFrame} />
 {:else}

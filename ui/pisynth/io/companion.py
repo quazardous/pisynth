@@ -28,6 +28,10 @@ class CompanionClient:
         """{token, ttl, port, fingerprint} or None."""
         return self._call("POST", "/admin/token")
 
+    def stop_demo(self):
+        """Stop the phone's demo playback on the synth (#2416)."""
+        return self._call("POST", "/admin/demo/stop") is not None
+
     def forget_all(self):
         return self._call("POST", "/admin/forget") is not None
 

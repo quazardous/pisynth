@@ -20,14 +20,18 @@ export async function ensurePaired() {
   }
 }
 
-// Reconnecting binary WebSocket. onFrame(ArrayBuffer), onState("live"|"reconnecting"|"unpaired").
-export function openMidiSocket({ onFrame, onState }) {
+// Reconnecting WebSocket. onFrame(ArrayBuffer) for MIDI, onMessage(object) for JSON replies,
+// onState("live"|"reconnecting"|"unpaired"). Returns {send(obj), close()}.
+export function openMidiSocket({ onFrame, onState, onMessage = () => {} }) {
   let ws, stopped = false, delay = 500;
   const connect = () => {
     ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);   // ws: on http://localhost (dev)
     ws.binaryType = "arraybuffer";
     ws.onopen = () => { delay = 500; onState("live"); };
-    ws.onmessage = e => { if (e.data instanceof ArrayBuffer) onFrame(e.data); };
+    ws.onmessage = e => {
+      if (e.data instanceof ArrayBuffer) onFrame(e.data);
+      else { try { onMessage(JSON.parse(e.data)); } catch { /* ignore */ } }
+    };
     ws.onclose = async () => {
       if (stopped) return;
       const who = await ensurePaired();
@@ -38,5 +42,8 @@ export function openMidiSocket({ onFrame, onState }) {
     };
   };
   connect();
-  return { close() { stopped = true; ws && ws.close(); } };
+  return {
+    send(obj) { if (ws && ws.readyState === 1) { ws.send(JSON.stringify(obj)); return true; } return false; },
+    close() { stopped = true; ws && ws.close(); },
+  };
 }

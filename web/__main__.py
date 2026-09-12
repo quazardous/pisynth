@@ -38,7 +38,9 @@ def main():
                        port=int(os.environ.get("PISYNTH_WEB_PORT", "8443")),
                        admin_port=int(os.environ.get("PISYNTH_WEB_ADMIN_PORT", "9811")),
                        ssl_ctx=ssl_ctx, fingerprint=fingerprint,
-                       admin_host=os.environ.get("PISYNTH_WEB_ADMIN_HOST", "127.0.0.1"))
+                       admin_host=os.environ.get("PISYNTH_WEB_ADMIN_HOST", "127.0.0.1"),
+                       synth=(os.environ.get("PISYNTH_WEB_SYNTH_HOST", "127.0.0.1"),
+                              int(os.environ.get("PISYNTH_WEB_SYNTH_PORT", "9800"))))
     src = make_source(app.feed, os.environ)
     print(f"[pisynth-web] https :{app.port} · admin 127.0.0.1:{app.admin_port} · "
           f"{len(app.assets)} assets in RAM · {app.auth.session_count} paired phone(s) · "

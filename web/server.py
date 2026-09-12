@@ -26,12 +26,14 @@ import struct
 import time
 
 from .auth import Auth, cookie_value
+from .demo import DemoPlayer, ShellSink, validate_events
 
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 SESSION_COOKIE = "pisynth_session"
 MAX_BODY = 1024
 MAX_WS_BACKLOG = 64 * 1024                      # a phone this far behind is dropped, not buffered
+MAX_CMDS_PER_S = 30                             # phone → Pi commands (demo batches), per socket
 
 _TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
           ".mjs": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -90,6 +92,22 @@ def decode_frames(buf):
         del buf[:idx + ln]
         out.append((opcode, payload))
     return out
+
+
+class _RateLimit:
+    """At most `n` events per rolling second (per socket)."""
+
+    def __init__(self, n):
+        self.n, self.times = n, collections.deque()
+
+    def allow(self):
+        now = time.monotonic()
+        while self.times and now - self.times[0] > 1.0:
+            self.times.popleft()
+        if len(self.times) >= self.n:
+            return False
+        self.times.append(now)
+        return True
 
 
 # ---- static files, loaded once ----
@@ -158,13 +176,15 @@ def response(code, body=b"", ctype="text/plain; charset=utf-8", extra=""):
 
 class WebCompanion:
     def __init__(self, auth, assets, host="0.0.0.0", port=8443, admin_port=9811,
-                 ssl_ctx=None, fingerprint="", admin_host="127.0.0.1"):
+                 ssl_ctx=None, fingerprint="", admin_host="127.0.0.1", synth=("127.0.0.1", 9800)):
         self.auth, self.assets = auth, assets
         self.host, self.port, self.admin_port, self.admin_host = host, port, admin_port, admin_host
         self.ssl_ctx, self.fingerprint = ssl_ctx, fingerprint
         self.clients = set()                         # StreamWriters of live WebSockets
         self.frames = 0
         self.relay_us = collections.deque(maxlen=4096)   # seq read → frame queued to sockets
+        self.synth = synth
+        self.demo = None                             # DemoPlayer, created with the loop (#2416)
         self._loop = None
 
     # ---- MIDI hot path (feed runs on the source thread) ----
@@ -219,6 +239,8 @@ class WebCompanion:
         session_id = self.auth.redeem(token)
         if not session_id:
             return response(403, b'{"error":"invalid or expired pairing code"}', "application/json")
+        if self.demo:
+            self.demo.stop()                         # a new browser takes over: its predecessor's demo ends
         for w in list(self.clients):                 # the previously paired browser is cut off now
             w.close()
         self.clients.clear()
@@ -266,6 +288,7 @@ class WebCompanion:
         await writer.drain()
         self.clients.add(writer)
         buf = bytearray()
+        rate = _RateLimit(MAX_CMDS_PER_S)
         try:
             while True:
                 data = await reader.read(4096)
@@ -280,12 +303,46 @@ class WebCompanion:
                         return
                     if opcode == 0x9:                # PING → PONG
                         writer.write(encode_frame(payload[:125], 0xA))
-                    # data frames (phone → Pi commands) come in a later slice
+                    elif opcode == 0x1:              # text = a JSON command from the phone (#2416)
+                        if rate.allow():
+                            await self._command(writer, payload)
         except (OSError, asyncio.IncompleteReadError, ssl.SSLError):
             pass
         finally:
             self.clients.discard(writer)
+            if self.demo:
+                self.demo.release_owner(writer)      # the phone left: no stuck notes
             writer.close()
+
+    async def _command(self, writer, payload):
+        """Phone → Pi commands. Demo mode (#2416): {"t":"play","reset":bool,"ev":[[ms,status,d1,d2],…]}
+        schedules a batch on the Pi's clock; {"t":"stop"} releases everything."""
+        try:
+            msg = json.loads(payload)
+        except ValueError:
+            return
+        if not isinstance(msg, dict) or self.demo is None:
+            return
+        kind = msg.get("t")
+        if kind == "stop":
+            self.demo.stop()
+            self._send_json(writer, {"t": "demo", "state": "stopped"})
+        elif kind == "play":
+            events = validate_events(msg.get("ev"))
+            if events is None:
+                self._send_json(writer, {"t": "demo", "state": "error", "error": "bad batch"})
+                return
+            reset = bool(msg.get("reset"))
+            if reset and not await self.demo.sink.ensure():
+                self._send_json(writer, {"t": "demo", "state": "error", "error": "synth unreachable"})
+                return
+            n = self.demo.play(events, reset, owner=writer)
+            if reset:
+                self._send_json(writer, {"t": "demo", "state": "playing", "lead_ms": 150, "scheduled": n})
+
+    @staticmethod
+    def _send_json(writer, obj):
+        writer.write(encode_frame(json.dumps(obj, separators=(",", ":")).encode(), 0x1))
 
     @staticmethod
     async def _finish(writer):
@@ -315,6 +372,10 @@ class WebCompanion:
                 w.close()
             self.clients.clear()
             writer.write(self._json({"sessions": 0}))
+        elif (req.method, req.path) == ("POST", "/admin/demo/stop"):
+            if self.demo:
+                self.demo.stop()
+            writer.write(self._json({"stopped": True}))
         elif (req.method, req.path) == ("GET", "/admin/stats"):
             writer.write(self._json(self.stats()))
         else:
@@ -331,12 +392,14 @@ class WebCompanion:
         def pct(p):
             return s[min(len(s) - 1, int(len(s) * p))] if s else None
         return {"clients": len(self.clients), "sessions": self.auth.session_count,
+                "demo": self.demo.stats() if self.demo else None,
                 "frames": self.frames, "relay_us": {"p50": pct(0.5), "p99": pct(0.99),
                                                     "max": s[-1] if s else None, "n": len(s)}}
 
     # ---- run ----
     async def start(self):
         self._loop = asyncio.get_running_loop()
+        self.demo = DemoPlayer(ShellSink(*self.synth), self._loop)
         public = await asyncio.start_server(self._handle_public, self.host, self.port, ssl=self.ssl_ctx)
         admin = await asyncio.start_server(self._handle_admin, self.admin_host, self.admin_port)
         return public, admin

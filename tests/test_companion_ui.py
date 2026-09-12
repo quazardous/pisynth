@@ -92,8 +92,15 @@ class FakeClient:
     def __init__(self, up=True, sessions=0, clients=0):
         self.up, self.minted, self.sessions, self.clients = up, 0, sessions, clients
 
+    demo = False
+    stopped = 0
+
     def stats(self, timeout=None):
-        return {"clients": self.clients, "sessions": self.sessions} if self.up else None
+        return {"clients": self.clients, "sessions": self.sessions, "demo": {"active": self.demo}} if self.up else None
+
+    def stop_demo(self):
+        self.stopped += 1
+        return True
 
 
 def test_qr_screen_opens_with_url_and_refreshes_before_expiry(monkeypatch):
@@ -158,3 +165,12 @@ def test_companion_build_reads_the_hash_of_the_built_app():
     from pathlib import Path
     built = json.loads((Path(__file__).resolve().parents[1] / "web" / "static" / "build.json").read_text())
     assert C.companion_build() == built["hash"] and len(built["hash"]) == 12
+
+
+def test_home_slot_stops_a_running_demo_instead_of_pairing():
+    c = FakeClient(sessions=1, clients=1)
+    c.demo = True
+    h = Host(c)
+    assert h._companion_state() == "demo"
+    h._request_pair()
+    assert c.stopped == 1 and h.toasts == ["Demo stopped"] and len(h.stack) == 1 and c.minted == 0

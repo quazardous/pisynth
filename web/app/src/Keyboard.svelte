@@ -1,6 +1,6 @@
 <script>
   import { isBlack } from "./lib/theory.js";
-  let { low = 36, high = 96, on = new Set() } = $props();
+  let { low = 36, high = 96, on = new Set(), demo = new Set() } = $props();
 
   const layout = $derived.by(() => {
     const whites = [];
@@ -18,7 +18,7 @@
 
 <div class="keyboard" aria-label="live keyboard">
   {#each layout as k (k.n)}
-    <div class="key" class:black={k.black} class:white={!k.black} class:on={on.has(k.n)}
+    <div class="key" class:black={k.black} class:white={!k.black} class:on={on.has(k.n)} class:demo={demo.has(k.n) && !on.has(k.n)}
          style:left="{k.left}%" style:width="{k.width}%"></div>
   {/each}
 </div>
@@ -30,4 +30,6 @@
   .black { height: 62%; background: var(--black); border: 1px solid #000; border-radius: 0 0 3px 3px; z-index: 2; }
   .white.on { background: var(--keyon); }
   .black.on { background: var(--accent); }
+  .white.demo { background: var(--yellow); }
+  .black.demo { background: #c9a42a; }
 </style>

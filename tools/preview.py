@@ -251,6 +251,9 @@ app.stack = [app._home_menu()]
 app.companion.stats = lambda timeout=None: {"clients": 1, "sessions": 1, "frames": 0, "relay_us": {}}
 app._st_companion = "live"
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-home-companion-paired.png"))   # green QR icon
+app._st_companion = "demo"
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-home-companion-demo.png"))     # demo playing: stop button (#2416)
+app._st_companion = "live"
 app._request_pair()
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-companion-replace.png"))       # the warning
 app.stack = [app._home_menu(), app._companion_menu()]

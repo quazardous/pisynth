@@ -1101,6 +1101,8 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
                     self.render()
                 if self.cur.title in ("Hardware", "Software") and not self.asleep:
                     self.render()                       # live CPU temp / clock / uptime / IP (#642)
+                if len(self.stack) == 1 and not self.asleep and self._st_companion == "demo":
+                    self.render()                       # keep the Home demo indicator current (#2416)
                 if self._companion_tick(now) and not self.asleep:
                     self.render()                       # pairing QR: fresh code + countdown (#659)
                 if (not self.asleep and self.sleep_after

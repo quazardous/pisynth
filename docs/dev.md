@@ -64,13 +64,16 @@ config and is gitignored.
 Edit on the laptop, then:
 
 ```bash
-./deploy.sh        # rsync repo → $PISYNTH_HOST:~/pisynth, then `sudo apply.sh` (password once)
+./deploy.sh        # rsync repo → $PISYNTH_HOST:~/pisynth, then `sudo apply.sh` (sudo may prompt, depending on your Pi)
 ```
 
 `apply.sh` is a migration runner (think DB migrations):
 
 - Runs each `migrations/NNN-*.sh` **not yet recorded** in `/var/lib/pisynth/applied`, in order,
   recording each on success. Re-running applies only new ones.
+- Then runs **host-local** one-shots from `local-migrations/NNN-*.sh` the same way (ledger key
+  `local/<name>`). That folder is gitignored but rsync'd by `deploy.sh`, like `pisynth.conf`:
+  use it for per-device tweaks that must not ship to every install.
 - Then **always** runs `sync.sh`.
 - `sudo bash ~/pisynth/apply.sh --status` lists applied/pending; `--redo` re-runs all.
 
@@ -159,7 +162,7 @@ Re-run anytime with `./ctl.sh calibrate`.
 - **Plymouth / console** — on a headless boot the desktop is gated off, so plymouth is
   dismissed by `pisynth-ui.service` and the text console is kept off the panel
   (`fbcon=map:1`), or both would bleed onto the UI.
-- **`sudo` needs a password** on the Pi → `apply.sh`/`deploy.sh` are interactive (once).
+- **`sudo` may ask a password** on the Pi (your sudoers choice) → then `apply.sh`/`deploy.sh` prompt once.
 - **Trixie ships PipeWire** — different from the original headless build; it's masked off the
   USB card so direct-ALSA fluidsynth works.
 

@@ -21,3 +21,6 @@ __pycache__/
 # sideloaded soundfonts (large / possibly licensed) — keep the README
 soundfonts/*.sf2
 soundfonts/*.sf3
+
+# host-local one-shot migrations (per-device, not shipped) — run by apply.sh
+/local-migrations/

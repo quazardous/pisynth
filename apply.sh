@@ -12,6 +12,11 @@
 #     TARGET_HOME  that user's home directory
 #     REPO_DIR     absolute path of this repo on the Pi
 #
+# Host-local one-shots: local-migrations/NNN-*.sh (gitignored, but rsync'd by
+# deploy.sh like pisynth.conf) run right after the repo migrations, same ledger
+# and rules, recorded as "local/<name>". For per-device tweaks that must not ship
+# to every install.
+#
 # Usage:
 #     apply.sh            apply pending migrations
 #     apply.sh --status   list applied / pending, do nothing
@@ -23,6 +28,7 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 MIG_DIR="$REPO_DIR/migrations"
+LOCAL_DIR="$REPO_DIR/local-migrations"
 LEDGER_DIR=/var/lib/pisynth
 LEDGER="$LEDGER_DIR/applied"
 
@@ -39,14 +45,22 @@ touch "$LEDGER"
 
 applied() { grep -qxF "$1" "$LEDGER"; }
 
+# All migrations in run order, one "<ledger key>|<path>" per line: the repo's first,
+# then the host-local ones (keyed local/<name> so they can't collide).
+all_migrations() {
+    local mig
+    shopt -s nullglob
+    for mig in "$MIG_DIR"/[0-9]*.sh;   do echo "$(basename "$mig")|$mig"; done
+    for mig in "$LOCAL_DIR"/[0-9]*.sh; do echo "local/$(basename "$mig")|$mig"; done
+    shopt -u nullglob
+}
+
 # --status: show state and exit.
 if [[ "${1:-}" == "--status" ]]; then
     echo "ledger: $LEDGER   user: $TARGET_USER"
-    shopt -s nullglob
-    for mig in "$MIG_DIR"/[0-9]*.sh; do
-        name="$(basename "$mig")"
+    while IFS='|' read -r name mig; do
         applied "$name" && echo "  [x] $name" || echo "  [ ] $name"
-    done
+    done < <(all_migrations)
     exit 0
 fi
 
@@ -62,9 +76,8 @@ rm -f "$REBOOT_FLAG"
 export PISYNTH_REBOOT_FLAG="$REBOOT_FLAG"
 
 ran=0
-shopt -s nullglob
-for mig in "$MIG_DIR"/[0-9]*.sh; do
-    name="$(basename "$mig")"
+# fd 3, not stdin: a migration (apt-get, …) reading stdin must not swallow the list.
+while IFS='|' read -r name mig <&3; do
     if [[ $force -eq 0 ]] && applied "$name"; then
         continue
     fi
@@ -77,7 +90,7 @@ for mig in "$MIG_DIR"/[0-9]*.sh; do
         echo "✗ $name FAILED — stopping. Fix it and re-run." >&2
         exit 1
     fi
-done
+done 3< <(all_migrations)
 
 if [[ $ran -eq 0 ]]; then
     echo "No new migrations."

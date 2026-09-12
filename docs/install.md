@@ -70,7 +70,7 @@ cp pisynth.conf.dist pisynth.conf
 ./deploy.sh
 ```
 `deploy.sh` rsyncs the repo to the Pi and runs the installer over SSH, asking the Pi's
-**sudo password once**. When a step changes boot config (the screen overlay) it **reboots
+**sudo password once** if your Pi's sudo requires one. When a step changes boot config (the screen overlay) it **reboots
 the Pi automatically** at the end — the SSH session drops; that's normal.
 
 ### Path B — directly on the Pi (any OS, including Windows)
@@ -130,7 +130,7 @@ install itself, pick one:
   ```
   It needs only tools that ship with Windows 10/11 (OpenSSH client, `tar`, `robocopy`): it
   stages the repo, copies it to the Pi over `scp`, then runs `sudo apply.sh` (asks the Pi's
-  sudo password once). Re-run it to update. Add `-UseRsync` if you have rsync on PATH, or
+  sudo password once, if your Pi's sudo requires one). Re-run it to update. Add `-UseRsync` if you have rsync on PATH, or
   `-PiHost user@host` to override the target.
 - **Path B** above — nothing else runs on Windows but an SSH client (Windows Terminal ships
   `ssh`; or use PuTTY): do the `git clone` + `apply.sh` on the Pi. Good for a one-shot

@@ -120,7 +120,8 @@ class CommandSource(AlsaSeqSource):
     def _loop(self):
         while not self._stop.is_set():
             try:
-                self._proc = subprocess.Popen(self.argv, stdout=subprocess.PIPE, stderr=None,   # errors → service log
+                self._proc = subprocess.Popen(self.argv, stdin=subprocess.PIPE,   # held open: EOF = we're gone
+                                              stdout=subprocess.PIPE, stderr=None,   # errors → service log
                                               text=True, bufsize=1)
             except OSError:
                 if self._stop.wait(3.0):
@@ -142,7 +143,9 @@ def pi_bridge_argv(host):
     """SSH command streaming the Pi's first hardware keyboard as aseqdump lines (#2415)."""
     remote = ("p=$(LC_ALL=C aconnect -i | sed -n \"s/^client [0-9]* *: '\\(.*\\)' \\[.*card=.*/\\1/p\" | head -n1); "
               "[ -n \"$p\" ] || { echo 'no MIDI keyboard on the Pi' >&2; sleep 5; exit 1; }; "
-              "exec stdbuf -oL aseqdump -p \"$p:0\"")
+              # No tty, so a dropped SSH session sends no SIGHUP: aseqdump would outlive it. Keep
+              # it as a child and kill it once our stdin (the SSH channel) closes.
+              "stdbuf -oL aseqdump -p \"$p:0\" & a=$!; cat >/dev/null; kill $a")
     return ["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=10", host, remote]
 
 

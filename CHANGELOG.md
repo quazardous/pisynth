@@ -5,6 +5,12 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
+- **Play along (note highway)** — the web companion's Play page drops a song's notes onto the
+  keyboard, rock-game style: hit each one as it reaches the yellow line. Your timing is judged
+  from the moment you pressed the key (not when Wi-Fi delivered it): perfect, good, early, late,
+  missed, with a score, streak and accuracy. Tempo 50–150 %, A–B loop, a count-in played by
+  pisynth. Two-hand files show each hand in its own colour; songs wider than the phone slide
+  along with the music.
 - **Synth settings from the phone** — the web companion's Sound page changes the soundfont and
   preset, gain, output volume and device, reverb, chorus, metronome and MIDI keyboard; the pisynth
   screen follows, and changes made on the box appear on the phone. Reverb and chorus are now real

@@ -47,9 +47,13 @@ for sf in "$REPO_DIR"/soundfonts/*.sf2 "$REPO_DIR"/soundfonts/*.sf3; do
 done
 shopt -u nullglob
 
-# Restart the UI; restart audio only if already running (don't grab hardware here).
-systemctl restart pisynth-ui.service 2>/dev/null || true
+# Restart order matters: the UI and pisynth-web hold connections to the synth shell (:9800). Stop
+# them FIRST so they close those connections (TIME_WAIT lands on their side), then restart the synth
+# (it can rebind :9800 at once — no ~60 s wait, #2410/#2416), then start them again with the new code.
+# Audio is restarted only if already running (don't grab hardware here).
+systemctl stop pisynth-ui.service pisynth-web.service 2>/dev/null || true
 systemctl is-active --quiet piano.service      && systemctl restart piano.service      || true
 systemctl is-active --quiet midi-bridge.service && systemctl restart midi-bridge.service || true
-systemctl is-enabled --quiet pisynth-web.service && systemctl restart pisynth-web.service || true   # warm again with the new code (#659)
+systemctl start pisynth-ui.service 2>/dev/null || true
+systemctl is-enabled --quiet pisynth-web.service && systemctl start pisynth-web.service || true   # warm again with the new code (#659)
 echo "[sync] code, units, soundfonts re-deployed."

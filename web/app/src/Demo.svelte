@@ -27,6 +27,7 @@
       if (msg.t !== "demo") return;
       if (msg.state === "playing") { leadMs = msg.lead_ms ?? 150; status = "playing on pisynth"; }
       if (msg.state === "error") { status = "pisynth: " + msg.error; stop(false); }
+      if (msg.state === "stopped" && msg.by === "pisynth") { stop(false); status = "stopped on pisynth"; }
     });
     return () => { offF(); offM(); stop(); };
   });
@@ -46,8 +47,12 @@
     sender.start(from, tempo / 100);
     startClock = performance.now();
     playing = true; status = "starting…";
-    timer = setInterval(() => { sender.tick(); if (sender.done && sender.position() > song.durationMs + 500) stop(false); }, 150);
-    const animate = () => {                          // light the demo notes when the Pi plays them
+    timer = setInterval(() => {
+      sender.tick();
+      paint();                                       // also here: rAF pauses when the page isn't painted
+      if (sender.done && sender.position() > song.durationMs + 500) stop(false);
+    }, 150);
+    const paint = () => {                            // light the demo notes when the Pi plays them
       const t = performance.now() - startClock - leadMs;
       const on = new Set(), sus = [];
       for (const ev of song.events) {
@@ -59,15 +64,15 @@
       }
       demoOn = on;
       position = sender.position();
-      raf = requestAnimationFrame(animate);
     };
+    const animate = () => { if (!sender) return; paint(); raf = requestAnimationFrame(animate); };
     raf = requestAnimationFrame(animate);
   }
 
   function stop(tell = true) {
     clearInterval(timer); cancelAnimationFrame(raf);
+    if (sender) position = sender.position();        // where it stopped, before the sender forgets
     if (sender && tell) sender.stop(); else if (sender) sender.playing = false;
-    if (sender) position = sender.position();
     sender = null; playing = false; demoOn = new Set();
     if (tell) status = "";
   }

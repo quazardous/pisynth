@@ -374,7 +374,10 @@ class WebCompanion:
             writer.write(self._json({"sessions": 0}))
         elif (req.method, req.path) == ("POST", "/admin/demo/stop"):
             if self.demo:
+                owner = self.demo.owner
                 self.demo.stop()
+                if owner is not None and not owner.is_closing():
+                    self._send_json(owner, {"t": "demo", "state": "stopped", "by": "pisynth"})   # tell the phone
             writer.write(self._json({"stopped": True}))
         elif (req.method, req.path) == ("GET", "/admin/stats"):
             writer.write(self._json(self.stats()))

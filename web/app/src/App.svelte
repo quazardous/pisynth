@@ -28,6 +28,8 @@
   const send = obj => socket?.send(obj) ?? false;
 
   async function connect() {
+    socket?.close();
+    socket = null;
     const state = await ensurePaired();
     pairing = state;
     if (state === "offline") { setTimeout(connect, 3000); return; }   // pisynth restarting / unreachable: retry
@@ -43,6 +45,8 @@
     });
   }
   connect();
+  // A new pairing link opened in an already-open tab only changes the #fragment: no reload.
+  addEventListener("hashchange", () => { if (/[#&]k=/.test(location.hash)) connect(); });
   onDestroy(() => socket?.close());
 </script>
 

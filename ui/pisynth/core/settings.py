@@ -13,7 +13,7 @@ SETTINGS_PATH = os.path.expanduser(os.environ.get("PISYNTH_SETTINGS", "~/.config
 SETTINGS_HEADER = (
     "# pisynth local preferences — settings.yaml\n"
     "#\n"
-    "# Auto-managed by the touch UI (ui/pisynth-ui.py): these are the preferences you\n"
+    "# Auto-managed by the touch UI (ui/pisynth/): these are the preferences you\n"
     "# change FROM THE SCREEN (Settings menu). The UI rewrites this file on each change,\n"
     "# so hand-edit it only while pisynth-ui.service is stopped.\n"
     "#\n"

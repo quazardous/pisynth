@@ -1,7 +1,7 @@
 # Bluetooth
 
 > Status: **pairing manager + per-device menu + friendly names** implemented
-> (Settings → Connectivity → Bluetooth devices; `bluetoothctl` backend in `ui/pisynth-ui.py`;
+> (Settings → Connectivity → Bluetooth devices; `bluetoothctl` backend in `ui/pisynth/io/bluetooth.py`;
 > polkit grant in migration 011). **Synth A2DP output** is implemented: pick a BT sink
 > in Settings → Audio, persisted as `bluetooth.audio_sink`; `start-piano.sh` routes fluidsynth
 > through pipewire-pulse, ALSA-direct otherwise. **Still needs on-device validation**: real

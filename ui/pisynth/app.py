@@ -15,15 +15,15 @@ Two-level Metro tile UI (ticket #276):
     touch calibration, version.
 
 Every action goes through a navigation API (move / select / adjust / back /
-page) so it can be driven by touch now and by the Keystation D-pad later (and
-by the control socket :9810 for remote testing):
+page) so it can be driven by touch, by the MIDI keyboard's D-pad (screens/nav.py),
+and by the control socket :9810 for remote testing:
     menu up|down|select|back|page   |  menu adjust <-1|+1>
     action gain_up|gain_down|next_preset|prev_preset
     tap <x> <y>  |  state  |  render  |  calibrate  |  settings  |  sleep | wake
 
 Screen sleep (ticket #277): after an inactivity delay (Settings → Screen sleep)
-the panel blanks and the backlight powers off (/sys/class/backlight, migration
-010); the next touch only wakes it.
+the panel blanks to black (the reference panel's backlight is hardwired on, see
+docs/roadmap.md); the next touch only wakes it.
 
 First launch (or Settings → Calibrate) runs touch calibration: tap 4 targets →
 affine raw->screen transform (numpy lstsq) saved to ~/.config/pisynth/touch_cal.json,
@@ -52,7 +52,7 @@ DEBUG    = os.environ.get("PISYNTH_DEBUG") == "1"
 # and skip the write entirely when nothing changed — far less traffic on the slow
 # SPI panel (~16-32 MHz). Set PISYNTH_RENDER=partial in pisynth-ui.service to switch.
 RENDER_MODE = os.environ.get("PISYNTH_RENDER", "full")
-VERSION  = "0.4.0"
+VERSION  = "0.5.0"
 
 # Keyboard channels we broadcast preset changes to. Channel 15 is left alone
 # (midi-bridge.sh reserves it for the D-pad feedback SFX); channel 9 is reserved for the

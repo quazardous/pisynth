@@ -148,7 +148,7 @@ Current migrations: 001 packages, 002 runtime (scripts+units+soundfonts), 003 HD
 
 ## Control GUI (chosen tech: Python → framebuffer)
 
-`ui/pisynth-ui.py`: draws RGB565 straight to `/dev/fb0` (Pillow+numpy), reads the ADS7846
+`ui/pisynth/` (a single `ui/pisynth-ui.py` script until the #308 split): draws RGB565 straight to `/dev/fb0` (Pillow+numpy), reads the ADS7846
 touch via evdev, sends `prog`/`gain` to fluidsynth's port 9800. `pisynth-ui.service`
 (User=`<run-as user>`, groups video+input). No X. Touch calibration: tap 4 targets → an
 affine raw→screen transform (numpy lstsq) saved to `~/.config/pisynth/touch_cal.json`;

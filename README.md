@@ -6,7 +6,7 @@ control UI** on a small 3.5" SPI display. No desktop, no mouse; it boots straigh
 the synth.
 
 Built on **fluidsynth** (SoundFont playback, direct ALSA for low latency) with a
-lightweight framebuffer UI (no X / no Wayland) driven by touch — and, soon, by the
+lightweight framebuffer UI (no X / no Wayland) driven by touch — or by the
 keyboard's D-pad.
 
 > Evolved from a headless NanoPi build (`nanosynth`). pisynth adds the touchscreen, a
@@ -65,6 +65,8 @@ First, on the Pi: flash Raspberry Pi OS, enable SSH + key-based login, and wire 
 sudo ./install.sh        # installs everything in one apt batch, configures, and reboots
 ```
 
+The packages it installs are listed in [`packages.list`](packages.list).
+
 **Developer — from your computer (edit → deploy loop).**
 
 ```bash
@@ -101,7 +103,7 @@ USB audio interface ──────┘                  ▲
             midi-bridge.sh (D-pad)   touch UI (/dev/fb0, control socket :9810)
 ```
 
-The touch UI (`ui/pisynth-ui.py`) draws straight to the framebuffer and drives fluidsynth
+The touch UI (the `ui/pisynth/` Python package, run as `python3 -m pisynth`) draws straight to the framebuffer and drives fluidsynth
 over its TCP shell — the same control plane the D-pad uses. See [DEV.md](docs/dev.md) for the
 full architecture.
 </details>
@@ -124,7 +126,8 @@ All docs are under **[docs/](docs/)**.
 ## Status
 
 Work in progress. The touchscreen UI, calibration, and deploy/migration tooling work; the
-end-to-end audio path is being validated on hardware. See docs/dev.md / docs/research.md.
+end-to-end audio path is being validated on hardware. See docs/dev.md / docs/research.md,
+and [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 
 ## License
 

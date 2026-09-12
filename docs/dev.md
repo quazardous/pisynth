@@ -112,13 +112,13 @@ python3 tools/preview.py [outdir]   # render Home + Settings to PNGs locally (no
   USB card so fluidsynth owns it.
 - **Control plane** — everything that changes a sound sends a line to fluidsynth's TCP shell
   (`prog <ch> <n>`, `gain <x>`, …). Both the touch UI and `midi-bridge.sh` use it.
-- **UI** — `ui/pisynth-ui.py`, pure framebuffer (no X):
+- **UI** — `ui/pisynth/` package (`python3 -m pisynth`), pure framebuffer (no X):
   - `Framebuffer` writes RGB565 to `/dev/fb0` (Pillow + numpy).
   - `Touch` reads the ADS7846 via evdev and maps raw→screen with a saved **affine** transform.
   - `Fluid` is the :9800 client.
   - A **menu SDK**: `MenuScreen(title, items[, tiles])` + `Item(...)`. Navigation goes through
     `nav_move / nav_select / nav_adjust / nav_back / nav_page`, so touch, the control socket, and
-    (later) the Keystation D-pad all drive the same code. Tile grids paginate at `PAGE_TILES` (9)
+    the MIDI keyboard's D-pad (Settings → Navigation) all drive the same code. Tile grids paginate at `PAGE_TILES` (9)
     with a `p/N` indicator top-right (tap to flip); tabular sub-screens have a standardized back button.
   - **Two-level soundfont UI**: Home tiles come from fluidsynth `fonts` (one per
     loaded soundfont); tapping one drills into its presets from `inst <id>` (bank-0 first); tapping

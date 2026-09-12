@@ -24,9 +24,9 @@ PERIODS=4
 
 # --- Soundfonts ---
 # By default, start-piano.sh scans this directory for *.sf2 / *.sf3 files
-# (and symlinks) and loads ALL of them into fluidsynth. The D-pad ← →
-# cycles through them, alphabetically.
-# Use numeric prefixes (01-..., 02-...) to control loading + boot-default order.
+# (and symlinks). Only ONE is loaded at a time — the one chosen in the touch UI,
+# else the first by name; the D-pad ← → cycles through them, alphabetically.
+# Use numeric prefixes (01-..., 02-...) to control the order.
 #SOUNDFONT_DIR=/home/pi/soundfonts
 
 # Manual override: explicit colon-separated list, takes precedence over the scan.
@@ -36,24 +36,8 @@ PERIODS=4
 #SOUNDFONT=/usr/share/sounds/sf3/MuseScore_General.sf3
 
 # --- D-pad MIDI bridge ---
-# Bridge auto-counts soundfonts by scanning SOUNDFONT_DIR. Override only if you know better.
-#NUM_SOUNDFONTS=2
-
-# --- D-pad feedback beep ---
-# GM preset for the audible feedback when a D-pad button is pressed.
-# 80 = Square Lead (8-bit beep), 81 = Sawtooth, 113 = Tinkle Bell, 104 = Sci-Fi (R2D2).
-#FEEDBACK_PRESET=80
-
-# Channel-wide volume of the feedback (CC 7, range 0-127). Lower = quieter beep.
-#FEEDBACK_VOLUME=50
-
-# Per-note velocity of the feedback (also affects timbre on some SFs).
-#FEEDBACK_VELOCITY=100
-
-# Duration of each beep, in seconds. Shorter = more "tick" feel.
-#FEEDBACK_DURATION=0.05
-
-# Set to 0 to completely silence the D-pad beep. Preset switching still works.
+# The D-pad beep is the touch UI's navigation beep (kind + volume in
+# Settings → Navigation). Set to 0 to silence it; preset switching still works.
 #FEEDBACK_ENABLED=1
 
 # --- Hardware override ---

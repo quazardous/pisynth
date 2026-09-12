@@ -29,6 +29,10 @@ All notable changes to pisynth, in plain language. Newest first.
 - **Synth control port no longer reachable from the network** — the synth's control port
   (9800) now only accepts connections from the Pi itself, so another computer on your
   network can't change the sound or load files.
+- **Keyboard D-pad soundfont switching** — the D-pad now switches soundfonts and presets
+  through the touch UI, so it works with the one-soundfont-at-a-time loading, the choice is
+  remembered and shown on screen, and it no longer breaks the metronome click or logs
+  "No SoundFont with id" errors at boot.
 - System health no longer warns when the optional MIDI-bridge service is down — only the
   synth (sound) and power/thermal state drive the health indicator.
 - **Navigation beep audible again** — it was silenced by the synth holding the sound card

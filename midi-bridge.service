@@ -1,6 +1,6 @@
 [Unit]
-Description=MIDI bridge — Keystation D-pad to fluidsynth preset/soundfont switcher
-After=piano.service
+Description=MIDI bridge — Keystation D-pad to touch-UI preset/soundfont switcher
+After=piano.service pisynth-ui.service
 Requires=piano.service
 PartOf=piano.service
 

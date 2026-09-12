@@ -221,12 +221,13 @@ class NavMixin:
             target = row_base + nc % row_len
         self.nav_move(max(0, min(target, n - 1)) - idx)
 
-    def _nav_beep(self, action=None):
+    def _nav_beep(self, action=None, force=False):
         """Play the chosen feedback beep, if sound is on (#373/#673): a short GM-percussion
         note on the synth's reserved channel 9 (same path as the metronome click) — fixed
         drum kit so it's soundfont-independent, played through the synth's card (no aplay →
-        no contention). Fire-and-forget; silent when the synth is offline or volume is 0."""
-        if not self.nav_cfg["sound"] or getattr(self, "_loading", False):  # quiet during a load (#375)
+        no contention). Fire-and-forget; silent when the synth is offline or volume is 0.
+        `force` skips the Sound toggle — midi-bridge.sh has its own FEEDBACK_ENABLED switch."""
+        if not (self.nav_cfg["sound"] or force) or getattr(self, "_loading", False):  # quiet during a load (#375)
             return
         vol = self.nav_cfg["beep_vol"]
         if vol <= 0 or not self.fs.online:           # muted, or no synth to play it

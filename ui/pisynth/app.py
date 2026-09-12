@@ -18,7 +18,7 @@ Every action goes through a navigation API (move / select / adjust / back /
 page) so it can be driven by touch, by the MIDI keyboard's D-pad (screens/nav.py),
 and by the control socket :9810 for remote testing:
     menu up|down|select|back|page   |  menu adjust <-1|+1>
-    action gain_up|gain_down|next_preset|prev_preset
+    action gain_up|gain_down|next_preset|prev_preset|next_font|prev_font|first_font|beep
     tap <x> <y>  |  state  |  render  |  calibrate  |  settings  |  sleep | wake
 
 Screen sleep (ticket #277): after an inactivity delay (Settings → Screen sleep)
@@ -904,6 +904,21 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
         name = next((n for bb, pp, n in presets if (bb, pp) == (b, p)), "")
         self._choose_preset(path, b, p, name)
 
+    def _cycle_font(self, delta, first=False):
+        """Step to the prev/next soundfont of the catalog (or the first one when `first`) and
+        select its default preset — the D-pad ←/→/● of midi-bridge.sh, via the socket. Goes
+        through _choose_preset, so the single-font loader, persistence and screen stay in sync."""
+        paths = [p for _, p in self.fonts]
+        if not paths:
+            return
+        keys = [sf_key(p) for p in paths]
+        cur = sf_key(self.cur_font_path)
+        i = keys.index(cur) if cur in keys else -1
+        path = paths[0] if first else paths[(i + delta) % len(paths)]
+        d = self._default_preset(None, path)         # read from the file: no synth query needed
+        if d:
+            self._choose_preset(path, d[0], d[1], d[2])
+
     def dispatch(self, line):
         parts = line.split()
         if not parts:
@@ -968,6 +983,10 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
             acts = {
                 "next_preset": lambda: self._cycle_preset(1),
                 "prev_preset": lambda: self._cycle_preset(-1),
+                "next_font": lambda: self._cycle_font(1),
+                "prev_font": lambda: self._cycle_font(-1),
+                "first_font": lambda: self._cycle_font(0, first=True),
+                "beep": lambda: self._nav_beep(force=True),     # midi-bridge D-pad feedback
                 "gain_up": lambda: self._set_gain(self.gain + GAIN_STEP),
                 "gain_down": lambda: self._set_gain(self.gain - GAIN_STEP),
             }

@@ -17,7 +17,7 @@ ui/pisynth/            # the framebuffer touch UI package (run via `python3 -m p
 tools/fbshot.py        # dump /dev/fb0 (RGB565) to PNG
 tools/preview.py       # render the UI to PNGs locally (mock fb/touch) — no Pi needed
 start-piano.sh         # fluidsynth launcher (ALSA direct, TCP shell :9800)
-midi-bridge.sh         # Keystation D-pad → fluidsynth preset/soundfont switching
+midi-bridge.sh         # Keystation D-pad → touch UI (:9810) preset/soundfont switching
 *.service              # systemd units: piano, midi-bridge, pisynth-ui (+ lightdm gate drop-in)
 soundfonts/            # drop .sf2/.sf3 here to sideload
 ```
@@ -111,7 +111,8 @@ python3 tools/preview.py [outdir]   # render Home + Settings to PNGs locally (no
   Managed by `piano.service` (RT priority, `Restart=always`). PipeWire is masked off the
   USB card so fluidsynth owns it.
 - **Control plane** — everything that changes a sound sends a line to fluidsynth's TCP shell
-  (`prog <ch> <n>`, `gain <x>`, …). Both the touch UI and `midi-bridge.sh` use it.
+  (`prog <ch> <n>`, `gain <x>`, …). The touch UI owns it; `midi-bridge.sh` goes through the
+  UI's control socket (:9810) so the single-font loader and the screen stay in sync.
 - **UI** — `ui/pisynth/` package (`python3 -m pisynth`), pure framebuffer (no X):
   - `Framebuffer` writes RGB565 to `/dev/fb0` (Pillow + numpy).
   - `Touch` reads the ADS7846 via evdev and maps raw→screen with a saved **affine** transform.
@@ -125,7 +126,7 @@ python3 tools/preview.py [outdir]   # render Home + Settings to PNGs locally (no
     a preset issues `select <ch> <sfid> <bank> <prog>` on the keyboard channels (0–14, 15 reserved
     for the bridge SFX). Offline, Home shows a "Waiting for synth…" tile and refreshes once :9800 is up.
   - A **control socket** on **:9810** mirrors the nav API for remote testing (`ctl.sh`):
-    `menu up|down|select|back|page|adjust <n>`, `action gain_up|gain_down|next_preset|prev_preset`,
+    `menu up|down|select|back|page|adjust <n>`, `action gain_up|gain_down|next_preset|prev_preset|next_font|prev_font|first_font|beep`,
     `state`, `render`, `refresh`, `tap x y`, `calibrate`, `settings`.
 
 ### Adding a menu screen

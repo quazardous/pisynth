@@ -53,7 +53,7 @@
 </script>
 
 <main>
-  {#if !state}
+  {#if !state || !catalog}
     <section class="card"><p class="muted">{error || "Reading the synth settings…"}</p></section>
   {:else}
     {#if error}<p class="error">{error}</p>{/if}

@@ -5,6 +5,9 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
+- **Read-only mode (optional)** — `PISYNTH_READONLY=1` runs the Pi with its SD card read-only,
+  so switching it off at the wall can't corrupt it. Screen settings, calibration and
+  Bluetooth pairings are still saved; deploying switches the mode off and back on by itself.
 - **Metronome click on the piano speakers** — the click is played by the synth itself, so
   it always comes out of the same speakers as the piano, using a fixed light drum soundfont.
   This replaces the old Mode toggle, the separate-output WAV path and the click-sound picker.

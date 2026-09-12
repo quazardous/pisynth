@@ -92,6 +92,19 @@ Edit on the laptop, then:
   soundfonts, and restarts `pisynth-ui` (and audio services if already running). Edits to
   app code or unit files take effect here automatically.
 
+**Read-only root (`PISYNTH_READONLY=1`, #681):** Raspberry Pi OS's `overlayroot` (RAM overlay
+over a read-only SD root), driven by `readonly.sh` → `/usr/local/sbin/pisynth-readonly
+status|enable|disable|persist`.
+- **Deploy with the overlay active:** `apply.sh` disables it, reboots and exits **75**.
+  `deploy.sh` waits for SSH, then rsyncs + applies again on a writable root. `apply.sh`
+  re-enables the overlay last (reboot flag). Result: 2 automatic reboots.
+- **Write-through:** code that saves user state calls `core.persist.request_persist(path)`.
+  It is debounced 5 s and runs `sudo -n pisynth-readonly persist …` (grant: migration 021),
+  which remounts `/media/root-ro` rw, copies (or deletes / mirrors) the path, then remounts ro.
+  Only whitelisted paths are accepted: `settings.yaml`, `touch_cal.json`, `/var/lib/bluetooth`.
+  A new kind of persisted state must be added to that whitelist.
+- **Keep it off on a dev Pi:** every deploy then costs two reboots.
+
 ## Feedback loop (no physical access)
 
 ```bash

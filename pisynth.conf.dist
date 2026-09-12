@@ -14,3 +14,10 @@ PISYNTH_HOST=pi@raspberrypi.local
 # video+input). Optional: if unset, apply.sh falls back to whoever runs sudo
 # (SUDO_USER). Set it when the SSH user and the run-as user differ.
 #PISYNTH_USER=pi
+
+# Read-only root (#681): 1 = run the Pi with its SD root read-only (RAM overlay), so pulling
+# the plug can't corrupt the card. Screen preferences, calibration and Bluetooth pairings are
+# still saved; anything else written on the Pi is lost at reboot — copy soundfonts with
+# ./deploy.sh (it turns read-only off while it works, then back on: 2 automatic reboots).
+# Default 0. Keep it off on a Pi you develop on.
+#PISYNTH_READONLY=1

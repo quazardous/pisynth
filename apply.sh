@@ -61,11 +61,34 @@ if [[ "${1:-}" == "--status" ]]; then
     while IFS='|' read -r name mig; do
         applied "$name" && echo "  [x] $name" || echo "  [ ] $name"
     done < <(all_migrations)
+    echo "read-only root: $(bash "$REPO_DIR/readonly.sh" status)   wanted: PISYNTH_READONLY=${PISYNTH_READONLY:-0}"
     exit 0
 fi
 
 force=0
 [[ "${1:-}" == "--redo" ]] && force=1
+
+# Schedule a reboot just after we exit, so apply.sh returns and ssh closes cleanly.
+schedule_reboot() {
+    systemd-run --quiet --on-active=3s --unit="pisynth-deploy-reboot-$$" systemctl reboot \
+        2>/dev/null || setsid -f bash -c 'sleep 3; systemctl reboot' || true
+}
+
+# Read-only root (#681 phase B): with the overlay active, anything written now (this
+# deploy included) would vanish at reboot. Turn it off, reboot, and let deploy.sh resume
+# on a writable root (exit code 75 = "rebooting, run me again"). It is switched back on at
+# the end of the resumed run when PISYNTH_READONLY=1.
+if grep -qw "overlayroot=tmpfs" /proc/cmdline; then
+    echo "── read-only root is active: turning it off for this deploy ──"
+    if [[ -n "${PISYNTH_NO_REBOOT:-}" ]]; then
+        echo "✗ PISYNTH_NO_REBOOT is set, but a deploy needs a reboot to leave read-only mode." >&2
+        exit 1
+    fi
+    bash "$REPO_DIR/readonly.sh" disable
+    echo "Rebooting in 3s; re-run the deploy once the Pi is back (deploy.sh does it for you)."
+    schedule_reboot
+    exit 75
+fi
 
 # Reboot coordination: a migration that changes boot config (cmdline.txt /
 # config.txt / overlays) appends a reason line to $PISYNTH_REBOOT_FLAG. We reboot
@@ -104,6 +127,18 @@ if [[ -f "$REPO_DIR/sync.sh" ]]; then
     bash "$REPO_DIR/sync.sh"
 fi
 
+# Read-only root wanted? (pisynth.conf: PISYNTH_READONLY=1) Switch it on last, once
+# everything above is on the SD; it takes effect with the reboot below.
+if [[ "${PISYNTH_READONLY:-0}" == "1" ]]; then
+    if ! bash "$REPO_DIR/readonly.sh" status | grep -q "configured=1"; then
+        echo "── read-only root: enabling (PISYNTH_READONLY=1) ──"
+        bash "$REPO_DIR/readonly.sh" enable
+        echo "read-only root (overlayroot) enabled" >> "$REBOOT_FLAG"
+    fi
+elif bash "$REPO_DIR/readonly.sh" status | grep -q "configured=1"; then
+    bash "$REPO_DIR/readonly.sh" disable            # configured by hand but not wanted
+fi
+
 # A migration changed boot config → reboot now so it ships with this deploy.
 if [[ -s "$REBOOT_FLAG" ]]; then
     echo "── reboot required by this deploy ─────────────"
@@ -113,8 +148,6 @@ if [[ -s "$REBOOT_FLAG" ]]; then
         echo "PISYNTH_NO_REBOOT set — skipping. Reboot later: sudo systemctl reboot"
     else
         echo "Rebooting in 3s (set PISYNTH_NO_REBOOT=1 to skip)…"
-        # Schedule it just after we exit so apply.sh returns 0 and ssh closes cleanly.
-        systemd-run --quiet --on-active=3s --unit=pisynth-deploy-reboot systemctl reboot \
-            2>/dev/null || setsid -f bash -c 'sleep 3; systemctl reboot' || true
+        schedule_reboot
     fi
 fi

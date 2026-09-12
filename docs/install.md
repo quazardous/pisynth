@@ -117,6 +117,23 @@ Plug the USB MIDI keyboard and USB audio interface into the Pi. On first boot th
 touchscreen runs a **calibration** (tap the 4 targets). Home then shows your soundfonts as
 tiles — tap one to select its default sound, tap it again to pick a preset. Press a key.
 
+## 8. Optional: read-only mode (safe to unplug)
+
+A synth usually gets switched off at the wall, not shut down. Out of the box pisynth already
+keeps its writes to the SD card to a minimum. For full protection, turn on **read-only mode**:
+the card is mounted read-only and everything else happens in memory, so pulling the plug can't
+corrupt it.
+
+In `pisynth.conf` set `PISYNTH_READONLY=1`, then re-run `./deploy.sh` (or `sudo ./install.sh`
+on the Pi). The Pi reboots into read-only mode.
+
+- **Still saved:** what you change on the touchscreen — settings, calibration, Bluetooth pairings.
+- **Lost at reboot:** anything else written on the Pi, e.g. soundfonts you copy into
+  `~/soundfonts`. Add soundfonts with `./deploy.sh` instead: it switches read-only mode off
+  while it works and back on at the end (the Pi reboots twice, automatically).
+- **Turn it off:** set `PISYNTH_READONLY=0` and re-deploy. On the Pi directly:
+  `sudo pisynth-readonly disable && sudo reboot`.
+
 ## Windows
 
 Raspberry Pi Imager (step 2) runs natively on Windows, so the OS prep is identical. For the

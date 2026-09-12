@@ -95,6 +95,7 @@ from .core.audio import (GAIN_DEFAULT, GAIN_MAX, GAIN_MIN, GAIN_STEP, audio_acti
                          audio_output_present, fluid_seq_port, list_midi_inputs,
                          metro_click_argv, midi_input_present, play_test)
 from .core.geometry import solve_affine
+from .core.persist import flush_now as flush_persist, request_persist
 from .core.settings import (CAL_PATH, SETTINGS_PATH, _legacy_json_path, load_cal,
                             load_settings, save_cal, save_settings)
 from .core.soundfonts import (SOUNDFONT_DIR, font_label, list_soundfont_files,
@@ -575,6 +576,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
                 os.remove(p)
             except OSError:
                 pass
+        request_persist(SETTINGS_PATH)               # read-only root: delete it on the SD too (#681)
         MenuScreen.per_page_tiles = 6
         self.sleep_after = SLEEP_DEFAULT
         self.soundcard = ""
@@ -592,6 +594,7 @@ class App(AudioMixin, BluetoothMixin, MetronomeMixin, NavMixin):
     def _power(self, action):
         """Run `systemctl <reboot|poweroff>`. Needs the polkit grant from migration 012
         (the UI is a sessionless service); on failure, show why instead of silently dying."""
+        flush_persist()                              # read-only root: don't lose a pending write-through (#681)
         try:
             r = subprocess.run(["systemctl", action], capture_output=True, timeout=10)
             if r.returncode != 0:

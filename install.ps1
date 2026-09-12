@@ -123,6 +123,12 @@ else {
 if (-not $NoApply) {
     Write-Log "-> apply migrations + sync on $pi (sudo)"
     & ssh -t $pi 'sudo bash ~/pisynth/apply.sh'
+    if ($LASTEXITCODE -eq 75) {
+        # Read-only root was on (#681): apply.sh turned it off and is rebooting the Pi.
+        # The files pushed above lived in RAM, so the whole script must run again.
+        Write-Log "-> read-only mode was on: the Pi is rebooting writable. Run this script again once it is back."
+        exit 75
+    }
     if ($LASTEXITCODE -ne 0) { throw "apply.sh failed (exit $LASTEXITCODE)" }
 }
 

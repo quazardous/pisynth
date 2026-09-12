@@ -4,6 +4,8 @@ import os
 
 import yaml
 
+from .persist import request_persist
+
 CAL_PATH = os.path.expanduser(os.environ.get("PISYNTH_CAL", "~/.config/pisynth/touch_cal.json"))
 SETTINGS_PATH = os.path.expanduser(os.environ.get("PISYNTH_SETTINGS", "~/.config/pisynth/settings.yaml"))
 
@@ -42,6 +44,7 @@ def _atomic_write(path, text):
         os.fsync(fd)
     finally:
         os.close(fd)
+    request_persist(path)                            # read-only root: write through to the SD
 
 
 def load_cal():

@@ -7,6 +7,8 @@ import subprocess
 import threading
 import time
 
+from ..core.persist import request_persist
+
 _DEV_RE = re.compile(r"Device\s+([0-9A-F:]{17})", re.I)
 
 
@@ -153,6 +155,8 @@ class Bluetooth:
             self.last_result = "disconnected"
         elif action == "remove":
             self.last_result = "removed"
+        if action in ("pair", "remove"):             # read-only root: keep pairings across reboots (#681)
+            request_persist("/var/lib/bluetooth")
 
     def _verdict(self, mac):
         """Report what BlueZ ACTUALLY says after a pair/connect — not bluetoothctl's exit

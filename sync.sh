@@ -19,6 +19,7 @@ rsync -a --delete --exclude __pycache__ "$REPO_DIR/ui/pisynth/" /usr/local/lib/p
 install -m 0755 "$REPO_DIR/start-piano.sh"    /usr/local/bin/start-piano.sh
 install -m 0755 "$REPO_DIR/midi-bridge.sh"    /usr/local/bin/midi-bridge.sh
 install -m 0755 "$REPO_DIR/hdmi-connected.sh" /usr/local/bin/pisynth-hdmi-connected
+install -m 0755 "$REPO_DIR/readonly.sh"       /usr/local/sbin/pisynth-readonly   # read-only root helper (#681)
 
 # systemd units (so unit edits take effect every deploy)
 for u in piano midi-bridge pisynth-ui; do

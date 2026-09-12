@@ -46,3 +46,21 @@ services:
       - "${APP_PORT:-15173}:5173"
     depends_on:
       web: { condition: service_healthy }
+
+  # Same app over plain HTTP on the laptop's loopback only (http://localhost:15174): for a desktop
+  # browser / Claude in Chrome, no cert warning. BACKEND=https://<pi>:8443 points it at the real
+  # server on the Pi instead of the local one (`make pi-local`).
+  app-local:
+    image: node:22-slim
+    user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
+    working_dir: /repo/web/app
+    command: sh -c "[ -d node_modules ] || npm ci; exec npx vite --host 0.0.0.0"
+    volumes:
+      - ..:/repo
+    environment:
+      PISYNTH_DEV_BACKEND: ${BACKEND:-https://web:8443}
+      PISYNTH_DEV_PLAIN: "1"
+    ports:
+      - "127.0.0.1:${LOCAL_PORT:-15174}:5173"
+    depends_on:
+      web: { condition: service_healthy }

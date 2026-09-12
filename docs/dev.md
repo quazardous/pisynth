@@ -145,6 +145,11 @@ make down
   `ssh $PISYNTH_HOST aseqdump` on the Pi's first hardware keyboard; `aseqdump` (default, on the Pi).
 - The server restarts on any Python edit under `web/`; Svelte edits hot-reload in the browser.
 - If the phone can't connect, check the laptop firewall allows TCP 15173/18443.
+- **Desktop browser / Claude in Chrome** (no cert warning): `make pair-local` → open the
+  `http://localhost:15174/#k=…` URL it prints (Chrome treats `http://localhost` as a secure
+  context, so the session cookie, mic and service worker still work). `make pi-local` serves the
+  local app on that port against the **real server on the Pi**; mint the token with
+  `ssh $PISYNTH_HOST curl -s -XPOST http://127.0.0.1:9811/admin/token`.
 
 ## Tests & lint (laptop, no Pi)
 

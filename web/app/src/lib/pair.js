@@ -22,7 +22,7 @@ export async function ensurePaired() {
 export function openMidiSocket({ onFrame, onState }) {
   let ws, stopped = false, delay = 500;
   const connect = () => {
-    ws = new WebSocket(`wss://${location.host}/ws`);
+    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);   // ws: on http://localhost (dev)
     ws.binaryType = "arraybuffer";
     ws.onopen = () => { delay = 500; onState("live"); };
     ws.onmessage = e => { if (e.data instanceof ArrayBuffer) onFrame(e.data); };

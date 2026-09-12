@@ -1,7 +1,7 @@
 # Developer shortcuts (#2415). The Pi side is still ./deploy.sh; these run on the laptop.
 COMPOSE = DEV_UID=$$(id -u) DEV_GID=$$(id -g) docker compose -f dev/docker-compose.yml
 
-.PHONY: help dev dev-pi down logs pair pair-built stats test lint build tunnel shell
+.PHONY: help dev dev-pi down logs pair pair-built pair-local pi-local stats test lint build tunnel shell
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'
@@ -23,6 +23,13 @@ pair:  ## print a one-time pairing URL + QR for the phone (Vite dev server)
 
 pair-built:  ## same, but for the built app served by pisynth-web itself (host :18443)
 	$(COMPOSE) exec -e APP=$${WEB_PORT:-18443} -e LAN_IP=$$(ip -4 route get 192.0.2.1 | awk '{for(i=1;i<=NF;i++) if($$i=="src") print $$(i+1)}') web python3 dev/pair.py
+
+pair-local:  ## pairing URL for http://localhost:15174 (desktop browser / Claude in Chrome, no cert warning)
+	@ADMIN=http://127.0.0.1:$${ADMIN_PORT:-9811} APP=$${LOCAL_PORT:-15174} LAN_IP=localhost python3 dev/pair.py 2>/dev/null | sed -n 's|^  https://|  http://|p'
+
+pi-local:  ## serve the local Svelte app on http://localhost:15174 against the REAL server on the Pi
+	@. ./pisynth.conf 2>/dev/null; PI_IP=$${PISYNTH_HOST#*@}; BACKEND=https://$$PI_IP:8443 $(COMPOSE) up -d --force-recreate app-local && \
+	echo "pair: ssh $$PISYNTH_HOST curl -s -XPOST http://127.0.0.1:9811/admin/token  →  http://localhost:15174/#k=<token>"
 
 stats:  ## relay latency / clients / frames from the running server
 	@curl -fsS http://127.0.0.1:9811/admin/stats && echo

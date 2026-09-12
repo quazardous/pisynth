@@ -9,7 +9,10 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 const certs = process.env.PISYNTH_DEV_CERTS;
 const backend = process.env.PISYNTH_DEV_BACKEND || "https://127.0.0.1:8443";
-const https = certs && fs.existsSync(`${certs}/cert.pem`)
+// PISYNTH_DEV_PLAIN=1: plain HTTP (the `app-local` service, bound to the laptop's loopback).
+// Chrome treats http://localhost as a secure context — Secure cookies, mic and service worker
+// work — and it avoids the self-signed-cert interstitial browser automation can't click through.
+const https = !process.env.PISYNTH_DEV_PLAIN && certs && fs.existsSync(`${certs}/cert.pem`)
   ? { cert: fs.readFileSync(`${certs}/cert.pem`), key: fs.readFileSync(`${certs}/key.pem`) }
   : undefined;
 const api = { target: backend, secure: false, changeOrigin: false };

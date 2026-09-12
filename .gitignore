@@ -25,3 +25,6 @@ soundfonts/*.sf3
 
 # host-local one-shot migrations (per-device, not shipped) — run by apply.sh
 /local-migrations/
+
+# web companion (#659): Svelte sources build into web/static (committed)
+/web/app/node_modules/

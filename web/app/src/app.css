@@ -1,0 +1,27 @@
+/* pisynth web companion — global theme (#659); component styles live in the .svelte files. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #121218; --bar: #22222e; --fg: #ebebf0; --muted: #787c8c;
+  --accent: #5aa0ff; --yellow: #ffd23f; --key: #f4f4f8; --keyon: #5aa0ff; --black: #16161c;
+}
+html, body, #app { height: 100%; }
+#app { display: flex; flex-direction: column; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-user-select: none; user-select: none; overflow: hidden;
+}
+header {
+  background: var(--bar); display: flex; align-items: center; gap: 14px;
+  padding: env(safe-area-inset-top, 0) 16px 0; min-height: 52px; flex: 0 0 auto;
+}
+.title { font-weight: 700; letter-spacing: .5px; }
+nav { display: flex; gap: 14px; flex: 1; }
+nav a { color: var(--muted); text-decoration: none; font-size: .95rem; }
+nav a.active { color: var(--accent); }
+.status { font-size: .8rem; padding: 3px 10px; border-radius: 999px; color: var(--muted); background: rgba(120,124,140,.12); margin-left: auto; }
+.status.on { color: #0c0; background: rgba(0,200,0,.12); }
+.card { margin: 16px; padding: 18px; background: var(--bar); border-radius: 12px; line-height: 1.45; -webkit-user-select: text; user-select: text; overflow: auto; }
+.card h1 { font-size: 1.25rem; margin-bottom: 10px; }
+.muted { color: var(--muted); font-size: .9rem; }
+button { margin-top: 14px; font: inherit; font-weight: 700; padding: 12px 22px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; }

@@ -43,7 +43,7 @@ _REASON = {101: "Switching Protocols", 200: "OK", 204: "No Content", 304: "Not M
 _SECURITY_HEADERS = ("X-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\n"
                      "Content-Security-Policy: default-src 'self'; img-src 'self' data:; "
                      "connect-src 'self'; frame-ancestors 'none'\r\n")
-_ROUTES = {"/": "index.html", "/latency": "latency.html"}   # clean URLs → files
+_ROUTES = {"/": "index.html", "/latency": "index.html"}   # single-page app routes → its shell
 
 
 # ---- WebSocket framing (RFC 6455, the slice we need) ----

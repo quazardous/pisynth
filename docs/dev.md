@@ -120,6 +120,20 @@ python3 tools/preview.py [outdir]   # render Home + Settings to PNGs locally (no
 `shot.sh` and `ctl.sh` need no sudo (the user is in `video`+`input`); only `apply.sh` does.
 `tools/preview.py` mocks the framebuffer/touch so you can iterate on the UI offline.
 
+## Tests & lint (laptop, no Pi)
+
+```bash
+uvx ruff check ui tools tests                  # lint (config in pyproject.toml)
+uvx --with numpy,pillow,pyyaml pytest          # unit tests in tests/
+```
+
+Nothing to install system-wide (`uv` fetches the tools). The tests cover the logic that runs
+without hardware: calibration fit, settings/calibration files, soundfont preset parsing,
+metronome click SMF, D-pad grid navigation, soundfont cycling, and the fluidsynth client
+(against a fake TCP shell). `tests/test_layers.py` enforces the package layering:
+`core` ↛ `io` ↛ `ui` ↛ `screens` ↛ `app` — a lower layer never imports an upper one.
+`evdev` is stubbed in `tests/conftest.py` when absent.
+
 ## Architecture
 
 - **Audio** — `start-piano.sh` runs `fluidsynth --server` with `--audio-driver=alsa` on the

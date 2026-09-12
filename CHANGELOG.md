@@ -8,7 +8,8 @@ All notable changes to pisynth, in plain language. Newest first.
 - **Web companion on your phone** — tap the QR icon next to the metronome and scan it: your phone
   shows the keys you play and the chord name live, and can measure the keyboard-to-sound latency
   with its microphone. Pairing needs the code on the pisynth screen, so only someone at the
-  instrument can connect; Settings → Web companion lists and forgets paired phones.
+  instrument can connect; one phone at a time — the QR icon turns green while one is paired, and
+  pairing another one (after a warning) disconnects it.
 - **Read-only mode (optional)** — `PISYNTH_READONLY=1` runs the Pi with its SD card read-only,
   so switching it off at the wall can't corrupt it. Screen settings, calibration and
   Bluetooth pairings are still saved; deploying switches the mode off and back on by itself.

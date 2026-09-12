@@ -244,9 +244,15 @@ app.metro.running = False; app.metro.beat = 0; app.metro.flash = False   # leave
 app.stack = [app._home_menu()]
 app.companion.token = lambda: {"token": "PREVIEW-one-time-token", "ttl": 120, "port": 8443,
                                "fingerprint": ":".join(["6B", "7E", "FB", "C5", "3A", "10"] + ["00"] * 26)}
-app.companion.stats = lambda: {"clients": 1, "sessions": 2, "frames": 0, "relay_us": {}}
+app.companion.stats = lambda timeout=None: {"clients": 0, "sessions": 0, "frames": 0, "relay_us": {}}
 app._open_pair_qr()
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-companion-qr.png"))
+app.stack = [app._home_menu()]
+app.companion.stats = lambda timeout=None: {"clients": 1, "sessions": 1, "frames": 0, "relay_us": {}}
+app._st_companion = "live"
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-home-companion-paired.png"))   # green QR icon
+app._request_pair()
+app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-companion-replace.png"))       # the warning
 app.stack = [app._home_menu(), app._companion_menu()]
 app.render(); app.fb.last.save(os.path.join(OUT, "pisynth-companion-menu.png"))
 app.stack = [app._home_menu()]

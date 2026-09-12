@@ -54,3 +54,10 @@ def test_cookie_value():
     h = {"cookie": "a=1; pisynth_session=abc_-9; b=2"}
     assert cookie_value(h) == "abc_-9"
     assert cookie_value({}) == "" and cookie_value({"cookie": "pisynth_sessionx=1"}) == ""
+
+
+def test_pairing_a_new_browser_revokes_the_previous_one():
+    a = Auth()
+    first = a.redeem(a.new_token()[0])
+    second = a.redeem(a.new_token()[0])
+    assert a.valid(second) and not a.valid(first) and a.session_count == 1

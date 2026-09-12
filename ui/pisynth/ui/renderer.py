@@ -22,7 +22,7 @@ from .theme import (ACCENT, AMBER, BARBG, BG, BT_BLUE, BTN, ERR, FG, ICON, MUTED
 # the MIDI Test-keyboard screen (#331).
 Status = namedtuple("Status", "depth wifi bt bt_conn midi synth audio "
                               "metro_running metro_beat metro_beats metro_flash metro_home_pulse "
-                              "toast health kbd loading load_anim load_phase")
+                              "toast health kbd loading load_anim load_phase companion")
 
 # Snapshot of the live MIDI monitor for the Test-keyboard screen (#331).
 MidiState = namedtuple("MidiState", "active lo hi last count")
@@ -192,7 +192,8 @@ class Renderer:
         else:
             metro_col = self._ic_color(status.metro_running, PINK)
         self._glyph(d, "metronome", metro_cx, cy, metro_col, self.f_icon_big)
-        self._glyph(d, "qr_code", self._home_qr_cx(), cy, ACCENT, self.f_icon_big)   # pair a phone (#659)
+        qr_col = OK if status.companion in ("paired", "live") else ACCENT            # green = a browser is paired (#659)
+        self._glyph(d, "qr_code", self._home_qr_cx(), cy, qr_col, self.f_icon_big)
         # vertical separator between the interactive group and the status icons (#339)
         self._vsep(d, sep_x)
         # Bluetooth: dim (off) → blue `bluetooth` (radio on) → `bluetooth_connected` (#306)

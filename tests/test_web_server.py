@@ -198,3 +198,16 @@ def test_ping_gets_pong_and_close_is_echoed(cert, static):
 def test_encode_frame_lengths():
     assert encode_frame(b"x" * 7)[:2] == bytes((0x82, 7))
     assert encode_frame(b"x" * 300)[:4] == bytes((0x82, 126, 1, 44))
+
+
+def test_pairing_another_browser_disconnects_the_first(cert, static):
+    async def go():
+        async with Harness(cert, static) as h:
+            first = await h.pair()
+            _, r, _ = await h.ws(first)
+            await asyncio.sleep(0.05)
+            second = await h.pair()
+            assert await asyncio.wait_for(r.read(), 5) == b""                    # first browser cut off
+            assert (await h.http("GET", "/api/session", {"Cookie": first}))[0] == 401
+            assert (await h.http("GET", "/api/session", {"Cookie": second}))[0] == 204
+    run(go())

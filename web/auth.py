@@ -35,13 +35,14 @@ class Auth:
         return token, TOKEN_TTL_S
 
     def redeem(self, token):
-        """Single use: a valid, unexpired token → a new session id; anything else → None."""
+        """Single use: a valid, unexpired token → a new session id; anything else → None.
+        ONE paired browser at a time (david): a new pairing revokes the previous session."""
         self._prune()
         if not isinstance(token, str) or token not in self._tokens:
             return None
         del self._tokens[token]
         session_id = secrets.token_urlsafe(32)
-        self._sessions[_digest(session_id)] = {"created": int(self._wall())}
+        self._sessions = {_digest(session_id): {"created": int(self._wall())}}   # replaces any previous one
         self._save()
         return session_id
 

@@ -746,6 +746,7 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
         self._st_bt_conn = self._st_bt and bt_any_connected()   # device connected? (#306)
         self._st_midi = midi_input_present()
         self._st_audio = audio_output_present(self.soundcard, self.bt_sink)   # sound card OK → audio icon (#327)
+        self._st_companion = self._companion_state()                         # QR icon colour (#659)
         if not force:                                 # one reading per 3 s tick: `settle` counts ticks
             self._hotplug_poll()                      # USB replug → restart synth / re-wire MIDI (#2410)
         if force or now - self._health_t0 >= 20.0:    # health smiley on its own slow throttle (#325)
@@ -810,7 +811,7 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
             metro_beat=self.metro.beat, metro_beats=self.metro.beats,
             metro_flash=self.metro.flash, metro_home_pulse=self.metro.home_pulse, toast=active,
             health=self._health, kbd=kbd, loading=self._loading, load_anim=self._load_frame,
-            load_phase=self._load_phase), band=band)
+            load_phase=self._load_phase, companion=self._st_companion), band=band)
 
     # ---- hit-testing (controller side; geometry lives on the Renderer, #308) ----
     def _stepper_at(self, x, y):
@@ -865,7 +866,7 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
                 self._metro_toggle()
                 self.render()
             elif len(self.stack) == 1 and self.view._home_qr_hit(x):     # Home: QR → pair a phone (#659)
-                self._open_pair_qr()
+                self._request_pair()
             elif page and page[0] <= x <= page[2]:
                 self.nav_page(-1 if x < (page[0] + page[2]) / 2 else 1)
             return

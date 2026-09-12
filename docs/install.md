@@ -125,8 +125,9 @@ own, so accept it (the screen shows its fingerprint if you want to compare). The
 keys and chords you play live; **Latency** measures the key-to-sound delay with the phone's
 microphone. Add it to your home screen to use it like an app.
 
-Only someone who can see the pisynth screen can pair a phone (the code works once, for 2 minutes).
-**Settings → Web companion → Forget all phones** disconnects and unpairs every phone.
+Only someone who can see the pisynth screen can pair a phone (the code works once, for 2 minutes),
+and **one browser is paired at a time**: the QR icon turns **green** while one is paired, and pairing
+another one disconnects it (pisynth warns you first). **Settings → Web companion → Unpair** removes it.
 
 ## 9. Optional: read-only mode (safe to unplug)
 

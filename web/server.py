@@ -219,6 +219,9 @@ class WebCompanion:
         session_id = self.auth.redeem(token)
         if not session_id:
             return response(403, b'{"error":"invalid or expired pairing code"}', "application/json")
+        for w in list(self.clients):                 # the previously paired browser is cut off now
+            w.close()
+        self.clients.clear()
         cookie = (f"Set-Cookie: {SESSION_COOKIE}={session_id}; Path=/; Max-Age=315360000; "
                   "HttpOnly; Secure; SameSite=Strict\r\n")
         return response(200, b'{"paired":true}', "application/json", cookie)

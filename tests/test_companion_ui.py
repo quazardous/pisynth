@@ -77,19 +77,23 @@ class Host(C.CompanionMixin):
     def render(self):
         self.renders += 1
 
+    def _dialog(self, title, yes_label, on_yes, no_label="Cancel", on_no=None):
+        self.stack.append(MenuScreen(title, []))
+        self.dialog_yes = on_yes
+
 
 class FakeClient:
-    def __init__(self, up=True):
-        self.up, self.minted = up, 0
-
     def token(self):
         if not self.up:
             return None
         self.minted += 1
         return {"token": f"t{self.minted}", "ttl": 120, "port": 8443, "fingerprint": "AA:BB"}
 
-    def stats(self):
-        return {"clients": 0, "sessions": 2} if self.up else None
+    def __init__(self, up=True, sessions=0, clients=0):
+        self.up, self.minted, self.sessions, self.clients = up, 0, sessions, clients
+
+    def stats(self, timeout=None):
+        return {"clients": self.clients, "sessions": self.sessions} if self.up else None
 
 
 def test_qr_screen_opens_with_url_and_refreshes_before_expiry(monkeypatch):
@@ -121,3 +125,29 @@ def test_home_bar_hit_areas_do_not_overlap():
     qr = [x for x in range(0, 480) if r._home_qr_hit(x)]
     assert metro and qr and max(metro) < min(qr)
     assert min(metro) > 56                                        # the cog keeps x ≤ 56
+
+
+def test_companion_state_from_stats():
+    assert Host(FakeClient(up=False))._companion_state() == "none"
+    assert Host(FakeClient(sessions=0))._companion_state() == "none"
+    assert Host(FakeClient(sessions=1))._companion_state() == "paired"
+    assert Host(FakeClient(sessions=1, clients=1))._companion_state() == "live"
+
+
+def test_pairing_opens_directly_when_nobody_is_paired(monkeypatch):
+    monkeypatch.setattr(C, "local_ip", lambda: "10.0.0.5")
+    monkeypatch.setattr(C, "qr_image", lambda url, size: None)
+    h = Host(FakeClient())
+    h._request_pair()
+    assert h.cur.title == C.QR_TITLE and len(h.stack) == 2
+
+
+def test_pairing_warns_when_a_browser_is_paired_then_replaces(monkeypatch):
+    monkeypatch.setattr(C, "local_ip", lambda: "10.0.0.5")
+    monkeypatch.setattr(C, "qr_image", lambda url, size: None)
+    h = Host(FakeClient(sessions=1, clients=1))
+    h._request_pair()
+    assert h.cur.title == "Replace paired browser?" and "disconnected" in h.cur.footer
+    assert h.companion.minted == 0                                  # no code shown before confirming
+    h.dialog_yes()
+    assert [m.title for m in h.stack] == ["pisynth", C.QR_TITLE]    # warning replaced by the QR

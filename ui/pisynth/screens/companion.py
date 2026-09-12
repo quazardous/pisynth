@@ -29,8 +29,32 @@ class CompanionMixin:
     def _companion_init(self):
         self.companion = CompanionClient()
         self._qr_expires = 0.0
+        self._st_companion = "none"                     # none | paired | live — Home QR colour
+
+    def _companion_state(self):
+        """From the service's stats: 'live' (browser connected), 'paired' (session, not connected),
+        'none' (nobody paired, or the service is off). Loopback call, short timeout."""
+        st = self.companion.stats(timeout=0.5)
+        if not st:
+            return "none"
+        return "live" if st.get("clients") else "paired" if st.get("sessions") else "none"
 
     # ---- pairing QR ----
+    def _request_pair(self):
+        """Home QR / Settings entry: when a browser is already paired, warn first — pairing
+        another one disconnects it (one paired browser at a time)."""
+        self._st_companion = self._companion_state()    # fresh, not the 3 s-old poll
+        if self._st_companion == "none":
+            self._open_pair_qr()
+            return
+        self._dialog("Replace paired browser?", "Pair a new one", self._confirm_replace)
+        self.cur.footer = "The current browser will be disconnected."
+        self.render()
+
+    def _confirm_replace(self):
+        self.stack.pop()                                # drop the warning; Back from the QR goes Home
+        self._open_pair_qr()
+
     def _open_pair_qr(self):
         screen = MenuScreen(QR_TITLE, [])
         if not self._refresh_pair_qr(screen):
@@ -67,20 +91,19 @@ class CompanionMixin:
     # ---- Settings → Web companion ----
     def _companion_menu(self):
         return MenuScreen("Web companion", [
-            Item(QR_TITLE, on_select=self._open_pair_qr, submenu=True),
-            Item("Paired phones", value=self._paired_label),
-            Item("Forget all phones", on_select=(lambda: self._confirm("Forget all phones", self._forget_phones)),
-                 submenu=True),
+            Item(QR_TITLE, on_select=self._request_pair, submenu=True),
+            Item("Paired browser", value=self._paired_label),
+            Item("Unpair", on_select=(lambda: self._confirm("Unpair", self._forget_phones)), submenu=True),
         ])
 
     def _paired_label(self):
         st = self.companion.stats()
         if st is None:
             return "service off"
-        live = f" · {st['clients']} live" if st.get("clients") else ""
-        return f"{st['sessions']}{live}"
+        return "connected" if st.get("clients") else "yes" if st.get("sessions") else "none"
 
     def _forget_phones(self):
         ok = self.companion.forget_all()
         self._close_dialog()
-        self.toast("All phones forgotten" if ok else "Web companion not running")
+        self._st_companion = "none" if ok else self._st_companion
+        self.toast("Browser unpaired" if ok else "Web companion not running")

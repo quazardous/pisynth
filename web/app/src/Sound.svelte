@@ -10,6 +10,11 @@
   let error = $state("");
   let openFont = $state("");
   let busy = $state(false);
+  // Opening a soundfont scrolls its preset box to the preset in use (not the page itself).
+  const revealCurrent = box => {
+    const cur = box.querySelector(".current");
+    if (cur) box.scrollTop = cur.offsetTop - box.clientHeight / 2 + cur.offsetHeight / 2;
+  };
   let pendingOutput = $state(null);               // output change waiting for an in-page confirm
 
   $effect(() => {
@@ -65,12 +70,14 @@
           {f.label}{#if state.font === f.file}<span class="sub">{state.preset_name}</span>{/if}
         </button>
         {#if openFont === f.file}
-          <div class="presets">
-            {#each f.presets.filter(p => p[0] === 0).length ? f.presets.filter(p => p[0] === 0) : f.presets as [bank, prog, name] (`${bank}-${prog}`)}
+          {@const list = f.presets.filter(p => p[0] === 0).length ? f.presets.filter(p => p[0] === 0) : f.presets}
+          <div class="presets" {@attach revealCurrent}>
+            {#each list as [bank, prog, name] (`${bank}-${prog}`)}
               <button class="preset" class:current={state.font === f.file && state.bank === bank && state.prog === prog}
                       disabled={busy} onclick={() => choosePreset(f.file, bank, prog)}>{name}</button>
             {/each}
           </div>
+          {#if list.length > 8}<p class="count muted">{list.length} presets — scroll the list</p>{/if}
         {/if}
       {/each}
       {#if state.loading}<p class="muted">loading the soundfont on pisynth…</p>{/if}
@@ -140,7 +147,10 @@
   input[type="checkbox"] { width: 22px; height: 22px; }
   button.font, button.preset { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 10px 12px; border-radius: 8px; background: #2c2c3a; font-weight: 600; }
   button.current { outline: 2px solid var(--yellow); }
-  .presets { margin-left: 12px; }
+  /* A GM soundfont has 128+ presets: they scroll inside their own box so the page stays short. */
+  .presets { position: relative; margin: 6px 0 0 12px; max-height: min(45vh, 360px); overflow-y: auto; overscroll-behavior: contain;
+             padding: 0 6px 6px; border-radius: 8px; background: rgba(0,0,0,.18); }
+  .count { font-size: .78rem; margin: 4px 0 0 12px; }
   button.preset { font-weight: 400; padding: 8px 12px; }
   .sub { display: block; font-size: .8rem; color: var(--yellow); font-weight: 400; }
   .error { color: #ff7a7a; margin: 12px 16px 0; }

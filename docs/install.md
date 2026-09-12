@@ -121,14 +121,21 @@ tiles — tap one to select its default sound, tap it again to pick a preset. Pr
 
 Tap the **QR icon** next to the metronome on the home screen and scan it with your phone (it must
 be on the same Wi-Fi). The first time, the browser warns about the certificate: pisynth makes its
-own, so accept it (the screen shows its fingerprint if you want to compare). The page shows the
-keys and chords you play live; **Sound** changes the soundfont, preset, gain, output, reverb,
-chorus, metronome and MIDI keyboard (the pisynth screen follows, and changes made on the screen show
-up on the phone); **Play** is a note highway: hit the falling notes on time and get scored; **Demo** plays a MIDI file through pisynth; **Latency** measures the key-to-sound
-delay with the phone's microphone. Add it to your home screen to use it like an app.
+own, so accept it (the screen shows its fingerprint if you want to compare). Add it to your home
+screen to use it like an app.
 
-**MIDI library.** Play and Demo pick their songs from a library kept on the Pi (the `⋯` button, then
-browse the folders). It starts with a small **starter** set of classical piano pieces by level
+The companion is **one screen**. With no song loaded it shows the keys and chord you play, live.
+Load a song (the `⋯` button) and its notes fall onto the keyboard, with a toggle at the top:
+- **I play** — hit each note as it reaches the yellow line; your timing is scored;
+- **Listen** — pisynth plays the song, the notes light up as they sound.
+
+Tempo, the A–B loop and the position are shared: listen to a passage, switch, play it. The **cog**
+(top right) opens the settings: **Sound** (soundfont, preset, gain, output, reverb, chorus,
+metronome, MIDI keyboard — the pisynth screen follows), **Latency** (measures the key-to-sound delay
+with the phone's microphone) and **About** (version, unpair this browser).
+
+**MIDI library.** Songs come from a library kept on the Pi (the `⋯` button, then browse the
+folders). It starts with a small **starter** set of classical piano pieces by level
 (Public Domain, from the [Mutopia Project](https://www.mutopiaproject.org/), see
 `library/midi/SOURCES.md`). To add your own:
 - **from your computer:** put `.mid` files in the repo's `midi/` folder (subfolders are kept) and run

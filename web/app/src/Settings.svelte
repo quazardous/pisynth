@@ -1,0 +1,77 @@
+<script>
+  // Settings panel behind the cog (#2419): Sound (#2417), Latency (#659) and About. It opens over
+  // the player, which keeps playing underneath — change the reverb while pisynth plays a song.
+  import Sound from "./Sound.svelte";
+  import Latency from "./Latency.svelte";
+
+  let { panel, onPanel, onClose, onFrame, onMessage, send } = $props();
+  const TABS = [["sound", "Sound"], ["latency", "Latency"], ["about", "About"]];
+
+  let build = $state("…");
+  let confirmUnpair = $state(false);
+  let unpairError = $state("");
+
+  $effect(() => {
+    if (panel !== "about") return;
+    fetch("/build.json", { cache: "no-store" })
+      .then(r => (r.ok ? r.json() : { hash: "dev" }))
+      .then(b => (build = b.hash || "dev"))
+      .catch(() => (build = "dev"));
+  });
+
+  async function unpair() {
+    if (!confirmUnpair) { confirmUnpair = true; return; }
+    try {
+      const r = await fetch("/api/unpair", { method: "POST", credentials: "same-origin" });
+      if (!r.ok && r.status !== 401) throw new Error(`${r.status}`);
+      location.replace("/");                                   // back to the pairing screen
+    } catch (err) { unpairError = err.message; confirmUnpair = false; }
+  }
+</script>
+
+<div class="panel" role="dialog" aria-label="settings">
+  <div class="top">
+    <button class="back" onclick={onClose} aria-label="close settings">
+      <svg viewBox="0 0 24 24"><path d="M15.5 4.5 8 12l7.5 7.5" /></svg>
+    </button>
+    <span class="title">Settings</span>
+  </div>
+  <div class="tabs">
+    {#each TABS as [id, label] (id)}
+      <button class:on={panel === id} onclick={() => onPanel(id)}>{label}</button>
+    {/each}
+  </div>
+
+  <div class="body">
+    {#if panel === "sound"}
+      <Sound {onMessage} {send} />
+    {:else if panel === "latency"}
+      <Latency {onFrame} />
+    {:else}
+      <section class="card">
+        <h1>pisynth companion</h1>
+        <p class="muted">Build <code>{build}</code></p>
+        <p>This browser is paired with pisynth. Only one browser can be paired at a time; pairing another one
+          (QR icon on the pisynth screen) disconnects this one.</p>
+        <button class="danger" onclick={unpair}>{confirmUnpair ? "Tap again to unpair" : "Unpair this browser"}</button>
+        {#if unpairError}<p class="error">Couldn't unpair: {unpairError}</p>{/if}
+      </section>
+    {/if}
+  </div>
+</div>
+
+<style>
+  .panel { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; flex-direction: column;
+           padding-top: env(safe-area-inset-top, 0); }
+  .top { display: flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 8px; background: var(--bar); }
+  .back { margin: 0; padding: 8px; background: none; display: grid; place-items: center; }
+  .back svg { width: 24px; height: 24px; fill: none; stroke: var(--fg); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .title { font-weight: 700; }
+  .tabs { display: flex; gap: 4px; padding: 6px 12px; background: var(--bar); border-top: 1px solid #2c2c3a; }
+  .tabs button { margin: 0; padding: 6px 14px; border-radius: 999px; background: none; color: var(--muted); font-size: .9rem; font-weight: 600; }
+  .tabs button.on { background: #2c2c3a; color: var(--fg); }
+  .body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+  .danger { background: #a33; }
+  .error { color: #ff7a7a; margin-top: 8px; }
+  code { font-size: .85em; }
+</style>

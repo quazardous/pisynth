@@ -49,7 +49,7 @@ _SECURITY_HEADERS = ("X-Content-Type-Options: nosniff\r\nReferrer-Policy: no-ref
                      "Content-Security-Policy: default-src 'self'; img-src 'self' data:; "
                      "connect-src 'self'; frame-ancestors 'none'\r\n")
 _ROUTES = {"/": "index.html", "/latency": "index.html", "/demo": "index.html", "/sound": "index.html",
-           "/play": "index.html"}   # SPA routes → its shell
+           "/play": "index.html", "/listen": "index.html", "/about": "index.html"}   # SPA routes → its shell
 
 
 # ---- WebSocket framing (RFC 6455, the slice we need) ----
@@ -234,6 +234,8 @@ class WebCompanion:
         elif req.path == "/api/session":
             ok = self.auth.valid(cookie_value(req.headers, SESSION_COOKIE))
             writer.write(response(204 if ok else 401))
+        elif req.path == "/api/unpair":
+            writer.write(self._unpair(req))
         elif req.path in ("/api/midi", "/api/midi-folders") or req.path.startswith("/api/midi/"):
             writer.write(await self._library(req))
         elif req.method in ("GET", "HEAD"):
@@ -260,6 +262,25 @@ class WebCompanion:
         cookie = (f"Set-Cookie: {SESSION_COOKIE}={session_id}; Path=/; Max-Age=315360000; "
                   "HttpOnly; Secure; SameSite=Strict\r\n")
         return response(200, b'{"paired":true}', "application/json", cookie)
+
+    def _unpair(self, req):
+        """The paired browser unpairs itself (Settings → About, #2419). One paired browser at a time,
+        so this forgets every session — same as Unpair on the pisynth screen."""
+        h = req.headers
+        if req.method != "POST":
+            return response(405, b"method not allowed")
+        if not self.auth.valid(cookie_value(h, SESSION_COOKIE)):
+            return response(401, b"not paired")
+        origin = h.get("origin", "")
+        if origin and origin.split("://", 1)[-1] != h.get("host", ""):
+            return response(403, b"cross-origin")
+        if self.demo:
+            self.demo.stop()
+        self.auth.forget_all()
+        for w in list(self.clients):
+            w.close()
+        self.clients.clear()
+        return response(204, extra=f"Set-Cookie: {SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict\r\n")
 
     async def _library(self, req):
         """MIDI library (#2421), paired phone only:

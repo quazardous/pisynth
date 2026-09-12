@@ -105,9 +105,23 @@ def test_static_is_served_gzipped_with_etag_and_304(cert, static):
             code, _, _ = await h.http("GET", "/index.html", {"If-None-Match": hd["etag"]})
             assert code == 304
             assert (await h.http("GET", "/latency"))[0] == 200
-            assert (await h.http("GET", "/play"))[0] == 200
+            for route in ("/play", "/listen", "/about", "/sound", "/demo"):
+                assert (await h.http("GET", route))[0] == 200, route
             assert (await h.http("GET", "/../../etc/passwd"))[0] == 404
             assert (await h.http("DELETE", "/"))[0] == 405
+    run(go())
+
+
+def test_the_paired_browser_can_unpair_itself(cert, static):
+    async def go():
+        async with Harness(cert, static) as h:
+            assert (await h.http("POST", "/api/unpair"))[0] == 401
+            c = {"Cookie": await h.pair()}
+            assert (await h.http("GET", "/api/unpair", c))[0] == 405
+            assert (await h.http("POST", "/api/unpair", {**c, "Origin": "https://evil.example"}))[0] == 403
+            code, hd, _ = await h.http("POST", "/api/unpair", c)
+            assert code == 204 and "Max-Age=0" in hd["set-cookie"]
+            assert (await h.http("GET", "/api/session", c))[0] == 401
     run(go())
 
 

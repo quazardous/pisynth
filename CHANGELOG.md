@@ -5,6 +5,10 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
+- **One screen for the web companion** — Play and Demo are now the same player with an
+  "I play / Listen" toggle (the notes fall in both; tempo, loop and position are shared), the live
+  keyboard shows when no song is loaded, and Sound, Latency and About moved behind a cog. Old links
+  still work; the phone can be turned sideways.
 - **MIDI library on the Pi** — Play and Demo pick songs from folders kept on pisynth: a starter set
   of 14 classical piano pieces by level (Public Domain, Mutopia Project), your own files from the
   repo's `midi/` folder (synced by `./deploy.sh`, subfolders kept), and files uploaded from the

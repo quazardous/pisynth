@@ -1,28 +1,32 @@
 <script>
-  // Shell (#659): pairing gate, header, and the two views (/ live, /latency). One MIDI socket
-  // for the whole app; views subscribe to its frames.
+  // Shell (#659, navigation #2419): pairing gate, top bar with the cog, the player (one screen,
+  // "I play / Listen") and the settings panel over it. One MIDI socket for the whole app; screens
+  // subscribe to its frames and messages.
   import { onDestroy } from "svelte";
   import { ensurePaired, openMidiSocket } from "./lib/pair.js";
-  import Live from "./Live.svelte";
-  import Latency from "./Latency.svelte";
-  import Demo from "./Demo.svelte";
-  import Sound from "./Sound.svelte";
-  import Play from "./Play.svelte";
+  import { parseRoute, routePath } from "./lib/routes.js";
+  import Player from "./Player.svelte";
+  import Settings from "./Settings.svelte";
 
-  const ROUTES = ["/", "/play", "/sound", "/latency", "/demo"];
-  const route = () => (ROUTES.includes(location.pathname) ? location.pathname : "/");
-  let path = $state(route());
+  const initial = parseRoute(location.pathname);
+  let mode = $state(initial.mode ?? "play");
+  let panel = $state(initial.panel);
   let pairing = $state("checking");               // checking | paired | unpaired | expired | offline
   let link = $state("…");
   const listeners = new Set();
   let socket;
 
-  function go(to, e) {
-    e?.preventDefault();
-    history.pushState(null, "", to);
-    path = to;
+  function navigate(next) {
+    mode = next.mode ?? mode;
+    panel = next.panel;
+    const path = routePath({ mode, panel });
+    if (path !== location.pathname) history.pushState(null, "", path);
   }
-  addEventListener("popstate", () => (path = route()));
+  addEventListener("popstate", () => {
+    const r = parseRoute(location.pathname);
+    panel = r.panel;
+    if (r.mode) mode = r.mode;
+  });
 
   const onFrame = fn => { listeners.add(fn); return () => listeners.delete(fn); };
   const msgListeners = new Set();
@@ -55,14 +59,10 @@
 <header>
   <span class="title">pisynth</span>
   {#if pairing === "paired"}
-    <nav>
-      <a href="/" class:active={path === "/"} onclick={e => go("/", e)}>Live</a>
-      <a href="/play" class:active={path === "/play"} onclick={e => go("/play", e)}>Play</a>
-      <a href="/sound" class:active={path === "/sound"} onclick={e => go("/sound", e)}>Sound</a>
-      <a href="/demo" class:active={path === "/demo"} onclick={e => go("/demo", e)}>Demo</a>
-      <a href="/latency" class:active={path === "/latency"} onclick={e => go("/latency", e)}>Latency</a>
-    </nav>
     <span class="status" class:on={link === "live"}>{link}</span>
+    <button class="cog" onclick={() => navigate({ panel: panel ? null : "sound" })} aria-label="settings">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.47.47 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z" /></svg>
+    </button>
   {/if}
 </header>
 
@@ -80,14 +80,15 @@
       <p class="muted">Only one browser can be paired: if another one was paired after this one, this one was disconnected.</p>
     {/if}
   </section>
-{:else if path === "/play"}
-  <Play {onFrame} {onMessage} {send} />
-{:else if path === "/sound"}
-  <Sound {onMessage} {send} />
-{:else if path === "/demo"}
-  <Demo {onFrame} {onMessage} {send} />
-{:else if path === "/latency"}
-  <Latency {onFrame} />
 {:else}
-  <Live {onFrame} />
+  <Player {onFrame} {onMessage} {send} {mode} onMode={m => navigate({ mode: m, panel: null })} />
+  {#if panel}
+    <Settings {panel} onPanel={p => navigate({ panel: p })} onClose={() => navigate({ panel: null })} {onFrame} {onMessage} {send} />
+  {/if}
 {/if}
+
+<style>
+  .cog { margin: 0 0 0 4px; padding: 6px; background: none; display: grid; place-items: center; border-radius: 50%; }
+  .cog svg { width: 24px; height: 24px; fill: var(--muted); }
+  .cog:active svg { fill: var(--fg); }
+</style>

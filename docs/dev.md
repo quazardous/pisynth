@@ -151,6 +151,25 @@ make down
   local app on that port against the **real server on the Pi**; mint the token with
   `ssh $PISYNTH_HOST curl -s -XPOST http://127.0.0.1:9811/admin/token`.
 
+### MIDI library (web companion, #2421)
+
+`~/midi` on the Pi is one folder tree. On every deploy `sync.sh` runs `midi-sync.sh REPO ~/midi`:
+the repo's `library/midi/` (the committed starter set) is linked under `starter/`, and the gitignored
+`midi/` folder at the same paths; folders are real, files are symlinks. Links whose file left the
+repo are removed, then the folders left empty. Files uploaded from the phone are real files and are
+never replaced; folders made from the phone carry a `.pisynth-folder` marker, so they survive.
+Read-only mode persists `~/midi` after every upload/delete. The dev stack links into
+`dev/state/midi` at container start.
+
+pisynth-web (`web/library.py`, paired phone only, same-origin for writes): `GET /api/midi` → `{entries:
+[{path, kind: dir|file, size, origin: starter|pc|phone|sync, deletable}]}` · `GET /api/midi/<path>` →
+the file · `POST /api/midi?dir=&name=` with the file as the body (≤ 1 MB, must start with `MThd`, a
+taken name becomes `name (2).mid`) · `POST /api/midi-folders?path=` · `DELETE /api/midi/<path>`
+(uploads and empty phone folders only). Every path segment is cleaned and must resolve inside the
+library or the two repo folders its links point to. Env: `PISYNTH_MIDI_DIR` (`~/midi`), `PISYNTH_REPO`
+(`~/pisynth`). The phone parses the files and caches duration / range / hands per file
+(`lib/library.js`); `Library.svelte` is the picker shared by Demo and Play.
+
 ### Control socket JSON API (web companion, #2417)
 
 Besides the text commands (`ctl.sh`), the UI's control socket (127.0.0.1:9810) accepts JSON lines:

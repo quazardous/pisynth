@@ -47,6 +47,11 @@ for sf in "$REPO_DIR"/soundfonts/*.sf2 "$REPO_DIR"/soundfonts/*.sf3; do
 done
 shopt -u nullglob
 
+# MIDI library (#2421): the starter set + the repo's midi/ folder, linked into ~/midi (subfolders
+# kept); files uploaded from the web companion live there as real files and are left alone.
+install -d -o "$TARGET_USER" -g "$TARGET_USER" "$TARGET_HOME/midi"
+runuser -u "$TARGET_USER" -- bash "$REPO_DIR/midi-sync.sh" "$REPO_DIR" "$TARGET_HOME/midi"
+
 # Restart order matters: the UI and pisynth-web hold connections to the synth shell (:9800). Stop
 # them FIRST so they close those connections (TIME_WAIT lands on their side), then restart the synth
 # (it can rebind :9800 at once — no ~60 s wait, #2410/#2416), then start them again with the new code.

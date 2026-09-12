@@ -24,9 +24,11 @@ import socket
 import ssl
 import struct
 import time
+from urllib.parse import parse_qs, unquote
 
 from .auth import Auth, cookie_value
 from .demo import DemoPlayer, ShellSink, validate_events
+from .library import MAX_UPLOAD, LibraryError
 from .uilink import UiLink
 
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -40,13 +42,14 @@ _TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=
           ".mjs": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
           ".json": "application/json", ".webmanifest": "application/manifest+json",
           ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon"}
-_REASON = {101: "Switching Protocols", 200: "OK", 204: "No Content", 304: "Not Modified",
+_REASON = {101: "Switching Protocols", 200: "OK", 201: "Created", 204: "No Content", 304: "Not Modified",
            400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found",
-           405: "Method Not Allowed", 413: "Payload Too Large"}
+           405: "Method Not Allowed", 409: "Conflict", 413: "Payload Too Large", 500: "Internal Server Error"}
 _SECURITY_HEADERS = ("X-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\n"
                      "Content-Security-Policy: default-src 'self'; img-src 'self' data:; "
                      "connect-src 'self'; frame-ancestors 'none'\r\n")
-_ROUTES = {"/": "index.html", "/latency": "index.html", "/demo": "index.html", "/sound": "index.html"}   # SPA routes → its shell
+_ROUTES = {"/": "index.html", "/latency": "index.html", "/demo": "index.html", "/sound": "index.html",
+           "/play": "index.html"}   # SPA routes → its shell
 
 
 # ---- WebSocket framing (RFC 6455, the slice we need) ----
@@ -144,12 +147,14 @@ def cert_fingerprint(cert_path):
 
 
 class Request:
-    def __init__(self, method, path, headers, body=b""):
+    def __init__(self, method, path, headers, body=b"", query=""):
         self.method, self.path, self.headers, self.body = method, path, headers, body
+        self.query = {k: v[0] for k, v in parse_qs(query).items()}
 
 
 async def read_request(reader):
-    """Parse one HTTP/1.1 request head (+ a small body) → Request, or None on garbage."""
+    """Parse one HTTP/1.1 request head (+ a small body) → Request, or None on garbage. Only a
+    MIDI file upload (POST /api/midi) may carry a body larger than MAX_BODY."""
     head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=10)
     lines = head.decode("latin1").split("\r\n")
     parts = lines[0].split(" ")
@@ -161,12 +166,14 @@ async def read_request(reader):
             k, v = ln.split(":", 1)
             headers[k.strip().lower()] = v.strip()
     body = b""
+    path, _, query = parts[1].partition("?")
     length = int(headers.get("content-length", "0") or 0)
-    if length > MAX_BODY:
+    limit = MAX_UPLOAD + 1 if (parts[0], path) == ("POST", "/api/midi") else MAX_BODY
+    if length > limit:
         return Request(parts[0], "", headers, None)           # flagged: too large
     if length:
-        body = await asyncio.wait_for(reader.readexactly(length), timeout=10)
-    return Request(parts[0], parts[1].split("?", 1)[0], headers, body)
+        body = await asyncio.wait_for(reader.readexactly(length), timeout=30 if length > MAX_BODY else 10)
+    return Request(parts[0], path, headers, body, query)
 
 
 def response(code, body=b"", ctype="text/plain; charset=utf-8", extra=""):
@@ -178,8 +185,9 @@ def response(code, body=b"", ctype="text/plain; charset=utf-8", extra=""):
 class WebCompanion:
     def __init__(self, auth, assets, host="0.0.0.0", port=8443, admin_port=9811,
                  ssl_ctx=None, fingerprint="", admin_host="127.0.0.1", synth=("127.0.0.1", 9800),
-                 ui=("127.0.0.1", 9810)):
+                 ui=("127.0.0.1", 9810), library=None):
         self.auth, self.assets = auth, assets
+        self.library = library                       # MidiLibrary (#2421), or None
         self.host, self.port, self.admin_port, self.admin_host = host, port, admin_port, admin_host
         self.ssl_ctx, self.fingerprint = ssl_ctx, fingerprint
         self.clients = set()                         # StreamWriters of live WebSockets
@@ -226,6 +234,8 @@ class WebCompanion:
         elif req.path == "/api/session":
             ok = self.auth.valid(cookie_value(req.headers, SESSION_COOKIE))
             writer.write(response(204 if ok else 401))
+        elif req.path in ("/api/midi", "/api/midi-folders") or req.path.startswith("/api/midi/"):
+            writer.write(await self._library(req))
         elif req.method in ("GET", "HEAD"):
             writer.write(self._static(req))
         else:
@@ -250,6 +260,41 @@ class WebCompanion:
         cookie = (f"Set-Cookie: {SESSION_COOKIE}={session_id}; Path=/; Max-Age=315360000; "
                   "HttpOnly; Secure; SameSite=Strict\r\n")
         return response(200, b'{"paired":true}', "application/json", cookie)
+
+    async def _library(self, req):
+        """MIDI library (#2421), paired phone only:
+        GET /api/midi → tree · GET /api/midi/<path> → file · POST /api/midi?dir=&name= (body = file)
+        · POST /api/midi-folders?path= · DELETE /api/midi/<path>. File work runs off the loop."""
+        h = req.headers
+        if not self.auth.valid(cookie_value(h, SESSION_COOKIE)):
+            return response(401, b"pair this phone first")
+        origin = h.get("origin", "")
+        if req.method not in ("GET", "HEAD") and origin and origin.split("://", 1)[-1] != h.get("host", ""):
+            return response(403, b"cross-origin")
+        if self.library is None:
+            return response(404, b"no MIDI library")
+        lib = self.library
+        sub = unquote(req.path[len("/api/midi/"):]) if req.path.startswith("/api/midi/") else ""
+        try:
+            if (req.method, req.path) == ("GET", "/api/midi"):
+                return self._json({"entries": await asyncio.to_thread(lib.tree)})
+            if req.method == "GET" and sub:
+                data = await asyncio.to_thread(lib.read, sub)
+                return response(200, data, "audio/midi", "Cache-Control: no-cache\r\n")
+            if (req.method, req.path) == ("POST", "/api/midi"):
+                path = await asyncio.to_thread(lib.save, req.query.get("dir", ""), req.query.get("name", ""), req.body)
+                return response(201, json.dumps({"path": path}).encode(), "application/json")
+            if (req.method, req.path) == ("POST", "/api/midi-folders"):
+                path = await asyncio.to_thread(lib.mkdir, req.query.get("path", ""))
+                return response(201, json.dumps({"path": path}).encode(), "application/json")
+            if req.method == "DELETE" and sub:
+                await asyncio.to_thread(lib.delete, sub)
+                return response(204)
+        except LibraryError as e:
+            return response(e.code, json.dumps({"error": e.message}).encode(), "application/json")
+        except OSError:
+            return response(500, b'{"error":"storage error"}', "application/json")
+        return response(405, b"method not allowed")
 
     def _static(self, req):
         asset = self.assets.get(req.path)

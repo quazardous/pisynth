@@ -5,13 +5,14 @@
   // playing sounds on pisynth as usual; the Pi only plays the 4-beat count-in.
   import { onDestroy, untrack } from "svelte";
   import { decodeFrame, NoteState } from "./lib/midi.js";
-  import { parseMidi, sampleSong } from "./lib/midifile.js";
+  import { sampleSong } from "./lib/midifile.js";
   import { songNotes, noteRange, noteTracks, visibleNotes, longestNote, timeToY } from "./lib/highway.js";
   import { planView, FollowView, keyRect, toPct } from "./lib/viewport.js";
   import { Judge } from "./lib/judge.js";
   import { ClockSync } from "./lib/clock.js";
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
   import Keyboard from "./Keyboard.svelte";
+  import Library from "./Library.svelte";
 
   let { onFrame, onMessage, send } = $props();
 
@@ -91,14 +92,6 @@
     effects.push({ ...r, at: now });
     flash = { kind: r.kind, delta: r.delta, id: ++flashId };
     stats = { score: judge.score, streak: judge.streak, accuracy: judge.accuracy() };
-  }
-
-  async function loadFile(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    stop();
-    try { song = { ...parseMidi(await f.arrayBuffer()), name: f.name }; error = ""; options = false; }
-    catch (err) { error = err.message; }
   }
 
   function start(at = null) {
@@ -276,8 +269,8 @@
 
   {#if options}
     <section class="sheet">
-      <label class="file">MIDI file <input type="file" accept=".mid,.midi,audio/midi" onchange={loadFile}></label>
-      <button class="link" onclick={() => { stop(); song = sampleSong(); options = false; }}>use the sample</button>
+      <Library current={song.path} onPick={s => { stop(); song = s; error = ""; options = false; }} />
+      <button class="link" onclick={() => { stop(); song = sampleSong(); options = false; }}>use the built-in sample</button>
       <label>Tempo {tempo}% <input type="range" min="50" max="150" step="5" bind:value={tempo} onchange={() => { if (playing) { const p = songPos(performance.now()); stop(); start(p); } }}></label>
       <div class="loop">
         <span>Loop</span>
@@ -338,7 +331,6 @@
   .sheet label:first-child { margin-top: 0; }
   .sheet input[type="range"] { width: 100%; }
   .sheet p { margin-top: 8px; }
-  .file input { display: block; margin-top: 6px; color: var(--muted); max-width: 100%; }
   .link { background: none; color: var(--accent); padding: 4px 0; margin-top: 4px; font-weight: 400; }
   .loop { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   .small { margin: 0; padding: 6px 10px; font-size: .85rem; border-radius: 8px; }

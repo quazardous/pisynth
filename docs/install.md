@@ -127,6 +127,15 @@ chorus, metronome and MIDI keyboard (the pisynth screen follows, and changes mad
 up on the phone); **Play** is a note highway: hit the falling notes on time and get scored; **Demo** plays a MIDI file through pisynth; **Latency** measures the key-to-sound
 delay with the phone's microphone. Add it to your home screen to use it like an app.
 
+**MIDI library.** Play and Demo pick their songs from a library kept on the Pi (the `⋯` button, then
+browse the folders). It starts with a small **starter** set of classical piano pieces by level
+(Public Domain, from the [Mutopia Project](https://www.mutopiaproject.org/), see
+`library/midi/SOURCES.md`). To add your own:
+- **from your computer:** put `.mid` files in the repo's `midi/` folder (subfolders are kept) and run
+  `./deploy.sh`; delete one there and deploy again to remove it;
+- **from the phone:** open a folder in the library and tap **Add here** (or **New folder** first).
+  Uploaded files stay on the Pi through deploys, and only they can be deleted from the phone.
+
 Only someone who can see the pisynth screen can pair a phone (the code works once, for 2 minutes),
 and **one browser is paired at a time**: the QR icon turns **green** while one is paired, and pairing
 another one disconnects it (pisynth warns you first). **Settings → Web companion → Unpair** removes it.

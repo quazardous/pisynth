@@ -22,6 +22,8 @@ services:
       PISYNTH_WEB_CERT: /repo/dev/certs/cert.pem
       PISYNTH_WEB_KEY: /repo/dev/certs/key.pem
       PISYNTH_WEB_SESSIONS: /repo/dev/state/web_sessions.json
+      PISYNTH_MIDI_DIR: /repo/dev/state/midi       # the MIDI library (#2421), linked from the repo at start
+      PISYNTH_REPO: /repo
       PISYNTH_WEB_ADMIN_HOST: 0.0.0.0             # published on the host's loopback only (below)
       PYTHONUNBUFFERED: "1"
     ports:

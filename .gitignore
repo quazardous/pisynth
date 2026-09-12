@@ -23,6 +23,10 @@ __pycache__/
 soundfonts/*.sf2
 soundfonts/*.sf3
 
+# your own MIDI files (#2421): anything in midi/ (subfolders too), except its README
+/midi/*
+!/midi/README.md
+
 # host-local one-shot migrations (per-device, not shipped) — run by apply.sh
 /local-migrations/
 

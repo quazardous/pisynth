@@ -5,6 +5,11 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
+- **MIDI library on the Pi** — Play and Demo pick songs from folders kept on pisynth: a starter set
+  of 14 classical piano pieces by level (Public Domain, Mutopia Project), your own files from the
+  repo's `midi/` folder (synced by `./deploy.sh`, subfolders kept), and files uploaded from the
+  phone into any folder. Uploads survive deploys and read-only mode; only they can be deleted
+  from the phone. The phone shows each piece's length and whether it has two hands.
 - **Play along (note highway)** — the web companion's Play page drops a song's notes onto the
   keyboard, rock-game style: hit each one as it reaches the yellow line. Your timing is judged
   from the moment you pressed the key (not when Wi-Fi delivered it): perfect, good, early, late,

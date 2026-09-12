@@ -10,4 +10,5 @@ if [ ! -s "$CERTS/cert.pem" ]; then
         -subj "/CN=pisynth-dev" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" 2>/dev/null
     echo "[dev] generated $CERTS/cert.pem"
 fi
+bash /repo/midi-sync.sh /repo "${PISYNTH_MIDI_DIR:-/repo/dev/state/midi}"   # starter set + midi/ (#2421)
 exec watchfiles --filter python "python3 -m web" /repo/web

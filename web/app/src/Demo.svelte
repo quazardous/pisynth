@@ -2,10 +2,11 @@
   // Demo mode (#2416): play a song THROUGH pisynth — the phone streams timed notes, the synth
   // sounds them. Demo notes light yellow on the keyboard; what you play lights blue.
   import { decodeFrame, NoteState } from "./lib/midi.js";
-  import { parseMidi, sampleSong } from "./lib/midifile.js";
+  import { sampleSong } from "./lib/midifile.js";
   import { DemoSender } from "./lib/demo.js";
   import { detectChord, noteName } from "./lib/theory.js";
   import Keyboard from "./Keyboard.svelte";
+  import Library from "./Library.svelte";
 
   let { onFrame, onMessage, send } = $props();
   let song = $state(sampleSong());
@@ -33,14 +34,6 @@
     });
     return () => { offF(); offM(); stop(); };
   });
-
-  async function loadFile(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    stop();
-    try { song = { ...parseMidi(await f.arrayBuffer()), name: f.name }; error = ""; position = 0; }
-    catch (err) { error = err.message; }
-  }
 
   function start() {
     if (!song.events.length) return;
@@ -100,8 +93,8 @@
 
   {#if options}
     <section class="sheet">
-      <label class="file">MIDI file <input type="file" accept=".mid,.midi,audio/midi" onchange={loadFile}></label>
-      <button class="link" onclick={() => { stop(); song = sampleSong(); position = 0; }}>use the sample</button>
+      <Library current={song.path} onPick={s => { stop(); song = s; error = ""; position = 0; options = false; }} />
+      <button class="link" onclick={() => { stop(); song = sampleSong(); position = 0; }}>use the built-in sample</button>
       <label>Tempo {tempo}% <input type="range" min="50" max="150" step="5" bind:value={tempo} onchange={retempo}></label>
       <p class="muted">Plays the song through the synth. Your own playing lights blue, the demo yellow.</p>
     </section>
@@ -139,7 +132,6 @@
   .sheet label:first-child { margin-top: 0; }
   .sheet input[type="range"] { width: 100%; }
   .sheet p { margin-top: 8px; }
-  .file input { display: block; margin-top: 6px; color: var(--muted); max-width: 100%; }
   .link { background: none; color: var(--accent); padding: 4px 0; margin-top: 4px; font-weight: 400; }
   .player { display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: var(--bar); }
   .player button { margin: 0; padding: 0; display: grid; place-items: center; flex: 0 0 auto; }

@@ -4,13 +4,15 @@ Env: PISYNTH_WEB_PORT (8443), PISYNTH_WEB_ADMIN_PORT (9811, 127.0.0.1 only),
 PISYNTH_WEB_CERT / PISYNTH_WEB_KEY (/etc/pisynth/web/{cert,key}.pem, migration 022),
 PISYNTH_WEB_MIDI_SOURCE (aseqdump | sim | pi — dev stack, #2415), PISYNTH_WEB_MIDI_PORT
 (aseqdump target; default: the first hardware keyboard), PISYNTH_WEB_ADMIN_HOST (127.0.0.1),
-PISYNTH_WEB_SESSIONS (~/.config/pisynth/web_sessions.json).
+PISYNTH_WEB_SESSIONS (~/.config/pisynth/web_sessions.json), PISYNTH_MIDI_DIR (the MIDI library,
+~/midi), PISYNTH_REPO (the deployed repo its links point into, ~/pisynth) — #2421.
 """
 import asyncio
 import os
 import sys
 
 from .auth import Auth
+from .library import MidiLibrary
 from .midi_source import make_source
 from .server import WebCompanion, cert_fingerprint, load_static, make_ssl_context
 
@@ -34,7 +36,12 @@ def main():
     except (OSError, ValueError) as e:
         print(f"[pisynth-web] no usable TLS certificate ({e}) — run the deploy (migration 022)", file=sys.stderr)
         sys.exit(1)
+    repo = os.path.expanduser(os.environ.get("PISYNTH_REPO", "~/pisynth"))
+    library = MidiLibrary(os.path.expanduser(os.environ.get("PISYNTH_MIDI_DIR", "~/midi")),
+                          {"starter": os.path.join(repo, "library", "midi"), "pc": os.path.join(repo, "midi")},
+                          on_changed=_persist_hook())
     app = WebCompanion(Auth(sessions, on_saved=_persist_hook()), load_static(),   # all warm before listening
+                       library=library,
                        port=int(os.environ.get("PISYNTH_WEB_PORT", "8443")),
                        admin_port=int(os.environ.get("PISYNTH_WEB_ADMIN_PORT", "9811")),
                        ssl_ctx=ssl_ctx, fingerprint=fingerprint,
@@ -43,7 +50,7 @@ def main():
                               int(os.environ.get("PISYNTH_WEB_SYNTH_PORT", "9800"))))
     src = make_source(app.feed, os.environ)
     print(f"[pisynth-web] https :{app.port} · admin 127.0.0.1:{app.admin_port} · "
-          f"{len(app.assets)} assets in RAM · {app.auth.session_count} paired phone(s) · "
+          f"{len(app.assets)} assets in RAM · {app.auth.session_count} paired phone(s) · MIDI library {library.root} · "
           f"MIDI: {os.environ.get('PISYNTH_WEB_MIDI_SOURCE', 'aseqdump')}", flush=True)
     src.start()
     try:

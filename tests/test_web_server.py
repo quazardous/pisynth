@@ -41,9 +41,10 @@ def run(coro):
 
 
 class Harness:
-    def __init__(self, cert, static):
+    def __init__(self, cert, static, library=None):
         self.app = WebCompanion(Auth(), load_static(static), host="127.0.0.1", port=0, admin_port=0,
-                                ssl_ctx=make_ssl_context(*cert), fingerprint=cert_fingerprint(cert[0]))
+                                ssl_ctx=make_ssl_context(*cert), fingerprint=cert_fingerprint(cert[0]),
+                                library=library)
         self.client_ctx = ssl.create_default_context()
         self.client_ctx.check_hostname = False
         self.client_ctx.verify_mode = ssl.CERT_NONE
@@ -104,6 +105,7 @@ def test_static_is_served_gzipped_with_etag_and_304(cert, static):
             code, _, _ = await h.http("GET", "/index.html", {"If-None-Match": hd["etag"]})
             assert code == 304
             assert (await h.http("GET", "/latency"))[0] == 200
+            assert (await h.http("GET", "/play"))[0] == 200
             assert (await h.http("GET", "/../../etc/passwd"))[0] == 404
             assert (await h.http("DELETE", "/"))[0] == 405
     run(go())
@@ -124,6 +126,34 @@ def test_pairing_flow_and_single_use_token(cert, static):
             assert (await h.http("POST", "/pair", body=body))[0] == 403            # replay
             assert (await h.http("POST", "/pair", body=b"not json"))[0] == 400
             assert (await h.http("POST", "/pair", body=b"x" * 5000))[0] == 413
+    run(go())
+
+
+def test_midi_library_routes(cert, static, tmp_path):
+    from web.library import MidiLibrary
+    midi = b"MThd\x00\x00\x00\x06\x00\x00\x00\x01\x01\xe0" + b"\0" * 64
+    lib = MidiLibrary(tmp_path / "midi")
+
+    async def go():
+        async with Harness(cert, static, library=lib) as h:
+            assert (await h.http("GET", "/api/midi"))[0] == 401                          # pair first
+            c = {"Cookie": await h.pair()}
+            code, _, body = await h.http("POST", "/api/midi?dir=Mes%20morceaux&name=F%C3%BCr%20Elise.mid", c, midi)
+            assert code == 201 and json.loads(body)["path"] == "Mes morceaux/Für Elise.mid"
+            evil = {**c, "Origin": "https://evil.example"}
+            assert (await h.http("POST", "/api/midi?name=x.mid", evil, midi))[0] == 403    # cross-site
+            code, _, body = await h.http("GET", "/api/midi", c)
+            paths = [e["path"] for e in json.loads(body)["entries"]]
+            assert paths == ["Mes morceaux", "Mes morceaux/Für Elise.mid"]
+            code, hd, body = await h.http("GET", "/api/midi/Mes%20morceaux/F%C3%BCr%20Elise.mid", c)
+            assert code == 200 and body == midi and hd["content-type"] == "audio/midi"
+            assert (await h.http("GET", "/api/midi/..%2F..%2Fetc%2Fpasswd.mid", c))[0] == 400
+            assert (await h.http("POST", "/api/midi?name=big.mid", c, midi + b"\0" * (1 << 20)))[0] == 413
+            assert (await h.http("POST", "/pair", c, b"x" * 5000))[0] == 413              # big bodies: upload only
+            assert (await h.http("POST", "/api/midi-folders?path=Vide", c))[0] == 201
+            assert (await h.http("DELETE", "/api/midi/Mes%20morceaux", c))[0] == 409       # not empty
+            assert (await h.http("DELETE", "/api/midi/Mes%20morceaux/F%C3%BCr%20Elise.mid", c))[0] == 204
+            assert (await h.http("DELETE", "/api/midi/Vide", c))[0] == 204
     run(go())
 
 

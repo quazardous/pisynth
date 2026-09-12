@@ -33,6 +33,7 @@ allowed() {
     case "$1" in
         "$home/.config/pisynth/settings.yaml"|"$home/.config/pisynth/touch_cal.json") return 0 ;;
         "$home/.config/pisynth/web_sessions.json") return 0 ;;      # paired phones (#659)
+        "$home/midi") return 0 ;;                                    # MIDI library: phone uploads (#2421)
         /var/lib/bluetooth) return 0 ;;
     esac
     return 1

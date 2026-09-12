@@ -33,6 +33,6 @@ def output_picker_items(default_label, get_card, get_bt, on_default, on_card, on
             marker=(lambda n=name: get_card() == n and not get_bt())))
     for mac, label in list_bt_sinks():
         items.append(Item(
-            label, on_select=(lambda m=mac, l=label: on_bt(m, l)),
+            label, on_select=(lambda m=mac, lb=label: on_bt(m, lb)),
             marker=(lambda m=mac: get_bt() == m), value=(lambda: "BT")))
     return items

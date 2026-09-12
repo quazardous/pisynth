@@ -1,5 +1,4 @@
 """Soundfont catalog + preset model — offline-capable, no synth needed (#276/#308)."""
-import glob
 import os
 import re
 import struct

@@ -93,7 +93,7 @@ from .io import (Backlight, Bluetooth, Fluid, Framebuffer, Metronome, MidiMonito
 # / ...) — keep working on the bare names.
 from .core.audio import (GAIN_DEFAULT, GAIN_MAX, GAIN_MIN, GAIN_STEP, audio_active,
                          audio_output_present, fluid_seq_port, list_midi_inputs,
-                         metro_click_argv, midi_input_present, play_test)
+                         metro_click_argv, midi_input_present)
 from .core.geometry import solve_affine
 from .core.persist import flush_now as flush_persist, request_persist
 from .core.settings import (CAL_PATH, SETTINGS_PATH, _legacy_json_path, load_cal,

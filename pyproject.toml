@@ -1,0 +1,33 @@
+# Dev tooling only — pisynth is deployed by rsync (deploy.sh / sync.sh), not pip-installed.
+# Run from the repo root, nothing to install into the system Python:
+#   uvx ruff check ui tools tests
+#   uvx --with numpy,pillow,pyyaml pytest
+
+[project]
+name = "pisynth"
+version = "0.5.0"
+requires-python = ">=3.11"          # the Pi runs Debian 13's Python 3.13
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["ui", "tools", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B"]    # import order left as written (sectioned on purpose)
+ignore = [
+    "E701", "E702",                 # one-liners like `a = 1; b = 2` are used deliberately in places
+    "E731",                         # lambdas assigned to names (menu value callbacks)
+    "E501",                         # long commented lines are the house style; not reflowed
+    "B905",                         # zip() over same-length page slices / tile rects by construction
+]
+
+[tool.ruff.lint.per-file-ignores]
+# app.py imports its layers after the module constants on purpose (documented sections).
+"ui/pisynth/app.py" = ["E402"]
+"tools/*.py" = ["E402"]              # sys.path / env set up before importing pisynth
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["ui"]
+addopts = "-q"

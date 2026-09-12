@@ -122,8 +122,10 @@ tiles — tap one to select its default sound, tap it again to pick a preset. Pr
 Tap the **QR icon** next to the metronome on the home screen and scan it with your phone (it must
 be on the same Wi-Fi). The first time, the browser warns about the certificate: pisynth makes its
 own, so accept it (the screen shows its fingerprint if you want to compare). The page shows the
-keys and chords you play live; **Latency** measures the key-to-sound delay with the phone's
-microphone. Add it to your home screen to use it like an app.
+keys and chords you play live; **Sound** changes the soundfont, preset, gain, output, reverb,
+chorus, metronome and MIDI keyboard (the pisynth screen follows, and changes made on the screen show
+up on the phone); **Demo** plays a MIDI file through pisynth; **Latency** measures the key-to-sound
+delay with the phone's microphone. Add it to your home screen to use it like an app.
 
 Only someone who can see the pisynth screen can pair a phone (the code works once, for 2 minutes),
 and **one browser is paired at a time**: the QR icon turns **green** while one is paired, and pairing

@@ -4,7 +4,7 @@
   import { SynthApi, throttle } from "./lib/synthapi.js";
 
   let { onMessage, send } = $props();
-  const api = new SynthApi(send);
+  const api = new SynthApi(obj => send(obj));
   let state = $state(null);
   let catalog = $state(null);
   let error = $state("");
@@ -18,10 +18,12 @@
     return off;
   });
 
+  let retry = 0;
   async function load() {
     const r = await api.get();
-    if (r.ok) { state = r.state; catalog = r.catalog; openFont = r.state.font; error = ""; }
-    else error = r.error || "could not read the synth settings";
+    if (r.ok) { state = r.state; catalog = r.catalog; openFont = r.state.font; error = ""; return; }
+    error = r.error || "could not read the synth settings";
+    if (r.error === "not connected" && retry++ < 40) setTimeout(load, 500);   // socket still opening
   }
 
   async function set(key, value) {

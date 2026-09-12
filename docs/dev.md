@@ -151,6 +151,16 @@ make down
   local app on that port against the **real server on the Pi**; mint the token with
   `ssh $PISYNTH_HOST curl -s -XPOST http://127.0.0.1:9811/admin/token`.
 
+### Control socket JSON API (web companion, #2417)
+
+Besides the text commands (`ctl.sh`), the UI's control socket (127.0.0.1:9810) accepts JSON lines:
+`{"op":"get"}` → `{ok, state, catalog}`; `{"op":"set","key":…,"value":…}` → `{ok, error?, state}`
+(keys: `preset` {font,bank,prog}, `font`, `gain`, `volume`, `output` {kind:card|bt|auto,id},
+`fx.reverb` / `fx.chorus` {on,…}, `metronome` {running,bpm,beats,vol}, `midi_keyboard`);
+`{"op":"watch"}` keeps the connection and streams `{state}` on every change. pisynth-web relays
+`get`/`set` from the paired phone and the watch stream back (`web/uilink.py`). Every `set` runs the
+touch screen's own code path — the UI remains the only owner of the synth state.
+
 ## Tests & lint (laptop, no Pi)
 
 ```bash

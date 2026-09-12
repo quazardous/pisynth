@@ -5,6 +5,12 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
+- **Synth settings from the phone** — the web companion's Sound page changes the soundfont and
+  preset, gain, output volume and device, reverb, chorus, metronome and MIDI keyboard; the pisynth
+  screen follows, and changes made on the box appear on the phone. Reverb and chorus are now real
+  settings (remembered, re-applied at start), and the gain is remembered too.
+- **Demo mode** — the web companion plays a MIDI file (or a built-in sample) through pisynth's own
+  sound, in time; tap the yellow play icon on the pisynth screen to stop it.
 - **Web companion on your phone** — tap the QR icon next to the metronome and scan it: your phone
   shows the keys you play and the chord name live, and can measure the keyboard-to-sound latency
   with its microphone. Pairing needs the code on the pisynth screen, so only someone at the

@@ -112,3 +112,25 @@ def test_send_does_not_block_the_caller(fake):
     for _ in range(5):
         fs.send("noteon 9 76 60")
     assert time.monotonic() - t < 0.2
+
+
+
+def test_alive_notices_a_restarted_synth_without_a_round_trip():
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    conns = []
+    threading.Thread(target=lambda: conns.append(srv.accept()[0]), daemon=True).start()
+    fs = Fluid("127.0.0.1", srv.getsockname()[1])
+    assert fs.connect()
+    deadline = time.monotonic() + 2
+    while not conns and time.monotonic() < deadline:
+        time.sleep(0.01)
+    t = time.monotonic()
+    assert fs.alive() and time.monotonic() - t < 0.05             # connected: true, and non-blocking
+    conns[0].close()                                              # the synth process goes away
+    srv.close()
+    deadline = time.monotonic() + 2
+    while fs.alive() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert not fs.alive() and not fs.online

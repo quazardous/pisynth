@@ -46,6 +46,13 @@ class Fluid:
         finally:
             sock.settimeout(old)
 
+    def alive(self):
+        """Cheap liveness check, no round-trip: drains buffered replies without waiting and
+        notices a closed connection (the synth exited or restarted)."""
+        if self.sock is not None:
+            self._drain()
+        return self.online
+
     def send(self, *cmds):
         if not self.online and not self.connect():
             return False

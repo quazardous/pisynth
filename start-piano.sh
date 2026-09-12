@@ -201,6 +201,26 @@ if (( ${#sflist_ok[@]} > 1 )); then
     sflist_ok=("$one")
 fi
 
+# fluidsynth binds its shell port (:9800) without SO_REUSEADDR: right after a restart the old
+# process's closed connections leave the port in TIME_WAIT for ~40 s, bind fails ("Got error 98")
+# and fluidsynth exits — a crash loop of silence (#659, seen after a piano-only restart). Wait
+# until the port can actually be bound (probe with SO_REUSEADDR off, like fluidsynth), ≤ 90 s.
+wait_for_shell_port() {
+    local port="${1:-9800}" i
+    for i in $(seq 1 90); do
+        python3 - "$port" <<'PY' 2>/dev/null && return 0
+import socket, sys
+s = socket.socket()
+s.bind(("0.0.0.0", int(sys.argv[1])))
+s.close()
+PY
+        (( i == 1 )) && log "shell port :$port still in use (TIME_WAIT after a restart) — waiting"
+        sleep 1
+    done
+    log "shell port :$port still busy after 90 s — starting anyway"
+}
+wait_for_shell_port 9800
+
 # --- Bluetooth A2DP output branch (#301) -----------------------------------------------
 # If a BT sink was chosen, route the synth through PipeWire's PulseAudio server. This
 # needs the user PipeWire session, which a system service reaches via XDG_RUNTIME_DIR;

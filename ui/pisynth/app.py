@@ -203,7 +203,11 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
         Offline: from the .sf2/.sf3 files on disk (sfid=None) so the two-level tile
         UI works with no synth/hardware (#276). Rebuild Home if it changed; apply a
         persisted preset the moment the synth comes online. Returns True if changed."""
-        online = self.fs.online or self.fs.connect()
+        # alive(): a non-blocking EOF check — a synth restarted on its own (hot-plug recovery, a
+        # deploy, a crash) is a NEW process that has lost the preset and the ch9 drum kit, so a
+        # reconnect must count as coming online again (#659: seen after a piano-only restart).
+        was_up = self.fs.online and self.fs.alive()
+        online = was_up or self.fs.connect()
         # Catalog always from disk: a single soundfont is resident at a time (#334), so
         # fluidsynth's loaded list isn't the catalog — all fonts stay visible as tiles,
         # the chosen one is loaded on demand. Presets come from the .sf files (read_sf_presets).
@@ -213,7 +217,7 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
             self.fonts = fonts
             if len(self.stack) == 1:                 # only swap when sitting on Home
                 self.stack[0] = self._home_menu()
-        if online and not self._online:              # offline -> online: re-apply the saved preset
+        if online and (not self._online or not was_up):   # (re)connected: re-apply the saved preset
             self._apply_preset()
             self._ensure_click_channel()             # ch9 drum kit for the metro click + nav beep (#655/#673)
             self._nav_on_synth_online()              # re-silence the nav port (autoconnect race, #373)

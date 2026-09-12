@@ -28,3 +28,5 @@ soundfonts/*.sf3
 
 # web companion (#659): Svelte sources build into web/static (committed)
 /web/app/node_modules/
+/dev/certs/
+/dev/state/

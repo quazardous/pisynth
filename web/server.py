@@ -158,9 +158,9 @@ def response(code, body=b"", ctype="text/plain; charset=utf-8", extra=""):
 
 class WebCompanion:
     def __init__(self, auth, assets, host="0.0.0.0", port=8443, admin_port=9811,
-                 ssl_ctx=None, fingerprint=""):
+                 ssl_ctx=None, fingerprint="", admin_host="127.0.0.1"):
         self.auth, self.assets = auth, assets
-        self.host, self.port, self.admin_port = host, port, admin_port
+        self.host, self.port, self.admin_port, self.admin_host = host, port, admin_port, admin_host
         self.ssl_ctx, self.fingerprint = ssl_ctx, fingerprint
         self.clients = set()                         # StreamWriters of live WebSockets
         self.frames = 0
@@ -335,7 +335,7 @@ class WebCompanion:
     async def start(self):
         self._loop = asyncio.get_running_loop()
         public = await asyncio.start_server(self._handle_public, self.host, self.port, ssl=self.ssl_ctx)
-        admin = await asyncio.start_server(self._handle_admin, "127.0.0.1", self.admin_port)
+        admin = await asyncio.start_server(self._handle_admin, self.admin_host, self.admin_port)
         return public, admin
 
     async def serve(self):

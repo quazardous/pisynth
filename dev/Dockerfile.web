@@ -1,0 +1,13 @@
+# pisynth-web for local development (#2415): the real server, with the tools a dev stack needs.
+FROM python:3.13-slim
+ARG UID=1000
+ARG GID=1000
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        openssl openssh-client alsa-utils coreutils curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir watchfiles segno pyyaml \
+    && groupadd -g "$GID" dev && useradd -m -u "$UID" -g "$GID" dev
+USER dev
+WORKDIR /repo
+COPY --chown=dev:dev dev/web-entrypoint.sh /usr/local/bin/web-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/web-entrypoint.sh"]

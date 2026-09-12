@@ -120,6 +120,32 @@ python3 tools/preview.py [outdir]   # render Home + Settings to PNGs locally (no
 `shot.sh` and `ctl.sh` need no sudo (the user is in `video`+`input`); only `apply.sh` does.
 `tools/preview.py` mocks the framebuffer/touch so you can iterate on the UI offline.
 
+## Web companion dev stack (laptop, Docker)
+
+The phone app (`web/app`, Svelte) and its Pi-side server (`web/`, `python3 -m web`) can be
+developed without deploying: `make help` lists everything.
+
+```bash
+make dev        # docker compose: pisynth-web (simulated MIDI) + Vite dev server with hot reload
+make pair       # one-time pairing URL + QR code in the terminal → scan it with the phone
+make dev-pi     # same stack, MIDI bridged from the Pi's real keyboard over SSH (pisynth.conf)
+make logs       # both containers · make stats → relay latency p50/p99, clients, frames
+make build      # Svelte → web/static (commit it: the Pi serves the built files, no Node there)
+make tunnel     # forward the companion running ON the Pi to https://localhost:28443
+make down
+```
+
+- **Ports on the laptop:** `https://<LAN IP>:15173` (Vite, hot reload; proxies `/pair`, `/api`,
+  `/ws` to the server), `https://<LAN IP>:18443` (the built app, served exactly as on the Pi),
+  `127.0.0.1:9811` (admin API, never on the LAN). Override with `APP_PORT` / `WEB_PORT` / `ADMIN_PORT`.
+- **Certificate:** self-signed, generated once in `dev/certs/` (gitignored). The phone shows a
+  warning the first time; HTTPS is required for the microphone (latency page) and the service worker.
+- **MIDI sources** (`PISYNTH_WEB_MIDI_SOURCE`): `sim` plays a scale, chords with the sustain pedal
+  and an arpeggio in a loop (`SIM_SPEED=2 make dev` to speed it up); `pi` runs
+  `ssh $PISYNTH_HOST aseqdump` on the Pi's first hardware keyboard; `aseqdump` (default, on the Pi).
+- The server restarts on any Python edit under `web/`; Svelte edits hot-reload in the browser.
+- If the phone can't connect, check the laptop firewall allows TCP 15173/18443.
+
 ## Tests & lint (laptop, no Pi)
 
 ```bash

@@ -107,3 +107,115 @@ class AlsaSeqSource:
             self._proc = None
             if not self._stop.is_set():               # aseqdump ended (keyboard unplugged) → retry
                 self._stop.wait(1.0)
+
+
+class CommandSource(AlsaSeqSource):
+    """Same parsing, any command printing aseqdump lines — e.g. the Pi's keyboard over SSH
+    (dev bridge, #2415): `ssh <pi> aseqdump -p <keyboard>`. Reconnects when it ends."""
+
+    def __init__(self, on_frame, argv):
+        super().__init__(on_frame)
+        self.argv = argv
+
+    def _loop(self):
+        while not self._stop.is_set():
+            try:
+                self._proc = subprocess.Popen(self.argv, stdout=subprocess.PIPE, stderr=None,   # errors → service log
+                                              text=True, bufsize=1)
+            except OSError:
+                if self._stop.wait(3.0):
+                    break
+                continue
+            for line in self._proc.stdout:
+                t_ns = time.monotonic_ns()
+                ev = parse_line(line)
+                if ev:
+                    self.on_frame(pack(*ev, t_ns // 1_000_000), t_ns)
+                if self._stop.is_set():
+                    break
+            self._proc = None
+            if not self._stop.is_set():
+                self._stop.wait(3.0)
+
+
+def pi_bridge_argv(host):
+    """SSH command streaming the Pi's first hardware keyboard as aseqdump lines (#2415)."""
+    remote = ("p=$(LC_ALL=C aconnect -i | sed -n \"s/^client [0-9]* *: '\\(.*\\)' \\[.*card=.*/\\1/p\" | head -n1); "
+              "[ -n \"$p\" ] || { echo 'no MIDI keyboard on the Pi' >&2; sleep 5; exit 1; }; "
+              "exec stdbuf -oL aseqdump -p \"$p:0\"")
+    return ["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=10", host, remote]
+
+
+# ---- simulator (dev, #2415): plausible playing with no keyboard at all ----
+SIM_PATTERNS = {
+    # (notes, hold seconds) steps; chords are lists; None = rest
+    "scale": [([n], 0.25) for n in (60, 62, 64, 65, 67, 69, 71, 72)] + [(None, 0.5)],
+    "chords": [([48, 60, 64, 67], 1.0), ([45, 57, 60, 64], 1.0), ([41, 57, 60, 65], 1.0), ([43, 55, 59, 62, 65], 1.0)],
+    "arpeggio": [([n], 0.15) for n in (57, 60, 64, 69, 72, 69, 64, 60)],
+}
+
+
+class SimSource:
+    """Plays SIM_PATTERNS in a loop (scale → chords with sustain pedal → arpeggio), with
+    human-ish velocity jitter, as the same 7-byte frames. `speed` scales the tempo."""
+
+    def __init__(self, on_frame, speed=1.0, seed=None):
+        import random
+        self.on_frame, self.speed = on_frame, max(0.1, float(speed))
+        self._rng = random.Random(seed)
+        self._stop = threading.Event()
+        self._thread = None
+
+    def start(self):
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._loop, name="midi-sim", daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+
+    def _send(self, status, d1, d2):
+        t_ns = time.monotonic_ns()
+        self.on_frame(pack(status, d1, d2, t_ns // 1_000_000), t_ns)
+
+    def steps(self):
+        """The event script, as (delay_s, status, d1, d2) — pure, for tests."""
+        out = []
+        for name in ("scale", "chords", "arpeggio"):
+            pedal = name == "chords"
+            if pedal:
+                out.append((0.0, 0xB0, 64, 127))
+            for notes, hold in SIM_PATTERNS[name]:
+                if notes is None:
+                    out.append((hold, None, 0, 0))
+                    continue
+                for i, n in enumerate(notes):
+                    out.append((0.012 if i else 0.0, 0x90, n, self._rng.randint(60, 110)))   # rolled chord
+                out.append((hold, None, 0, 0))
+                for n in notes:
+                    out.append((0.0, 0x80, n, 0))
+            if pedal:
+                out.append((0.0, 0xB0, 64, 0))
+            out.append((0.6, None, 0, 0))
+        return out
+
+    def _loop(self):
+        while not self._stop.is_set():
+            for delay, status, d1, d2 in self.steps():
+                if delay and self._stop.wait(delay / self.speed):
+                    return
+                if status is not None:
+                    self._send(status, d1, d2)
+
+
+def make_source(on_frame, env):
+    """Pick the MIDI source from the environment: aseqdump (default, on the Pi) | sim | pi."""
+    kind = env.get("PISYNTH_WEB_MIDI_SOURCE", "aseqdump")
+    if kind == "sim":
+        return SimSource(on_frame, speed=env.get("PISYNTH_WEB_SIM_SPEED", "1"))
+    if kind == "pi":
+        host = env.get("PISYNTH_HOST", "")
+        if not host:
+            raise SystemExit("[pisynth-web] PISYNTH_WEB_MIDI_SOURCE=pi needs PISYNTH_HOST")
+        return CommandSource(on_frame, pi_bridge_argv(host))
+    return AlsaSeqSource(on_frame, port=env.get("PISYNTH_WEB_MIDI_PORT", ""))

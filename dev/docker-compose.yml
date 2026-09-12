@@ -1,0 +1,48 @@
+# Local dev stack for the web companion (#2415). Run from the repo root: `make dev` / `make dev-pi`.
+#
+#   web  — the real pisynth-web (python -m web), auto-restart on Python edits, MIDI from the
+#          simulator (default) or the Pi's keyboard over SSH (MIDI_SOURCE=pi).
+#   app  — Vite dev server for web/app (Svelte hot reload) over HTTPS, proxying /pair, /api
+#          and /ws to `web`. Open https://<LAN IP>:15173 on the phone (`make pair`).
+name: pisynth-dev
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: dev/Dockerfile.web
+      args: { UID: "${DEV_UID:-1000}", GID: "${DEV_GID:-1000}" }
+    volumes:
+      - ..:/repo
+      - ${HOME}/.ssh:/home/dev/.ssh:ro            # the `pi` bridge uses your SSH key
+    environment:
+      PISYNTH_WEB_MIDI_SOURCE: ${MIDI_SOURCE:-sim}
+      PISYNTH_WEB_SIM_SPEED: ${SIM_SPEED:-1}
+      PISYNTH_HOST: ${PISYNTH_HOST:-}
+      PISYNTH_WEB_CERT: /repo/dev/certs/cert.pem
+      PISYNTH_WEB_KEY: /repo/dev/certs/key.pem
+      PISYNTH_WEB_SESSIONS: /repo/dev/state/web_sessions.json
+      PISYNTH_WEB_ADMIN_HOST: 0.0.0.0             # published on the host's loopback only (below)
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "${WEB_PORT:-18443}:8443"                 # the built app, as the Pi serves it
+      - "127.0.0.1:${ADMIN_PORT:-9811}:9811"      # admin API: never on the LAN
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9811/admin/stats"]
+      interval: 5s
+      retries: 20
+
+  app:
+    image: node:22-slim
+    user: "${DEV_UID:-1000}:${DEV_GID:-1000}"
+    working_dir: /repo/web/app
+    command: sh -c "[ -d node_modules ] || npm ci; exec npx vite --host 0.0.0.0"
+    volumes:
+      - ..:/repo
+    environment:
+      PISYNTH_DEV_BACKEND: https://web:8443
+      PISYNTH_DEV_CERTS: /repo/dev/certs
+    ports:
+      - "${APP_PORT:-15173}:5173"
+    depends_on:
+      web: { condition: service_healthy }

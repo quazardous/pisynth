@@ -37,7 +37,7 @@
   let playing = $state(false);
   let position = $state(0);        // song ms shown on the bar
   let loop = $state(null);         // {a, b} song ms
-  let options = $state(false);
+  let sheet = $state(null);         // null | "library" (📁 button) | "options" (⋯: tempo, loop)
   let finished = $state(false);
   let countIn = $state(0);
   let stats = $state({ score: 0, streak: 0, accuracy: 0 });
@@ -120,7 +120,7 @@
 
   function load(s) {
     stop();
-    song = s; error = ""; status = ""; options = false;
+    song = s; error = ""; status = ""; sheet = null;
   }
 
   function start(at = null) {
@@ -175,6 +175,12 @@
   function seek(e) {
     const to = Number(e.target.value);
     if (playing) { stop(); start(to); } else { position = to; paint(); }
+  }
+
+  // Opening the library or the options sheet pauses the song (the position is kept: Play resumes it).
+  function toggleSheet(which) {
+    if (sheet !== which && playing) stop();
+    sheet = sheet === which ? null : which;
   }
 
   function retempo() { if (playing) { const p = songPos(performance.now()); stop(); start(Math.max(0, p)); } }
@@ -360,16 +366,20 @@
     <div class="live">
       <div class="chord">{detectChord(sounding, prefs.notation) || " "}</div>
       <div class="notes">{sounding.map(n => noteName(n, prefs.notation)).join(" ") || " "}</div>
-      <button class="choose" onclick={() => (options = true)}>Choose a song</button>
+      <p class="muted hint">Tap the folder to pick a song</p>
     </div>
   {/if}
 
-  {#if options}
-    <button class="scrim" aria-label="close" onclick={() => (options = false)}></button>
+  {#if sheet}
+    <button class="scrim" aria-label="close" onclick={() => (sheet = null)}></button>
+  {/if}
+  {#if sheet === "library"}
     <section class="sheet">
       <Library current={song?.path} onPick={load} />
       <button class="link" onclick={() => load(sampleSong())}>use the built-in sample</button>
-      {#if song}
+    </section>
+  {:else if sheet === "options" && song}
+    <section class="sheet">
         <label>Tempo {tempo}% <input type="range" min="50" max="150" step="5" bind:value={tempo} onchange={retempo}></label>
         <div class="loop">
           <span>Loop</span>
@@ -378,19 +388,20 @@
           {#if loop}<button class="small ghost" onclick={() => (loop = null)}>clear</button>{/if}
         </div>
         <p class="muted">{hands.length >= 2 ? "2 hands: right hand blue, left hand green. " : ""}{mode === "play" ? "Hit each note as it reaches the yellow line." : "pisynth plays the song; the notes light up as they sound."}</p>
-        <button class="link" onclick={() => { stop(); song = null; options = false; }}>close the song (live keyboard)</button>
-      {/if}
     </section>
   {/if}
   </div>
 
   <div class="player">
-    <button class="play" onclick={() => (playing ? stop() : song ? start() : (options = true))} aria-label={playing ? "Stop" : "Play"}>
+    <button class="play" onclick={() => (playing ? stop() : song ? start() : toggleSheet("library"))} aria-label={playing ? "Stop" : "Play"}>
       {#if playing}
         <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" /></svg>
       {:else}
         <svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" /></svg>
       {/if}
+    </button>
+    <button class="folder" class:open={sheet === "library"} class:attention={!song} onclick={() => toggleSheet("library")} aria-label="choose a song">
+      <svg viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h5l2 2h8A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" /></svg>
     </button>
     <div class="meta">
       {#if song}
@@ -401,12 +412,14 @@
         </div>
         <div class="time">{fmt(position)} / {fmt(current.durationMs)}{tempo !== 100 ? ` · ${tempo}%` : ""}{loop ? " · loop" : ""}</div>
       {:else}
-        <div class="time">No song — play along with the library</div>
+        <div class="time">No song loaded</div>
       {/if}
     </div>
-    <button class="more" class:open={options} onclick={() => (options = !options)} aria-label="song, tempo and loop">
-      <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
-    </button>
+    {#if song}
+      <button class="more" class:open={sheet === "options"} onclick={() => toggleSheet("options")} aria-label="tempo and loop">
+        <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+      </button>
+    {/if}
   </div>
   <Keyboard view={song ? view : null} on={liveOn} demo={guide} {ghost} height={song ? "clamp(64px, 19vh, 170px)" : "clamp(90px, 30vh, 240px)"} minHeight="64px" />
 </main>
@@ -427,7 +440,7 @@
   .live { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; min-height: 0; }
   .chord { font-size: clamp(2.5rem, 14vw, 5rem); font-weight: 800; color: var(--yellow); }
   .notes { font-size: clamp(1rem, 5vw, 1.6rem); color: var(--muted); letter-spacing: 1px; }
-  .choose { margin-top: 18px; }
+  .hint { margin-top: 14px; }
   .count { position: absolute; inset: 0; display: grid; place-items: center; font-size: 5rem; font-weight: 800; color: rgba(255,255,255,.85); pointer-events: none; }
   .flash { position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); font-weight: 800; font-size: 1.1rem; pointer-events: none;
            animation: rise .6s ease-out forwards; text-shadow: 0 2px 6px #000; white-space: nowrap; }
@@ -457,6 +470,10 @@
   .player button { margin: 0; padding: 0; display: grid; place-items: center; flex: 0 0 auto; }
   .play { width: 44px; height: 44px; border-radius: 50%; }
   .play svg { width: 22px; height: 22px; fill: #fff; }
+  .folder { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; }
+  .folder svg { width: 22px; height: 22px; fill: var(--fg); }
+  .folder.open { background: var(--accent); }
+  .folder.attention:not(.open) { box-shadow: 0 0 0 2px var(--yellow); }
   .more { width: 36px; height: 36px; border-radius: 50%; background: none; }
   .more svg { width: 20px; height: 20px; fill: var(--muted); }
   .more.open svg { fill: var(--accent); }

@@ -287,6 +287,17 @@
     catch (err) { status = ""; error = `${displayName(entry.path)}: ${err.message}`; }
   }
 
+  // ↻: stop, and back to the start (or A with a loop) with a clean score — Play starts again from there.
+  function rewind() {
+    stop();
+    finished = false; sheet = null; flash = null; announce = null; oopsAt = null;
+    position = loop?.a ?? 0;
+    judge.reset(position);
+    stats = { score: 0, streak: 0, accuracy: 0 };
+    combo.reset(); rolling.jump(0); shownScore = 0; hitsShown = 0;
+    paint();
+  }
+
   function seek(e) {
     const to = Number(e.target.value);
     if (playing) { stop(); start(to); } else { position = to; paint(); }
@@ -596,11 +607,9 @@
         <svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" /></svg>
       {/if}
     </button>
-    {#if song && !playing && position > (loop?.a ?? 0)}
-      <button class="replay" onclick={() => { finished = false; sheet = null; start(loop?.a ?? 0); }} aria-label={loop ? "replay the loop from A" : "replay from the start"}>
-        <svg viewBox="0 0 24 24"><path d="M12 5V1.5L7 6.5l5 5V7.5a5.5 5.5 0 1 1-5.5 5.5H4a8 8 0 1 0 8-8z" /></svg>
-      </button>
-    {/if}
+    <button class="replay" disabled={!song} onclick={rewind} aria-label={loop ? "stop and back to A" : "stop and back to the start"}>
+      <svg viewBox="0 0 24 24"><path d="M12 5V1.5L7 6.5l5 5V7.5a5.5 5.5 0 1 1-5.5 5.5H4a8 8 0 1 0 8-8z" /></svg>
+    </button>
     <button class="folder" class:open={sheet === "library"} class:attention={!song} onclick={() => toggleSheet("library")} aria-label="choose a song">
       <svg viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h5l2 2h8A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" /></svg>
     </button>
@@ -714,8 +723,9 @@
   .player button { margin: 0; padding: 0; display: grid; place-items: center; flex: 0 0 auto; }
   .play { width: 44px; height: 44px; border-radius: 50%; }
   .play svg { width: 22px; height: 22px; fill: #fff; }
-  .replay { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; }   /* stopped halfway: again from the start (or A) */
+  .replay { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; }   /* always there: stop, back to the start (or A) */
   .replay svg { width: 22px; height: 22px; fill: var(--fg); }
+  .replay:disabled { opacity: .35; }
   .folder { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; }
   .folder svg { width: 22px; height: 22px; fill: var(--fg); }
   .folder.open { background: var(--accent); }

@@ -7,7 +7,8 @@ All notable changes to pisynth, in plain language. Newest first.
 ### Added
 - **Next song** — the results card offers "Next ›": the next song in the folder, or after the last
   one, the first song of the next folder (homer → first steps → …), read from the library on the Pi.
-- **Replay** — paused halfway, a ↻ button starts the song again from the beginning (from A with a loop).
+- **Back to the start** — a ↻ button next to Play, always there: it stops the song and goes back to the
+  beginning (to A with a loop) with a clean score; press Play when ready.
 - **No certificate needed to start** — the pairing page now offers "Open pisynth anyway": accept the
   browser's warning once and the companion works without installing pisynth's certificate (installing
   it stays recommended: no warning, installable as an app).

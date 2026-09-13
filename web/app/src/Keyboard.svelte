@@ -24,7 +24,7 @@
   {#each layout as k (k.n)}
     <div class="key" class:black={k.black} class:white={!k.black} class:on={on.has(k.n)} class:demo={demo.has(k.n) && !on.has(k.n)} class:ghost={ghost.has(k.n)}
          style:left="{k.left}%" style:width="{k.width}%">
-      {#if fingers?.has(k.n)}<span class="finger {fingers.get(k.n).move}" style:--hand={fingers.get(k.n).color}>{fingers.get(k.n).finger}</span>{/if}
+      {#if fingers?.has(k.n)}<span class="finger {fingers.get(k.n).move}" class:thumb={fingers.get(k.n).finger === 1} style:--hand={fingers.get(k.n).color}>{fingers.get(k.n).finger}</span>{/if}
     </div>
   {/each}
   {#each arrows as a, i (i)}
@@ -52,6 +52,8 @@
             display: grid; place-items: center; font: 800 clamp(10px, 2.6vw, 14px)/1 system-ui, sans-serif; color: #fff;
             background: var(--hand); box-shadow: 0 0 0 2px rgba(0,0,0,.55); pointer-events: none; }
   .black .finger { bottom: 8%; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
+  /* the thumb, the hand's landmark: an orange ring around its disc */
+  .finger.thumb::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid #ff9f3f; pointer-events: none; }
   /* the five fingers are always placed: resting ones very faint, the next beats' ones faint, the due ones solid */
   .finger.rest { opacity: .26; }
   .finger.soon { opacity: .5; }

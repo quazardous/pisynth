@@ -3,13 +3,20 @@
   // the player, which keeps playing underneath — change the reverb while pisynth plays a song.
   import Sound from "./Sound.svelte";
   import Latency from "./Latency.svelte";
-  import { prefs, setNotation, setGhost, setArcade, setFingers } from "./lib/prefs.svelte.js";
+  import { prefs, setNotation, setArcade } from "./lib/prefs.svelte.js";
+  import { aids, setAid } from "./lib/aids.svelte.js";
   import { noteName } from "./lib/theory.js";
-  import { musicians, selectMusician, renameMusician } from "./lib/musician.svelte.js";
+  import { musicians, selectMusician, renameMusician, currentMusician } from "./lib/musician.svelte.js";
   import { musicianKey } from "./lib/musicians.js";
   import { Progress } from "./lib/progress.js";
 
   let { panel, onPanel, onClose, onFrame, onMessage, send } = $props();
+  const HELP = [
+    ["fingers", "Finger numbers", "A suggested finger on each note and on the keys: 1 = thumb … 5 = little finger. Worked out from the usual rules; a teacher may choose otherwise."],
+    ["moves", "Hand moves", "When the hand has to move to a new position: a green arrow on the keyboard and the new position's fingers in green, right after the key before the move."],
+    ["ghost", "Ghost keys", "In \"I play\", the keyboard shows the perfect timing next to your playing: in time, your blue key gets a yellow outline."],
+    ["shake", "Shaking notes", "A note shakes harder and harder as it reaches the yellow line, so you feel the moment coming."],
+  ];
   const TABS = [["sound", "Sound"], ["display", "Display"], ["musicians", "Musicians"], ["latency", "Latency"], ["about", "About"]];
 
   let build = $state("…");
@@ -62,17 +69,17 @@
         {/each}
       </section>
       <section class="card">
-        <h1>Playing along</h1>
-        <label class="choice">
-          <input type="checkbox" checked={prefs.fingers} onchange={e => setFingers(e.target.checked)}>
-          <span>Finger numbers<br><small class="muted">A suggested finger on each note and on the keys: 1 = thumb … 5 = little
-            finger. Worked out from the usual rules; a teacher may choose otherwise.</small></span>
-        </label>
-        <label class="choice">
-          <input type="checkbox" checked={prefs.ghost} onchange={e => setGhost(e.target.checked)}>
-          <span>Ghost keys<br><small class="muted">In "I play", the keyboard shows the perfect timing next to your playing:
-            in time, your blue key gets a yellow outline.</small></span>
-        </label>
+        <h1>Help for {currentMusician().name}</h1>
+        <p class="muted">Each musician keeps their own: a beginner keeps them all, someone more at ease turns some off.</p>
+        {#each HELP as [id, label, text] (id)}
+          <label class="choice">
+            <input type="checkbox" checked={aids[id]} onchange={e => setAid(id, e.target.checked)}>
+            <span>{label}<br><small class="muted">{text}</small></span>
+          </label>
+        {/each}
+      </section>
+      <section class="card">
+        <h1>Effects</h1>
         <label class="choice">
           <input type="checkbox" checked={prefs.arcade} onchange={e => setArcade(e.target.checked)}>
           <span>Arcade effects<br><small class="muted">Explosions on your hits, combos announced with their sounds, a

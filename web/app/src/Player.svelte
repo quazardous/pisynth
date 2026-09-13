@@ -24,6 +24,7 @@
   import { Progress, levelDifficulty } from "./lib/progress.js";
   import { detectChord, noteName, pitchName } from "./lib/theory.js";
   import { prefs, setPlayMode, PLAY_MODES } from "./lib/prefs.svelte.js";
+  import { aids } from "./lib/aids.svelte.js";
   import { RecordBook, songKey } from "./lib/records.js";
   import { EndlessScore } from "./lib/endless.js";
   import { songParts, partAt, PartBook } from "./lib/parts.js";
@@ -430,7 +431,7 @@
         return;
       }
       if (Math.abs(Math.max(from, t) - position) > 100) position = Math.max(from, t);    // (count-in: stays at the start)
-      const ghosting = mode === "play" && prefs.ghost;
+      const ghosting = mode === "play" && aids.ghost;
       const lit = new Set(), ahead = mode === "play" ? 60 * tf() : 0;   // play: keys due now · listen: keys sounding
       if (!ghosting) for (const n of visibleNotes(notes, t, ahead, 0, maxLen)) if (n.start <= t + ahead && n.end >= t) lit.add(n.note);
       if (!sameSet(lit, guide)) guide = lit;
@@ -438,7 +439,7 @@
       // and its ghost light up together (#2429).
       const g = ghosting ? ghostKeys(notes, ghostTime(now), maxLen, GHOST_MIN_MS * tf()) : new Set();
       if (!sameSet(g, ghost)) ghost = g;
-      if (prefs.fingers) showFingers(t, Math.max(beatMs(), 500), true);   // the fingers for what is held and due within a beat, and moves
+      if (aids.fingers || aids.moves) showFingers(t, Math.max(beatMs(), 500), aids.moves);   // the fingers for what is held and due within a beat, and moves
     }
 
     if (follow) {
@@ -460,7 +461,7 @@
     const hitY = H - 3 * dpr, pxPerMs = hitY / AHEAD_MS;
     const xOf = r => { const p = toPct(r, v); return [(p.left / 100) * W, (p.width / 100) * W]; };
     const judged = mode === "play";
-    const notation = prefs.notation, showFinger = prefs.fingers;
+    const notation = prefs.notation, showFinger = aids.fingers, showMoves = aids.moves;
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
 
@@ -511,7 +512,7 @@
         if (n.end < t) alpha = 0.35;
       }
       let near = 0;                                             // "I play": a note about to land shakes harder and harder
-      if (judged && playing && !res[n.i] && n.start > t) {
+      if (aids.shake && judged && playing && !res[n.i] && n.start > t) {
         const lead = SHAKE_BEATS * beatMs();
         if (n.start - t < lead) {
           near = 1 - (n.start - t) / lead;                      // 0 when it starts shaking … 1 on the line
@@ -540,14 +541,14 @@
           named = true;
         }
       }
-      if (showFinger && shifts[n.i] && w >= 9 * dpr && h >= 12 * dpr) {   // a hand move starts here: a green arrow over the note
+      if (showMoves && shifts[n.i] && w >= 9 * dpr && h >= 12 * dpr) {   // a hand move starts here: a green arrow over the note
         const dir = shifts[n.i].dir, cx = x + w / 2, ay = yBot - h - 7 * dpr, s = Math.min(7 * dpr, w * 0.45);
         ctx.fillStyle = "#4fd18b";
         ctx.beginPath(); ctx.moveTo(cx + dir * s, ay); ctx.lineTo(cx - dir * s * 0.6, ay - s * 0.8); ctx.lineTo(cx - dir * s * 0.6, ay + s * 0.8); ctx.fill();
       }
       if (finger) {                                            // the suggested finger, a disc above the name (#2431)
         const rad = Math.min(8 * dpr, w * 0.42), cy = yBot - (named ? 17 * dpr : 2 * dpr) - rad;
-        ctx.fillStyle = shifts[n.i] ? "#1f8a52" : "rgba(13,13,18,.78)";   // (green: the first finger of a new position)
+        ctx.fillStyle = showMoves && shifts[n.i] ? "#1f8a52" : "rgba(13,13,18,.78)";   // (green: the first finger of a new position)
         ctx.beginPath(); ctx.arc(x + w / 2, cy, rad, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#fff";
         ctx.font = `800 ${rad * 1.35}px system-ui, sans-serif`;
@@ -567,7 +568,7 @@
       ctx.fillRect(x - 4 * dpr, hitY - 26 * dpr * a, w + 8 * dpr, 26 * dpr * a);
     }
 
-    if (judged && playing && prefs.ghost) {                         // ghost: an outline pulses where a note should be hit
+    if (judged && playing && aids.ghost) {                         // ghost: an outline pulses where a note should be hit
       const pulse = GHOST_PULSE_MS * tf();
       ctx.lineWidth = 2 * dpr;
       for (const p of ghostPulses(notes, ghostTime(now), maxLen, pulse)) {
@@ -609,7 +610,7 @@
     }
   }
 
-  $effect(() => { stageW; stageH; view; song; prefs.notation; prefs.fingers; liveOn; keyFing; untrack(() => { if (!playing) paint(); }); });   // redraw when idle, resized, renamed or a key is tapped
+  $effect(() => { stageW; stageH; view; song; prefs.notation; aids.fingers; aids.moves; liveOn; keyFing; untrack(() => { if (!playing) paint(); }); });   // redraw when idle, resized, renamed or a key is tapped
   onDestroy(() => { stop(); exitPlayMode(); });
 
   const fmt = ms => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -690,7 +691,7 @@
         </section>
       {/if}
       {#if error}<p class="error">{error}</p>{:else if status}<p class="status-msg">{status}</p>
-      {:else if !playing && !finished && !sheet}<p class="status-msg warmup">Tap your keys to find your place{prefs.fingers ? " — the numbers are your fingers" : ""}, then Play</p>{/if}
+      {:else if !playing && !finished && !sheet}<p class="status-msg warmup">Tap your keys to find your place{aids.fingers ? " — the numbers are your fingers" : ""}, then Play</p>{/if}
     </div>
   {:else}
     <div class="live">
@@ -770,7 +771,7 @@
       </button>
     {/if}
   </div>
-  <Keyboard view={song ? view : null} on={liveOn} demo={guide} {ghost} fingers={song && prefs.fingers ? keyFing : null} arrows={song && prefs.fingers && playing ? keyArrows : null} height={song ? "clamp(64px, 19vh, 170px)" : "clamp(90px, 30vh, 240px)"} minHeight="64px" />
+  <Keyboard view={song ? view : null} on={liveOn} demo={guide} {ghost} fingers={song && aids.fingers ? keyFing : null} arrows={song && aids.moves && playing ? keyArrows : null} height={song ? "clamp(64px, 19vh, 170px)" : "clamp(90px, 30vh, 240px)"} minHeight="64px" />
 </main>
 
 <style>

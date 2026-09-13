@@ -36,18 +36,19 @@
   .word small { font-size: .55em; }
   /* Both pop in, then sink like a boat: going down right away, listing more and more, fading at the end. */
   .oops { animation: sink 1.1s cubic-bezier(.2,1.8,.4,1) forwards; }
-  /* LEVEL UP: pops in, breathes three times, then melts away growing */
-  .levelup { animation: breathe 3.4s cubic-bezier(.2,1.8,.4,1) forwards; }
-  @keyframes breathe {
-    0%   { transform: rotate(calc(var(--tilt) - 25deg)) scale(0); opacity: 0; }
-    9%   { transform: rotate(var(--tilt)) scale(calc(var(--s) * 1.15)); opacity: 1; }
-    15%  { transform: rotate(var(--tilt)) scale(var(--s)); animation-timing-function: ease-in-out; }
-    28%  { transform: rotate(var(--tilt)) scale(calc(var(--s) * 1.08)); animation-timing-function: ease-in-out; }
-    41%  { transform: rotate(var(--tilt)) scale(var(--s)); animation-timing-function: ease-in-out; }
-    54%  { transform: rotate(var(--tilt)) scale(calc(var(--s) * 1.08)); animation-timing-function: ease-in-out; }
-    67%  { transform: rotate(var(--tilt)) scale(var(--s)); animation-timing-function: ease-in-out; }
-    80%  { transform: rotate(var(--tilt)) scale(calc(var(--s) * 1.08)); opacity: 1; animation-timing-function: ease-in; }
-    100% { transform: rotate(var(--tilt)) scale(calc(var(--s) * 1.35)); opacity: 0; }
+  /* LEVEL UP: pops in slightly see-through, pulses (zoom in / out) three times, then falls away fading */
+  .levelup { animation: level-pulse 3.6s cubic-bezier(.2,1.8,.4,1) forwards; }
+  @keyframes level-pulse {
+    0%   { transform: translateY(0) rotate(calc(var(--tilt) - 25deg)) scale(0); opacity: 0; }
+    8%   { transform: translateY(0) rotate(var(--tilt)) scale(calc(var(--s) * 1.18)); opacity: .88; }
+    14%  { transform: translateY(0) rotate(var(--tilt)) scale(var(--s)); opacity: .85; animation-timing-function: ease-in-out; }
+    25%  { transform: translateY(0) rotate(var(--tilt)) scale(calc(var(--s) * 1.14)); opacity: .9; animation-timing-function: ease-in-out; }
+    36%  { transform: translateY(0) rotate(var(--tilt)) scale(var(--s)); opacity: .82; animation-timing-function: ease-in-out; }
+    47%  { transform: translateY(0) rotate(var(--tilt)) scale(calc(var(--s) * 1.14)); opacity: .9; animation-timing-function: ease-in-out; }
+    58%  { transform: translateY(0) rotate(var(--tilt)) scale(var(--s)); opacity: .82; animation-timing-function: ease-in-out; }
+    69%  { transform: translateY(0) rotate(var(--tilt)) scale(calc(var(--s) * 1.14)); opacity: .9; animation-timing-function: ease-in-out; }
+    76%  { transform: translateY(0) rotate(var(--tilt)) scale(var(--s)); opacity: .85; animation-timing-function: cubic-bezier(.45,0,.9,.45); }
+    100% { transform: translateY(140%) rotate(calc(var(--tilt) + 24deg)) scale(calc(var(--s) * .9)); opacity: 0; }
   }
   .levelup .word { flex-direction: column; gap: 0; line-height: .95; }
   @keyframes sink {

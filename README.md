@@ -1,37 +1,57 @@
 # pisynth
 
-A Raspberry Pi turned into a standalone **MIDI synthesizer appliance**: plug in a USB
-MIDI keyboard and a USB audio interface, power on, and play — with a **touchscreen
-control UI** on a small 3.5" SPI display. No desktop, no mouse; it boots straight into
-the synth.
+A Raspberry Pi turned into a standalone **MIDI piano synthesizer**. Plug in a USB MIDI keyboard
+and a USB audio interface, power on, and play. A small **3.5" touchscreen** picks the sound.
+Your **phone** becomes a play-along coach: the notes fall onto the keyboard, you hit them, and
+the combos pile up.
 
-Built on **fluidsynth** (SoundFont playback, direct ALSA for low latency) with a
-lightweight framebuffer UI (no X / no Wayland) driven by touch — or by the
-keyboard's D-pad.
+<p align="center">
+  <img src="docs/img/companion-combo.jpg" width="340" alt="The web companion on a phone: notes falling onto the keyboard with finger numbers, 17 hits, a KILLER COMBO comic splash">
+</p>
 
-> Evolved from a headless NanoPi build (`nanosynth`). pisynth adds the touchscreen, a
-> menu UI, and a migration-based deploy workflow.
+Built on **fluidsynth** (SoundFont playback, straight to ALSA for low latency), a framebuffer
+touch UI (no X, no Wayland), and a web companion served by the Pi itself. Nothing leaves your
+local network.
 
 ## Features
 
-- 🎹 Boots straight into a playable instrument (any General MIDI SoundFont); hot-swap the
-  keyboard or audio interface and it recovers (sound comes back a few seconds after you
-  replug the interface).
-- 🖥️ 3.5" touchscreen UI — instrument **tiles** + a **Settings** menu: gain/volume, audio
-  output (USB card **or Bluetooth** speaker), a **MIDI device picker + live test keyboard**,
-  a **metronome**, system info & **health**, and touch calibration.
-- 🪶 Light & fast: no desktop to load, so it boots straight to the synth in seconds and the
-  sound stays low-latency.
-- 🔧 One-command install, and an easy way to add your own SoundFonts (drop them in, run one
-  command).
-- 🖧 No monitor needed: the desktop only starts if you actually plug in an HDMI screen.
-- 📱 Web companion: scan the QR code on the screen with your phone to see the keys and chords
-  you play live, and to measure the instrument's latency.
+### The instrument
+- 🎹 **Boots straight into a playable piano**, with any General MIDI SoundFont. Replug the keyboard or the audio interface and it recovers by itself.
+- 🖥️ **3.5" touchscreen UI:**
+  - one tile per SoundFont, then its presets;
+  - Settings: gain and volume, audio output (USB card or Bluetooth speaker), MIDI keyboard picker with a live test keyboard, metronome, system health, touch calibration.
+- 🥁 **Metronome** on the piano speakers, with tempo presets and a beat pulse. It can be started from a key on your keyboard.
+- 🪶 **Light and fast.** No desktop to load; the desktop only starts if you plug in an HDMI screen.
+- 🛡️ **Optional read-only mode.** Unplug at the wall without corrupting the SD card.
 
-## Screenshots
+### The web companion (your phone)
+Scan the QR code on the pisynth screen; the page is served over HTTPS by the Pi.
+- 🎮 **Play along.** The song's notes fall onto the keyboard, rock-game style, and your timing is judged from the moment you pressed the key: perfect, good, early, late, miss.
+  - Tempo from 50 to 150 %, A–B loop, a video-game count-in.
+  - Ghost keys show the perfect timing next to your own.
+- 💥 **Arcade effects:** sparks on every hit, Killer Instinct-style combos (TRIPLE … KILLER … ULTRA) in comic-book splashes, an OOPS on wrong keys, a racing score.
+- ✋ **Suggested fingering** on every falling note and on the keys, computed from the usual piano rules. Before you start, the keyboard shows where your fingers go.
+- 📈 **Progress:**
+  - XP and levels: harder songs and faster tempos earn more;
+  - each song's difficulty shown as a gauge;
+  - your best score per song.
+- 📚 **MIDI library on the Pi,** organised by level:
+  - homer and first steps: children's songs, arranged here;
+  - beginner, intermediate and advanced: public domain classics;
+  - plus your own files, from the computer or uploaded from the phone.
+- 🎧 **Listen mode.** pisynth plays the song and the same notes light up as they sound.
+- 🎛️ **The synth's settings from the phone:** sound, reverb, chorus, metronome… Note names in English or French.
+- ⏱️ **Latency check** with the phone's microphone.
 
-The 3.5" touchscreen (480×320). Home is one tile per SoundFont; tap to drill into its
-presets; the gear opens Settings.
+| | | |
+|---|---|---|
+| ![Library with difficulty gauges and records](docs/img/companion-library.jpg) | ![Finger numbers on the notes and the keys](docs/img/companion-fingers.jpg) | ![LEVEL UP over the results](docs/img/companion-levelup.jpg) |
+| **Library** · difficulty gauge, your ★ best | **Fingering** · on the notes and on the keys | **Results** · XP, records, LEVEL UP |
+
+## The touchscreen
+
+The 3.5" screen (480×320). Home shows one tile per SoundFont; tap one to see its presets. The
+gear opens Settings.
 
 | | |
 |---|---|
@@ -47,90 +67,102 @@ presets; the gear opens Settings.
 | Board | **Raspberry Pi 3B+**, Raspberry Pi OS *Trixie* (64-bit) |
 | Screen | 3.5" SPI, **ILI9486 + ADS7846** ("goodtft/MPI3501" red board) via the `piscreen` overlay |
 | MIDI keyboard | **M-Audio Keystation 61 MK3** (USB) |
-| Audio out | **M-Audio M-Track** (USB interface) — the Pi 3.5 mm jack works but sounds poor |
+| Audio out | **M-Audio M-Track** (USB interface). The Pi's 3.5 mm jack works but sounds poor. |
+| Phone (companion) | any recent phone browser on the same Wi-Fi |
 
 Using a different SPI panel? The screen is described in **[`hardware.conf`](hardware.conf)**
-(overlay name, SPI speed, rotation); edit it and re-deploy. Resolution and the ADS7846
-touch are auto-detected.
+(overlay name, SPI speed, rotation); edit it and re-deploy. The resolution and the ADS7846 touch
+controller are detected automatically.
 
 ## Quick start
 
-> New to this? **[INSTALL.md](docs/install.md)** is the full step-by-step (flashing, SSH keys,
-> Windows/WSL, on-device install, troubleshooting). The short version:
+> New to this? **[INSTALL.md](docs/install.md)** has the full step-by-step: flashing, SSH keys,
+> Windows/WSL, installing on the device, the phone companion, troubleshooting. The short version:
 
-First, on the Pi: flash Raspberry Pi OS, enable SSH + key-based login, and wire up the
-3.5" screen. Then pick one of two ways to install:
+First, on the Pi: flash Raspberry Pi OS, enable SSH with key-based login, and wire up the 3.5"
+screen. Then pick one of two ways to install.
 
-**End user — one command, on the Pi.** Copy this repo onto the Pi (`git clone` there, or
-`scp` it over), then:
+**End user: one command, on the Pi.** Copy this repo onto the Pi (`git clone` there, or `scp`
+it over), then:
 
 ```bash
 sudo ./install.sh        # installs everything in one apt batch, configures, and reboots
 ```
 
-The packages it installs are listed in [`packages.list`](packages.list).
-
-**Developer — from your computer (edit → deploy loop).**
+**Developer: from your computer (edit → deploy loop).**
 
 ```bash
 git clone https://github.com/quazardous/pisynth
 cd pisynth
 cp pisynth.conf.dist pisynth.conf      # edit PISYNTH_HOST=user@your-pi
-./deploy.sh                            # rsync repo → Pi, run migrations (asks sudo once)
+./deploy.sh                            # rsync repo → Pi, run migrations
 ```
 
-Both reboot the Pi themselves when boot config changed (screen overlay, console, splash),
-so the first run comes up ready — no manual reboot.
+Both reboot the Pi themselves when the boot config changed, so the first run comes up ready.
 
-Plug the keyboard + USB audio interface into the Pi. On first boot the screen runs a
+Plug the keyboard and the USB audio interface into the Pi. On first boot the screen runs a
 **touch calibration** (tap the 4 targets), then shows the instrument tiles. Press a key.
+
+**Phone:**
+1. Tap the **QR icon** on the pisynth screen and scan it.
+2. The first time, the page helps you install pisynth's small certificate authority, limited to your local network, so the companion opens like any secure site. It can be installed as an app.
+3. From a computer, `./pair.sh --open` does the same.
 
 ## How it works
 
-Your keyboard plays through **fluidsynth** (the software synth), which sends the sound
-straight to your USB audio interface — a short path, kept that way for low latency. The
-touchscreen and the keyboard's D-pad don't make sound themselves; they just **control** the
-synth (pick an instrument, set the volume, start the metronome).
+Your keyboard plays through **fluidsynth**, which sends the sound straight to the USB audio
+interface. That path is kept short for low latency. The touchscreen, the keyboard's D-pad and
+the phone don't make sound: they **control** the synth.
 
-With no monitor attached it boots straight to the synth; the desktop only starts if you plug
-in an HDMI screen, so the little screen is never fought over.
+The phone receives only the raw MIDI events you play, a few bytes each; the sound stays on the
+Pi's speakers. All the heavy lifting runs **in the phone's browser**, so the Pi 3B+ stays free
+for audio: note highway, judging, fingering, difficulty, effects.
 
 <details><summary><strong>Under the hood</strong> (for tinkerers)</summary>
 
 ```
 Keystation 61 MK3 ──USB──┐
                           ├─► fluidsynth (ALSA direct, TCP shell :9800) ─► USB audio ─► sound
-USB audio interface ──────┘                  ▲
-                                             │ prog / gain commands
-                  ┌──────────────────────────┼───────────────────────────┐
-            midi-bridge.sh (D-pad)   touch UI (/dev/fb0, control socket :9810)
+USB audio interface ──────┘              ▲
+                                         │ prog / gain / notes
+        ┌────────────────────────────────┼─────────────────────────────────┐
+  midi-bridge.sh (D-pad)     touch UI (/dev/fb0, :9810)     pisynth-web (aiohttp, HTTPS)
+                                                                  │  WebSocket: MIDI events
+                                                                  ▼
+                                                     phone browser (Svelte app)
 ```
 
-The touch UI (the `ui/pisynth/` Python package, run as `python3 -m pisynth`) draws straight to the framebuffer and drives fluidsynth
-over its TCP shell — the same control plane the D-pad uses. See [DEV.md](docs/dev.md) for the
-full architecture.
+- **Touch UI:** the `ui/pisynth/` Python package draws straight to the framebuffer and drives fluidsynth over its TCP shell, the same control plane as the D-pad.
+- **Web companion:** a single-worker asyncio service (`web/`) serves the Svelte app (`web/app` → `web/static`) and relays the ALSA sequencer's MIDI to the paired phone.
+
+See [DEV.md](docs/dev.md) for the full architecture.
 </details>
 
-## SoundFonts
+## SoundFonts and MIDI files
 
-Just copy your own `.sf2` / `.sf3` files into the SoundFonts folder on the Pi
-(`~/soundfonts/`) — they're loaded next time it starts. The base SoundFonts (MuseScore
-General, FluidR3 GM) are installed automatically.
-
-> Developing from a laptop? Drop them in the repo's [`soundfonts/`](soundfonts/README.md)
-> and re-deploy instead.
+- **SoundFonts:** copy your `.sf2` / `.sf3` files into `~/soundfonts/` on the Pi; they're loaded the next time it starts. MuseScore General and FluidR3 GM are installed automatically.
+- **MIDI files:** drop them in the repo's [`midi/`](midi/README.md) folder (subfolders are kept) and re-deploy, or upload them from the phone into any library folder.
 
 ## Development
 
-See **[DEV.md](docs/dev.md)** — the deploy workflow, the screenshot/remote-control feedback
-loop, the menu-UI SDK, and how to add screens. Design rationale lives in **[RESEARCH.md](docs/research.md)**.
-All docs are under **[docs/](docs/)**.
+See **[DEV.md](docs/dev.md)** for:
+- the deploy workflow;
+- the screenshot and remote-control feedback loop;
+- the menu-UI SDK;
+- the web companion's dev stack (`make dev`, with a simulated keyboard that can play along).
+
+Design rationale lives in **[RESEARCH.md](docs/research.md)**. All docs are under **[docs/](docs/)**.
 
 ## Status
 
-Work in progress. The touchscreen UI, calibration, and deploy/migration tooling work; the
-end-to-end audio path is being validated on hardware. See docs/dev.md / docs/research.md,
-and [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
+Work in progress: 0.5.0 is not released yet. See [CHANGELOG.md](CHANGELOG.md) for what changed
+in each version.
+
+## Credits
+
+- The starter classical pieces come from the [Mutopia Project](https://www.mutopiaproject.org/) (public domain). The homer and first steps arrangements are ours, released as CC0. Details in [library/midi/SOURCES.md](library/midi/SOURCES.md).
+- The comic lettering uses the [Bangers](https://github.com/googlefonts/bangers) font (SIL Open Font License 1.1, bundled). The comic splashes are drawn by the app itself.
+- The fingering model follows Parncutt et al. (1997), *An ergonomic model of keyboard fingering for melodic fragments*.
 
 ## License
 

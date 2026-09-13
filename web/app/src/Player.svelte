@@ -376,9 +376,14 @@
   }
 
   // ↻: stop, and back to the start (or A with a loop) with a clean score — Play starts again from there.
+  // (hybrid: a double tap goes back to the first part — the parts already unlocked stay unlocked)
+  let lastRewind = 0;
   function rewind() {
+    const now = performance.now(), double = now - lastRewind < 450;
+    lastRewind = now;
     stop();
     finished = false; sheet = null; flash = null; announce = null; oopsAt = null;
+    if (hybrid && double && parts.length) { partIdx = 0; loop = { a: parts[0].a, b: parts[0].b }; }
     position = loop?.a ?? 0;
     judge.reset(position);
     stats = { score: 0, streak: 0, accuracy: 0 };
@@ -747,7 +752,9 @@
             aria-label="play mode: {MODE_LABEL[prefs.playMode]} — tap to change" title="{MODE_LABEL[prefs.playMode]} mode">
       {#if prefs.playMode === "infinite"}∞{:else if prefs.playMode === "hybrid"}<svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 9.9-1h-2.1A3 3 0 0 0 9 8v3h9a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 18 21H6a1.5 1.5 0 0 1-1.5-1.5v-7A1.5 1.5 0 0 1 6 11z" /></svg>{:else}1×{/if}
     </button>
-    <button class="replay" disabled={!song} onclick={rewind} aria-label={loop ? "stop and back to A" : "stop and back to the start"}>
+    <button class="replay" disabled={!song} onclick={rewind}
+            aria-label={hybrid ? "stop and back to this part's start (tap twice: the first part)" : loop ? "stop and back to A" : "stop and back to the start"}
+            title={hybrid ? "Back to this part · tap twice: back to part 1" : ""}>
       <svg viewBox="0 0 24 24"><path d="M12 5V1.5L7 6.5l5 5V7.5a5.5 5.5 0 1 1-5.5 5.5H4a8 8 0 1 0 8-8z" /></svg>
     </button>
     <button class="folder" class:open={sheet === "library"} class:attention={!song} onclick={() => toggleSheet("library")} aria-label="choose a song">

@@ -132,6 +132,12 @@ screen, then:
 - **iPhone:** open the page in Safari, download, Settings → Profile Downloaded → Install, then
   Settings → General → About → Certificate Trust Settings → turn on *pisynth local CA*.
 
+**The certificate is optional.** In a hurry, tap **Open pisynth anyway** on that page: the browser
+says the connection isn't private (it doesn't know pisynth's certificate), choose *Advanced → Continue*
+(Android) or *Show details → visit this website* (iPhone), and the companion works the same. The
+warning may come back now and then, and the companion can't be added as an app until the certificate
+is installed.
+
 That certificate can only vouch for devices on your local network (names ending in `.local` and
 private addresses), never for an internet site. If the Pi gets a new IP address, pisynth renews its
 certificate on its own at the next start — the phone keeps trusting it. On a computer,

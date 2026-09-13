@@ -13,6 +13,9 @@ All notable changes to pisynth, in plain language. Newest first.
   browser's warning once and the companion works without installing pisynth's certificate (installing
   it stays recommended: no warning, installable as an app).
 
+- **Notes shake as they land** — in "I play", a note starts trembling a beat before the yellow line,
+  harder and harder, and its edge lights up: you feel the moment coming.
+
 ### Changed
 - **Fairer timing** — the perfect / good / early-late windows are now a share of the beat: a slow song,
   or a song slowed down with the tempo slider, gives you more time; they are also a little more

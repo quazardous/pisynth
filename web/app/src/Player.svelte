@@ -39,6 +39,7 @@
   const FOLLOW_AHEAD_MS = 2000;    // the sliding window looks this far ahead
   const COUNT_IN = 3;               // "3 · 2 · 1 · GO!" (video-game count-in, played by the phone)
   const START_BEATS = 3;            // stopped: the keyboard shows the fingers of this many beats from the start
+  const SHAKE_BEATS = 1;            // "I play": a note starts shaking this many beats before the line
   const TRACK_COLORS = ["#5aa0ff", "#4fd18b", "#c38bff", "#ff9f5a"];
   const EMPTY = { events: [], durationMs: 0, name: "" };
 
@@ -415,11 +416,24 @@
         color = "#ffd23f";                                      // listen: lit while pisynth plays it
         if (n.end < t) alpha = 0.35;
       }
+      let near = 0;                                             // "I play": a note about to land shakes harder and harder
+      if (judged && playing && !res[n.i] && n.start > t) {
+        const lead = SHAKE_BEATS * beatMs();
+        if (n.start - t < lead) {
+          near = 1 - (n.start - t) / lead;                      // 0 when it starts shaking … 1 on the line
+          x += Math.sin(now * (0.05 + 0.1 * near) + n.i) * near * near * 3.5 * dpr;
+        }
+      }
       ctx.globalAlpha = alpha;
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.roundRect ? ctx.roundRect(x, yBot - h, w, h, 4 * dpr) : ctx.rect(x, yBot - h, w, h);
       ctx.fill();
+      if (near > 0.35) {                                        // and its edge lights up as it gets there
+        ctx.strokeStyle = `rgba(255,255,255,${((near - 0.35) / 0.65) * 0.9})`;
+        ctx.lineWidth = 2 * dpr;
+        ctx.stroke();
+      }
       const finger = showFinger && w >= 11 * dpr && h >= 17 * dpr ? fingers[n.i]?.finger : 0;
       let named = false;
       if (w >= 11 * dpr && h >= (finger ? 36 : 13) * dpr) {    // the note's name at its bottom, if it fits (#2418)

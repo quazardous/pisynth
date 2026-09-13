@@ -99,12 +99,15 @@
 
 <style>
   /* the musician playing, in place of the title: a dropdown to choose (names are edited under the cog → Musicians) */
-  .who { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px 0 10px; border-radius: 999px; min-width: 0; max-width: 70%;
-         background: color-mix(in srgb, var(--mc, #c38bff) 22%, #22222e); box-shadow: inset 0 0 0 2px var(--mc, #c38bff); }
-  .who svg { width: 20px; height: 20px; fill: var(--mc, #c38bff); flex: 0 0 auto; }
-  .who select { min-width: 9.5em; max-width: 100%; font: inherit; font-weight: 700; color: var(--fg); background: transparent; border: 0;
-                padding: 8px 4px; text-overflow: ellipsis; }
-  .who option { color: #121218; }
+  .who { position: relative; display: inline-flex; align-items: center; height: 38px; min-width: 0; max-width: 70%; border-radius: 19px;
+         border: 2px solid var(--mc, #c38bff); background: linear-gradient(rgba(18,18,24,.62), rgba(18,18,24,.62)), var(--mc, #c38bff); }
+  .who svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; fill: var(--mc, #c38bff); pointer-events: none; }
+  .who::after { content: ""; position: absolute; right: 12px; top: 50%; width: 7px; height: 7px; pointer-events: none;
+                border-right: 2px solid var(--mc, #c38bff); border-bottom: 2px solid var(--mc, #c38bff); transform: translateY(-70%) rotate(45deg); }
+  .who select { -webkit-appearance: none; appearance: none; display: block; height: 100%; min-width: 10.5em; max-width: 100%; margin: 0;
+                padding: 0 32px 0 34px; border: 0; border-radius: 19px; background: transparent; color: #fff; font: inherit; font-weight: 700;
+                line-height: 34px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; cursor: pointer; }
+  .who option { color: #121218; background: #fff; }
   .cog { margin: 0 0 0 4px; padding: 6px; background: none; display: grid; place-items: center; border-radius: 50%; }
   .cog svg { width: 24px; height: 24px; fill: var(--muted); }
   .cog:active svg { fill: var(--fg); }

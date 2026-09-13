@@ -111,6 +111,7 @@ def test_setup_page_serves_only_the_ca_and_its_instructions(cert, static):
             async with h.http_session.get(base + "/") as r:
                 page = await r.text()
                 assert r.status == 200 and fp in page and f'data-port="{h.port}"' in page
+                assert 'id="anyway"' in page                                    # the CA is optional (a warning to accept)
                 assert "connect-src 'self' https:" in r.headers["Content-Security-Policy"]
             async with h.http_session.get(base + "/pisynth-ca.crt") as r:
                 assert r.status == 200 and (await r.text()).startswith("-----BEGIN CERTIFICATE-----")

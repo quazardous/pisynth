@@ -3,7 +3,8 @@
 It checks whether this phone already trusts pisynth's certificate authority (a no-cors fetch to
 the HTTPS app succeeds only if the certificate is trusted): if so it forwards to the app right
 away, keeping the one-time pairing code in the #fragment (never sent to a server). If not, it
-explains how to install the CA once, with the fingerprint to compare with the pisynth screen.
+explains how to install the CA once, with the fingerprint to compare with the pisynth screen — and
+lets the phone go on without it: the browser warns once, and the app works all the same.
 The page serves nothing else: no API, no session.
 """
 import html
@@ -23,6 +24,7 @@ PAGE = """<!doctype html>
   .card {{ background: #22222e; border-radius: 12px; padding: 14px 16px; margin-top: 12px; }}
   a.button, button {{ display: inline-block; margin-top: 10px; font: inherit; font-weight: 700; padding: 12px 20px; border: 0;
                       border-radius: 10px; background: #5aa0ff; color: #fff; text-decoration: none; }}
+  a.button.secondary {{ background: #3a3a48; }}
   .muted {{ color: #9a9eae; font-size: .92rem; }}
   code {{ font-size: .85rem; word-break: break-all; color: #ffd23f; }}
   ol {{ padding-left: 1.2rem; }} li {{ margin: 4px 0; }}
@@ -34,8 +36,17 @@ PAGE = """<!doctype html>
   <p id="nopair" class="muted" hidden>No pairing code in this link: open it from the QR code on the pisynth screen.</p>
 
   <div id="steps" hidden>
-    <p>pisynth uses its own certificate so the connection is private. Install it <b>once</b>; after that this
-      phone opens pisynth without any warning.</p>
+    <div class="card">
+      <h2>In a hurry? Continue without installing</h2>
+      <a class="button secondary" id="anyway" href="#">Open pisynth anyway</a>
+      <p class="muted">Your browser will say the connection isn't private: that's only because it doesn't know
+        pisynth's certificate yet. Choose <b>Advanced → Continue</b> (Android) or <b>Show details → visit this
+        website</b> (iPhone). Everything works; the warning may come back now and then, and pisynth can't be
+        installed as an app until the certificate is.</p>
+    </div>
+
+    <p>Better: pisynth uses its own certificate so the connection is private. Install it <b>once</b>; after
+      that this phone opens pisynth without any warning.</p>
 
     <div class="card">
       <h2>1. Download the certificate</h2>
@@ -96,6 +107,8 @@ async function go(first) {
   document.getElementById("steps").hidden = false;
 }
 
+// Not trusted (yet): the app still works over HTTPS once the browser's warning is accepted.
+document.getElementById("anyway").href = `${app}/${code}`;
 if (!/[#&]k=/.test(code)) document.getElementById("nopair").hidden = false;
 document.getElementById("continue").addEventListener("click", () => go(false));
 go(true);

@@ -12,6 +12,7 @@
   import { songNotes, noteRange, noteTracks, visibleNotes, longestNote, timeToY } from "./lib/highway.js";
   import { planView, FollowView, keyRect, toPct } from "./lib/viewport.js";
   import { Judge } from "./lib/judge.js";
+  import { ghostKeys, ghostPulses, sameSet, GHOST_MIN_MS } from "./lib/ghost.js";
   import { ClockSync } from "./lib/clock.js";
   import { DemoSender } from "./lib/demo.js";
   import { detectChord, noteName } from "./lib/theory.js";
@@ -42,6 +43,11 @@
   let flash = $state(null);        // {kind, delta, id}
   let liveOn = $state(new Set());
   let guide = $state(new Set());
+  let ghost = $state(new Set());                    // "I play": the perfect timing, on the keyboard (#2429)
+  const GHOST_KEY = "pisynth.ghost";
+  let ghostOn = $state((() => { try { return localStorage.getItem(GHOST_KEY) !== "0"; } catch { return true; } })());
+  $effect(() => { const v = ghostOn; try { localStorage.setItem(GHOST_KEY, v ? "1" : "0"); } catch { /* private mode */ } });
+  const GHOST_PULSE_MS = 220;
   let view = $state({ x0: 0, span: 15 });
   let stageW = $state(0), stageH = $state(0);
   let canvas = $state(null);
@@ -79,6 +85,7 @@
 
   const tf = () => tempo / 100;
   const songPos = now => origin + (now - clockStart) * tf();
+  const ghostTime = now => songPos(now - clock.typicalLag());   // song time a press arriving now was played at
   const beatMs = () => 60000 / (current.bpm || 100);         // song ms per beat
 
   $effect(() => {
@@ -97,7 +104,10 @@
     });
     const offM = onMessage(msg => {
       if (msg.t !== "demo") return;
-      if (msg.state === "error") { error = "pisynth: " + msg.error; stop(false); }
+      if (msg.state === "error") {
+        if (mode === "listen") { error = "pisynth: " + msg.error; stop(false); }   // nothing to hear without the synth
+        else status = "no count-in click (pisynth: " + msg.error + ")";           // I play: only the count-in is lost
+      }
       if (msg.state === "playing" && msg.lead_ms) leadMs = msg.lead_ms;
       if (msg.state === "stopped" && msg.by === "pisynth" && playing && mode === "listen") { stop(false); status = "stopped on pisynth"; }
     });
@@ -152,7 +162,7 @@
     position = Math.max(from, Math.min(songPos(performance.now()), current.durationMs));
     if (sender) { if (tell) sender.stop(); else sender.playing = false; sender = null; }
     else if (tell && clicked) send({ t: "stop" });
-    playing = false; countIn = 0; guide = new Set();
+    playing = false; countIn = 0; guide = new Set(); ghost = new Set();
     releaseAwake();
     paint();
   }
@@ -193,9 +203,14 @@
       if (loop && t >= loop.b) { stop(false); start(loop.a); return; }
       if (t > current.durationMs + 800) { finish(); return; }
       if (Math.abs(Math.max(from, t) - position) > 100) position = Math.max(from, t);    // (count-in: stays at the start)
+      const ghosting = mode === "play" && ghostOn;
       const lit = new Set(), ahead = mode === "play" ? 60 * tf() : 0;   // play: keys due now · listen: keys sounding
-      for (const n of visibleNotes(notes, t, ahead, 0, maxLen)) if (n.start <= t + ahead && n.end >= t) lit.add(n.note);
-      if (lit.size !== guide.size || [...lit].some(n => !guide.has(n))) guide = lit;
+      if (!ghosting) for (const n of visibleNotes(notes, t, ahead, 0, maxLen)) if (n.start <= t + ahead && n.end >= t) lit.add(n.note);
+      if (!sameSet(lit, guide)) guide = lit;
+      // The ghost waits as long as a press typically takes to reach the phone, so a perfect press
+      // and its ghost light up together (#2429).
+      const g = ghosting ? ghostKeys(notes, ghostTime(now), maxLen, GHOST_MIN_MS * tf()) : new Set();
+      if (!sameSet(g, ghost)) ghost = g;
     }
 
     if (follow) {
@@ -261,6 +276,17 @@
       const a = 1 - (now - e.at) / 450;
       ctx.fillStyle = e.kind === "miss" ? `rgba(255,90,90,${a * 0.5})` : `rgba(255,210,63,${a * 0.8})`;
       ctx.fillRect(x - 4 * dpr, hitY - 26 * dpr * a, w + 8 * dpr, 26 * dpr * a);
+    }
+
+    if (judged && playing && ghostOn) {                         // ghost: an outline pulses where a note should be hit
+      const pulse = GHOST_PULSE_MS * tf();
+      ctx.lineWidth = 2 * dpr;
+      for (const p of ghostPulses(notes, ghostTime(now), maxLen, pulse)) {
+        const [x, w] = xOf(keyRect(p.note));
+        const a = 1 - p.age / pulse, grow = 6 * dpr * (1 - a);
+        ctx.strokeStyle = `rgba(255,210,63,${a})`;
+        ctx.strokeRect(x + 1.5 * dpr - grow, hitY - 20 * dpr - grow, Math.max(2 * dpr, w - 3 * dpr) + 2 * grow, 20 * dpr + grow);
+      }
     }
 
     ctx.fillStyle = "#ffd23f";                                  // the hit line
@@ -339,6 +365,9 @@
           <button class="small" onclick={setB} disabled={!loop && position === 0}>B = {loop ? fmt(loop.b) : "—"}</button>
           {#if loop}<button class="small ghost" onclick={() => (loop = null)}>clear</button>{/if}
         </div>
+        {#if mode === "play"}
+          <label class="check"><input type="checkbox" bind:checked={ghostOn}> Ghost keys — the perfect timing, next to your playing</label>
+        {/if}
         <p class="muted">{hands.length >= 2 ? "2 hands: right hand blue, left hand green. " : ""}{mode === "play" ? "Hit each note as it reaches the yellow line." : "pisynth plays the song; the notes light up as they sound."}</p>
         <button class="link" onclick={() => { stop(); song = null; options = false; }}>close the song (live keyboard)</button>
       {/if}
@@ -369,7 +398,7 @@
       <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
     </button>
   </div>
-  <Keyboard view={song ? view : null} on={liveOn} demo={guide} height={song ? "clamp(64px, 19vh, 170px)" : "clamp(90px, 30vh, 240px)"} minHeight="64px" />
+  <Keyboard view={song ? view : null} on={liveOn} demo={guide} {ghost} height={song ? "clamp(64px, 19vh, 170px)" : "clamp(90px, 30vh, 240px)"} minHeight="64px" />
 </main>
 
 <style>
@@ -408,6 +437,8 @@
   .sheet p { margin-top: 8px; }
   .link { background: none; color: var(--accent); padding: 4px 0; margin-top: 4px; font-weight: 400; display: block; }
   .loop { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .check { display: flex !important; align-items: center; gap: 8px; margin-top: 10px; font-size: .9rem; }
+  .check input { width: 20px; height: 20px; }
   .small { margin: 0; padding: 6px 10px; font-size: .85rem; border-radius: 8px; }
   .ghost { background: #3a3a48; }
   .player { display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: var(--bar); }

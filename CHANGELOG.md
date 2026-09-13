@@ -5,6 +5,12 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
+- **Ghost keys in "I play"** — the on-screen keyboard shows the perfect timing as a translucent,
+  outlined key next to yours: in time, your blue key gets a yellow outline; early, blue comes
+  first; late or missed, the ghost is alone. An outline also pulses in the lane at the exact hit
+  moment. The ghost waits for the usual Wi-Fi delay so a perfect press really looks simultaneous.
+  On by default; switch it off in the `⋯` menu. "I play" also keeps going if the synth can't play
+  the count-in.
 - **One screen for the web companion** — Play and Demo are now the same player with an
   "I play / Listen" toggle (the notes fall in both; tempo, loop and position are shared), the live
   keyboard shows when no song is loaded, and Sound, Latency and About moved behind a cog. Old links

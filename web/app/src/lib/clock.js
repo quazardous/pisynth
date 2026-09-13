@@ -44,5 +44,14 @@ export class ClockSync {
     return p + o;
   }
 
+  // How late a press typically shows up beyond the fastest trip (median of the recent extra delay),
+  // in ms — what the ghost keys wait so a perfect press and its ghost light up together (#2429).
+  typicalLag(recent = 32) {
+    const o = this.offset;
+    if (o === null) return 0;
+    const extra = this.samples.slice(-recent).map(s => s.diff - o).sort((a, b) => a - b);
+    return extra[extra.length >> 1];
+  }
+
   clear() { this.samples = []; this.lastPi = null; this.wraps = 0; }
 }

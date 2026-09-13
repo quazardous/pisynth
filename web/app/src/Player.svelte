@@ -15,7 +15,8 @@
   import { ghostKeys, ghostPulses, sameSet, GHOST_MIN_MS } from "./lib/ghost.js";
   import { ClockSync } from "./lib/clock.js";
   import { DemoSender } from "./lib/demo.js";
-  import { detectChord, noteName } from "./lib/theory.js";
+  import { detectChord, noteName, pitchName } from "./lib/theory.js";
+  import { prefs } from "./lib/prefs.svelte.js";
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
   import Keyboard from "./Keyboard.svelte";
   import Library from "./Library.svelte";
@@ -232,6 +233,9 @@
     const hitY = H - 3 * dpr, pxPerMs = hitY / (AHEAD_MS * tf());
     const xOf = r => { const p = toPct(r, v); return [(p.left / 100) * W, (p.width / 100) * W]; };
     const judged = mode === "play";
+    const notation = prefs.notation;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
 
     ctx.clearRect(0, 0, W, H);
     for (let n = 21; n <= 108; n++) {                          // lanes: black keys darker, a line at each C
@@ -266,6 +270,15 @@
       ctx.beginPath();
       ctx.roundRect ? ctx.roundRect(x, yBot - h, w, h, 4 * dpr) : ctx.rect(x, yBot - h, w, h);
       ctx.fill();
+      if (w >= 11 * dpr && h >= 13 * dpr) {                    // the note's name at its bottom, if it fits (#2418)
+        const label = pitchName(n.note, notation);
+        const size = Math.min(12 * dpr, w * 0.46, h - 2 * dpr);
+        ctx.font = `700 ${size}px system-ui, sans-serif`;
+        if (ctx.measureText(label).width <= w - 2 * dpr) {
+          ctx.fillStyle = "rgba(13,13,18,.85)";
+          ctx.fillText(label, x + w / 2, yBot - 3 * dpr);
+        }
+      }
     }
     ctx.globalAlpha = 1;
 
@@ -304,7 +317,7 @@
     }
   }
 
-  $effect(() => { stageW; stageH; view; song; untrack(() => { if (!playing) paint(); }); });   // redraw when idle and resized
+  $effect(() => { stageW; stageH; view; song; prefs.notation; untrack(() => { if (!playing) paint(); }); });   // redraw when idle, resized or renamed
   onDestroy(() => { stop(); exitPlayMode(); });
 
   const fmt = ms => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -347,8 +360,8 @@
     </div>
   {:else}
     <div class="live">
-      <div class="chord">{detectChord(sounding) || " "}</div>
-      <div class="notes">{sounding.map(noteName).join(" ") || " "}</div>
+      <div class="chord">{detectChord(sounding, prefs.notation) || " "}</div>
+      <div class="notes">{sounding.map(n => noteName(n, prefs.notation)).join(" ") || " "}</div>
       <button class="choose" onclick={() => (options = true)}>Choose a song</button>
     </div>
   {/if}

@@ -3,9 +3,11 @@
   // the player, which keeps playing underneath — change the reverb while pisynth plays a song.
   import Sound from "./Sound.svelte";
   import Latency from "./Latency.svelte";
+  import { prefs, setNotation } from "./lib/prefs.svelte.js";
+  import { noteName } from "./lib/theory.js";
 
   let { panel, onPanel, onClose, onFrame, onMessage, send } = $props();
-  const TABS = [["sound", "Sound"], ["latency", "Latency"], ["about", "About"]];
+  const TABS = [["sound", "Sound"], ["display", "Display"], ["latency", "Latency"], ["about", "About"]];
 
   let build = $state("…");
   let confirmUnpair = $state(false);
@@ -45,6 +47,17 @@
   <div class="body">
     {#if panel === "sound"}
       <Sound {onMessage} {send} />
+    {:else if panel === "display"}
+      <section class="card">
+        <h1>Note names</h1>
+        <p class="muted">Used on the falling notes, the live chord and everywhere a note is named.</p>
+        {#each [["en", "English — C D E F G A B"], ["fr", "French — Do Ré Mi Fa Sol La Si"]] as [id, label] (id)}
+          <label class="choice">
+            <input type="radio" name="notation" checked={prefs.notation === id} onchange={() => setNotation(id)}>
+            <span>{label}<br><small class="muted">middle C = {noteName(60, id)}</small></span>
+          </label>
+        {/each}
+      </section>
     {:else if panel === "latency"}
       <Latency {onFrame} />
     {:else}
@@ -72,6 +85,8 @@
   .tabs button.on { background: #2c2c3a; color: var(--fg); }
   .body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
   .danger { background: #a33; }
+  .choice { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+  .choice input { width: 22px; height: 22px; flex: 0 0 auto; }
   .error { color: #ff7a7a; margin-top: 8px; }
   code { font-size: .85em; }
 </style>

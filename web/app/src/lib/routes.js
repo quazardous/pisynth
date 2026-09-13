@@ -1,7 +1,7 @@
 // Companion navigation (#2419): one player screen with an "I play / Listen" toggle, and a settings
 // panel behind the cog (Sound, Latency, About). Old links keep working. Pure, tested under Node.
 
-export const PANELS = ["sound", "latency", "about"];
+export const PANELS = ["sound", "display", "latency", "about"];
 export const MODES = ["play", "listen"];
 
 // Path → {mode, panel}. mode null = keep the current one (a panel opens over the player).

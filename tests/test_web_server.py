@@ -92,7 +92,7 @@ def test_static_is_served_gzipped_with_etag_and_304(cert, static):
             assert hd["server"] == "pisynth"                                     # no framework name/version
             code, _, _ = await h.http("GET", "/index.html", {"If-None-Match": hd["etag"]})
             assert code == 304
-            for route in ("/latency", "/play", "/listen", "/about", "/sound", "/demo"):
+            for route in ("/latency", "/play", "/listen", "/about", "/sound", "/demo", "/display"):
                 assert (await h.http("GET", route))[0] == 200, route
             assert (await h.http("GET", "/../../etc/passwd"))[0] == 404
             assert (await h.http("DELETE", "/"))[0] == 405

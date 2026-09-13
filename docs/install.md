@@ -144,7 +144,8 @@ Load a song (the `⋯` button) and its notes fall onto the keyboard, with a togg
 
 Tempo, the A–B loop and the position are shared: listen to a passage, switch, play it. The **cog**
 (top right) opens the settings: **Sound** (soundfont, preset, gain, output, reverb, chorus,
-metronome, MIDI keyboard — the pisynth screen follows), **Latency** (measures the key-to-sound delay
+metronome, MIDI keyboard — the pisynth screen follows), **Display** (note names in English C D E or
+French Do Ré Mi), **Latency** (measures the key-to-sound delay
 with the phone's microphone) and **About** (version, unpair this browser).
 
 **MIDI library.** Songs come from a library kept on the Pi (the `⋯` button, then browse the

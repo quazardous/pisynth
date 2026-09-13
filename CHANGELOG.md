@@ -5,6 +5,9 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
+- **Note names on the falling notes, in English or French** — each note shows its name (C D E… or
+  Do Ré Mi…), and so do the live chord and note readouts. Choose under the cog → Display (a French
+  phone starts in French; middle C is Do3 in French notation).
 - **No more certificate warning on the phone** — pisynth now has its own small certificate
   authority, limited to your local network. Install it once (the page the pairing QR opens guides
   you and skips the step on a phone that already trusts pisynth), and the companion opens like any

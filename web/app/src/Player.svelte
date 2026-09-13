@@ -20,6 +20,7 @@
   import { comboSting, comboBreaker } from "./lib/sfx.js";
   import { detectChord, noteName, pitchName } from "./lib/theory.js";
   import { prefs } from "./lib/prefs.svelte.js";
+  import { RecordBook, songKey } from "./lib/records.js";
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
   import Keyboard from "./Keyboard.svelte";
   import Library from "./Library.svelte";
@@ -42,6 +43,7 @@
   let loop = $state(null);         // {a, b} song ms
   let sheet = $state(null);         // null | "library" (📁 button) | "options" (⋯: tempo, loop)
   let finished = $state(false);
+  let best = $state.raw(null);      // this song's record on the phone, and what the last run beat
   let countIn = $state(0);
   let stats = $state({ score: 0, streak: 0, accuracy: 0 });
   let flash = $state(null);        // {kind, delta, id}
@@ -215,6 +217,9 @@
     stop();
     position = judged ? current.durationMs : 0;
     finished = judged;
+    if (judged && origin === 0) {                             // a whole run, from the start: file it
+      best = new RecordBook().submit(songKey(song), { score: judge.score, accuracy: judge.accuracy(), maxHits: combo.maxHits, tempo });
+    } else best = null;
   }
 
   function seek(e) {
@@ -430,9 +435,11 @@
       {/key}
       {#if finished}
         <section class="results">
+          {#if best?.newScore && best.previous}<p class="record">NEW RECORD!</p>{/if}
           <h2>{stats.accuracy}%</h2>
           <p><b>{judge.score}</b> points · best streak {judge.bestStreak}</p>
           {#if prefs.arcade && combo.maxHits >= 2}<p class="best-combo">max combo {combo.maxHits} hits{combo.bestTierName ? ` · ${combo.bestTierName}` : ""}</p>{/if}
+          {#if best?.previous}<p class="muted">best {best.record.score} pts{best.record.tempo !== 100 ? ` at ${best.record.tempo} %` : ""} · {best.record.accuracy}% · {best.record.plays} plays</p>{/if}
           <p class="muted">perfect {judge.counts.perfect} · good {judge.counts.good} · early {judge.counts.early} · late {judge.counts.late} · missed {judge.counts.miss} · wrong {judge.counts.wrong}</p>
           <button onclick={() => { finished = false; start(loop?.a ?? 0); }}>Play again</button>
         </section>
@@ -548,6 +555,8 @@
   .results h2 { font-size: clamp(1.6rem, 9vh, 2.6rem); color: var(--yellow); }
   .results button { margin-top: 8px; }
   .results p { margin-top: 6px; }
+  .results .record { margin: 0 0 2px; font-weight: 900; letter-spacing: .06em; color: var(--yellow); text-shadow: 0 0 12px rgba(255,210,63,.7); animation: record-pop .5s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes record-pop { from { transform: scale(2.2) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
   .error, .status-msg { position: absolute; left: 12px; right: 12px; top: 8px; }
   .error { color: #ff7a7a; }
   .status-msg { color: var(--muted); }

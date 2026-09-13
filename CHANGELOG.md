@@ -10,10 +10,13 @@ All notable changes to pisynth, in plain language. Newest first.
   (TRIPLE, SUPER, HYPER … ULTRA COMBO, perfects count double), a HITS counter, a short screen punch
   on milestones, "COMBO BREAKER" when a big one is lost, the score racing up like an arcade counter,
   and the best combo on the results card. Switch them off under the cog → Display.
+- **Your best on each song, kept on the phone** — a song played to the end files your best score
+  (with its tempo), accuracy, longest combo and number of plays; the results card shows "NEW RECORD!"
+  when you beat it, and the library shows your best as ★ next to each song.
 - **"Homer" and "First steps" levels, below beginner** — "0 · homer": children's songs with a few notes, right hand only, very slow; "1 · first steps": seven very easy tunes in the MIDI library (Au clair de
   la lune, Frère Jacques, Ode to Joy, Mary had a little lamb, Twinkle twinkle, Jingle Bells and a
   five-finger exercise): the melody in the right hand around C–G, one left-hand note per bar, slow.
-  The levels now list in order: first steps, beginner, intermediate, advanced.
+  The levels are numbered and list in order, from 0 · homer to 4 · advanced.
 - **Note names on the falling notes, in English or French** — each note shows its name (C D E… or
   Do Ré Mi…), and so do the live chord and note readouts. Choose under the cog → Display (a French
   phone starts in French; middle C is Do3 in French notation).

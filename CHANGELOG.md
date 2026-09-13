@@ -5,6 +5,9 @@ All notable changes to pisynth, in plain language. Newest first.
 ## Unreleased
 
 ### Added
+- **Infinite mode (∞)** — a toggle next to Play: the song starts over by itself, lap after lap (a
+  one-beat count-in between laps, the A–B loop if there is one), with a score of its own that climbs
+  with the notes you hit and drops with misses and wrong keys. The best it reached is kept per song.
 - **Next song** — the results card offers "Next ›": the next song in the folder, or after the last
   one, the first song of the next folder (homer → first steps → …), read from the library on the Pi.
 - **Back to the start** — a ↻ button next to Play, always there: it stops the song and goes back to the
@@ -17,9 +20,9 @@ All notable changes to pisynth, in plain language. Newest first.
   harder and harder, and its edge lights up: you feel the moment coming.
 
 ### Changed
-- **Fairer timing** — the perfect / good / early-late windows are now a share of the beat: a slow song,
-  or a song slowed down with the tempo slider, gives you more time; they are also a little more
-  forgiving overall.
+- **Fairer, more forgiving timing** — the perfect / good / early-late windows are now a share of the
+  beat: a slow song, or a song slowed down with the tempo slider, gives you more time. They are also
+  wider overall: a perfect is now at least ±100 ms (was ±50), a good ±200 ms (was ±120).
 - **Sideways layout** — with the phone turned sideways, the top bar, score and player controls sit in a
   side column, and the falling notes and keyboard get the whole height.
 

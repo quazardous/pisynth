@@ -25,6 +25,7 @@
   import { detectChord, noteName, pitchName } from "./lib/theory.js";
   import { prefs } from "./lib/prefs.svelte.js";
   import { RecordBook, songKey } from "./lib/records.js";
+  import { EndlessScore } from "./lib/endless.js";
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
   import Keyboard from "./Keyboard.svelte";
   import Library from "./Library.svelte";
@@ -38,6 +39,7 @@
   const PAST_MS = 300;             // a note stays drawn this long after it ends
   const FOLLOW_AHEAD_MS = 2000;    // the sliding window looks this far ahead
   const COUNT_IN = 3;               // "3 · 2 · 1 · GO!" (video-game count-in, played by the phone)
+  let countBeats = COUNT_IN;         // this run's count-in (one beat between infinite laps)
   const START_BEATS = 3;            // stopped: the keyboard shows the fingers of this many beats from the start
   const SHAKE_BEATS = 1;            // "I play": a note starts shaking this many beats before the line
   const TRACK_COLORS = ["#5aa0ff", "#4fd18b", "#c38bff", "#ff9f5a"];
@@ -145,7 +147,21 @@
     return () => { offF(); offM(); };
   });
 
+  // ---- infinite mode: a toggle; the song starts over lap after lap, with its own up-and-down score ----
+  const endlessBook = new EndlessScore();
+  let endless = $state(false), endlessShown = $state(0), laps = $state(0), lastJudged = 0;
+  function toggleEndless() {
+    endless = !endless;
+    endlessBook.reset(); endlessShown = 0; laps = 0; lastJudged = judge.score;
+  }
+  function scoreEndless(kind, tempoNow) {
+    endlessBook.apply(kind, kind === "wrong" || kind === "miss" ? 0 : judge.score - lastJudged, tempoNow);
+    lastJudged = judge.score;
+    endlessShown = endlessBook.score;
+  }
+
   function show(r, now) {
+    if (endless && mode === "play") scoreEndless(r.kind, tf());
     effects.push({ ...r, at: now });
     flash = { kind: r.kind, delta: r.delta, id: ++flashId };
     stats = { score: judge.score, streak: judge.streak, accuracy: judge.accuracy() };
@@ -197,8 +213,11 @@
     song = s; error = ""; status = ""; sheet = null;
   }
 
-  function start(at = null) {
+  // `lap`: infinite mode starting the song over by itself — a one-beat count-in, the infinite score goes on.
+  function start(at = null, lap = false) {
     if (!notes.length) return;
+    countBeats = lap ? 1 : COUNT_IN;
+    if (!lap) { endlessBook.reset(); endlessShown = 0; laps = 0; }
     from = at ?? loop?.a ?? (position >= current.durationMs ? 0 : position);
     const now = performance.now();
     origin = from;
@@ -209,13 +228,14 @@
       clockStart = now + leadMs;                              // the Pi anchors the song this far ahead
     } else {
       const beatReal = beatMs() / tf();
-      clockStart = now + CLICK_LEAD_MS + COUNT_IN * beatReal;  // the song reaches `from` after the count-in
+      clockStart = now + CLICK_LEAD_MS + countBeats * beatReal;  // the song reaches `from` after the count-in
       judge.setTempo(tf());
       judge.reset(from);
       runActive = true;                                       // this run will earn XP when it ends (#2436)
+      lastJudged = 0;
       stats = { score: 0, streak: 0, accuracy: 0 };
       combo.reset(); rolling.jump(0); shownScore = 0; hitsShown = 0; announce = null; oopsAt = null; sparks.items = [];
-      cancelClicks = scheduleCountdown(countInTimes(clockStart, beatReal, COUNT_IN), clockStart);   // from the phone
+      cancelClicks = scheduleCountdown(countInTimes(clockStart, beatReal, countBeats), clockStart);   // from the phone
       if (simulated) {                                        // dev stack: the simulated keyboard plays along (#2434)
         const end = loop?.b ?? Infinity;
         const part = notes.filter(n => n.start >= from && n.start < end).slice(0, 5000)
@@ -242,6 +262,7 @@
     cancelClicks(); cancelClicks = () => {};
     if (simulated && mode === "play") send({ t: "sim_stop" });
     if (runActive) { runActive = false; if (judge.score > 0) awardXp(); else xpGain = null; }   // stopped, finished or looped: no points, no XP
+    if (endless && mode === "play") endlessBook.save(songKey(song));   // infinite: the best score this song reached
     playing = false; countIn = 0; guide = new Set(); ghost = new Set();
     rolling.jump(judge.score); shownScore = judge.score;
     releaseAwake();
@@ -296,6 +317,7 @@
     judge.reset(position);
     stats = { score: 0, streak: 0, accuracy: 0 };
     combo.reset(); rolling.jump(0); shownScore = 0; hitsShown = 0;
+    endlessBook.reset(); endlessShown = 0; laps = 0; lastJudged = 0;
     paint();
   }
 
@@ -331,10 +353,14 @@
         const missed = judge.advance(t);
         for (const i of missed) { effects.push({ kind: "miss", note: notes[i].note, index: i, at: now }); if (prefs.arcade) arcade("miss", notes[i].note, now); }
         if (missed.length) stats = { score: judge.score, streak: judge.streak, accuracy: judge.accuracy() };
-        countIn = t < from ? Math.min(COUNT_IN, Math.ceil((from - t) / beatMs())) : t < from + 450 * tf() ? "GO!" : 0;
+        if (endless) for (const _ of missed) scoreEndless("miss", tf());
+        countIn = t < from ? Math.min(countBeats, Math.ceil((from - t) / beatMs())) : t < from + 450 * tf() ? "GO!" : 0;
       }
-      if (loop && t >= loop.b) { stop(false); start(loop.a); return; }
-      if (t > current.durationMs + 800) { finish(); return; }
+      if (loop && t >= loop.b) { if (endless) laps++; stop(false); start(loop.a, endless); return; }
+      if (t > current.durationMs + 800) {
+        if (endless && mode === "play") { laps++; stop(false); start(0, true); } else finish();   // infinite: the next lap
+        return;
+      }
       if (Math.abs(Math.max(from, t) - position) > 100) position = Math.max(from, t);    // (count-in: stays at the start)
       const ghosting = mode === "play" && prefs.ghost;
       const lit = new Set(), ahead = mode === "play" ? 60 * tf() : 0;   // play: keys due now · listen: keys sounding
@@ -528,7 +554,12 @@
       {#key xpGain?.id}{#if xpGain && !finished}<b class="xp-pop">+{xpGain.xp} XP</b>{/if}{/key}
     </span>
     {#if song && mode === "play"}
-      <span class="score" class:racing={prefs.arcade && shownScore !== stats.score}>{prefs.arcade ? shownScore : stats.score}</span>
+      {#if endless}
+        <span class="endless" title="infinite mode · best {endlessBook.best(songKey(song))}">∞ {endlessShown}</span>
+        {#if laps}<span class="acc">lap {laps + 1}</span>{/if}
+      {:else}
+        <span class="score" class:racing={prefs.arcade && shownScore !== stats.score}>{prefs.arcade ? shownScore : stats.score}</span>
+      {/if}
       {#if stats.streak > 1}<span class="streak">×{stats.streak}</span>{/if}
       <span class="acc">{stats.accuracy}%</span>
     {/if}
@@ -621,6 +652,8 @@
         <svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" /></svg>
       {/if}
     </button>
+    <button class="infinite" class:on={endless} disabled={!song || mode !== "play"} onclick={toggleEndless}
+            aria-pressed={endless} aria-label="infinite mode: the song starts over, with its own score">∞</button>
     <button class="replay" disabled={!song} onclick={rewind} aria-label={loop ? "stop and back to A" : "stop and back to the start"}>
       <svg viewBox="0 0 24 24"><path d="M12 5V1.5L7 6.5l5 5V7.5a5.5 5.5 0 1 1-5.5 5.5H4a8 8 0 1 0 8-8z" /></svg>
     </button>
@@ -740,6 +773,11 @@
   .replay { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; }   /* always there: stop, back to the start (or A) */
   .replay svg { width: 22px; height: 22px; fill: var(--fg); }
   .replay:disabled { opacity: .35; }
+  /* ∞ toggle: the song starts over by itself, with its own score */
+  .infinite { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; color: var(--fg); font-size: 1.45rem; line-height: 1; }
+  .infinite.on { background: #c38bff; color: #121218; }
+  .infinite:disabled { opacity: .35; }
+  .endless { font-weight: 800; font-size: 1.1rem; color: #c38bff; }
   .folder { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; }
   .folder svg { width: 22px; height: 22px; fill: var(--fg); }
   .folder.open { background: var(--accent); }

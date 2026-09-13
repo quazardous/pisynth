@@ -7,9 +7,9 @@
 // both in real ms.
 
 export const WINDOWS = {                                      // ± share of a beat, bounded in real ms
-  perfect: { beat: 0.1, min: 70, max: 150 },
-  good: { beat: 0.22, min: 140, max: 320 },
-  ok: { beat: 0.45, min: 260, max: 600 },
+  perfect: { beat: 0.14, min: 100, max: 190 },
+  good: { beat: 0.3, min: 200, max: 400 },
+  ok: { beat: 0.5, min: 320, max: 650 },
 };
 export const POINTS = { perfect: 100, good: 70, early: 30, late: 30 };
 export const WRONG_PENALTY = 25;                              // a wrong key costs points (never below 0)

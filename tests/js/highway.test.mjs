@@ -100,17 +100,17 @@ const song = [
 test("judge: perfect / good / early / late / wrong, chords, streak and score", () => {
   const j = new Judge(song);
   assert.equal(j.press(60, 1030).kind, "perfect");
-  assert.equal(j.press(64, 1090).kind, "good");
+  assert.equal(j.press(64, 1150).kind, "good");
   assert.equal(j.press(64, 1100).kind, "wrong");            // already played
   assert.equal(j.streak, 0);
-  const early = j.press(67, 1800);
+  const early = j.press(67, 1750);
   assert.equal(early.kind, "early");
-  assert.equal(early.delta, -200);
+  assert.equal(early.delta, -250);
   const before = j.score, wrong = j.press(62, 3000);
   assert.equal(wrong.kind, "wrong");
   assert.equal(wrong.penalty, 25);
   assert.equal(j.score, before - 25);
-  assert.equal(j.press(60, 3200).kind, "late");
+  assert.equal(j.press(60, 3250).kind, "late");
   assert.deepEqual(j.counts, { perfect: 1, good: 1, early: 1, late: 1, miss: 0, wrong: 2 });
   assert.equal(j.accuracy(), Math.round(((1 + 0.7 + 0.6) / 4) * 100));
   assert.ok(j.score > 0);
@@ -121,12 +121,12 @@ test("judge: misses once the window closes; windows scale with tempo; reset skip
   assert.equal(j.press(61, 900).penalty, 0);                 // a wrong key never takes the score below 0
   assert.equal(j.score, 0);
   j.counts.wrong = 0;
-  assert.deepEqual(j.advance(1200), []);
-  assert.deepEqual(j.advance(1300), [0, 1]);                // 1000 + 260 passed
+  assert.deepEqual(j.advance(1300), []);
+  assert.deepEqual(j.advance(1400), [0, 1]);                // 1000 + 320 passed
   assert.equal(j.counts.miss, 2);
   const slow = new Judge(song, { tempo: 0.5 });             // half speed: the windows stay a share of the beat
-  assert.equal(slow.press(60, 1040).kind, "perfect");       // (±50 song ms = ±100 real ms)
-  assert.equal(slow.press(64, 1060).kind, "good");
+  assert.equal(slow.press(60, 1040).kind, "perfect");       // (±70 song ms = ±140 real ms)
+  assert.equal(slow.press(64, 1090).kind, "good");
   slow.reset(1500);
   assert.equal(slow.press(60, 1000).kind, "wrong");         // before the loop start: out of play
   assert.equal(slow.press(67, 2010).kind, "perfect");
@@ -134,10 +134,10 @@ test("judge: misses once the window closes; windows scale with tempo; reset skip
 
 test("judge: windows follow the song's beat and the tempo slider, within real-ms bounds", () => {
   const at = (bpm, tempo) => new Judge([], { beatMs: 60000 / bpm, tempo });
-  assert.equal(at(60, 1).realWindow("perfect"), 100);       // a slow song: 1/10 of a 1 s beat
-  assert.equal(at(60, 1).realWindow("good"), 220);
-  assert.equal(at(120, 1).realWindow("perfect"), 70);       // a fast one: the floor
-  assert.equal(at(60, 0.5).realWindow("perfect"), 150);     // slower still: the ceiling
+  assert.equal(at(60, 1).realWindow("perfect"), 140);       // a slow song: 14 % of a 1 s beat
+  assert.equal(at(60, 1).realWindow("good"), 300);
+  assert.equal(at(120, 1).realWindow("perfect"), 100);      // a fast one: the floor
+  assert.equal(at(60, 0.5).realWindow("perfect"), 190);     // slower still: the ceiling
   assert.ok(at(80, 0.5).realWindow("good") > at(80, 1).realWindow("good"));
   assert.ok(at(80, 1.5).realWindow("good") < at(80, 1).realWindow("good"));
   for (const k of ["perfect", "good", "ok"]) assert.ok(at(90, 1).win(k) === at(90, 1).realWindow(k));

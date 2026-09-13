@@ -22,8 +22,9 @@ All notable changes to pisynth, in plain language. Newest first.
   the header shows your progress, and each musician's cleared parts are remembered. A part is judged as
   soon as its last note is, so the next one follows on seamlessly. On a clean part, a countdown of the
   strikes left shakes and heats up under the HITS counter like something about to go off; once missed,
-  the part's mistakes show there in purple. Starting a part again leaves a bar to put your hand back,
-  with a discreet cue, and its first notes fall from the top of the screen.
+  the part's mistakes show there in purple. A missed part keeps its purple count up a moment, then goes
+  back with a quick "bzz bzz": a bar to put your hand back, a discreet cue, and its first notes fall
+  from the top of the screen.
 - **Whole children's songs** — the homer and first steps songs are now complete (all the phrases of
   Au clair de la lune, the whole Ode to Joy theme and Jingle Bells chorus…), each cut into its parts.
 - **The musician in the top bar** — a dropdown with who is playing replaces the pisynth title, in that

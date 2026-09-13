@@ -18,7 +18,7 @@
   import { DemoSender } from "./lib/demo.js";
   import { countInTimes, scheduleCountdown } from "./lib/click.js";
   import { ComboTracker, ParticlePool, RollingNumber } from "./lib/arcade.js";
-  import { comboSting, comboBreaker, oops, fuseTick, restartCue } from "./lib/sfx.js";
+  import { comboSting, comboBreaker, oops, fuseTick, restartCue, retryBuzz } from "./lib/sfx.js";
   import { comboSplash, oopsSplash, levelUpSplash, unlockSplash } from "./lib/comic.js";
   import { songFeatures, difficulty } from "./lib/difficulty.js";
   import { Progress, levelDifficulty } from "./lib/progress.js";
@@ -198,7 +198,8 @@
   let partBook = $state.raw(new PartBook(undefined, storeKey("pisynth.parts")));
   let partIdx = $state(0), partFails = $state(0), cleared = $state(0);
   const BOMB_FROM = 5;                                       // the bomb shows for the last strikes of a clean part
-  let bomb = $state(0), finishAtEnd = false, quietLead = $state(false);
+  let bomb = $state(0), finishAtEnd = false, quietLead = $state(false), retryAt = 0;
+  const RETRY_PAUSE_MS = 900;                                // a missed part: its purple count shows this long before going back
   $effect(() => { song; partBook; untrack(() => { cleared = partBook.cleared(songKey(song)); partIdx = Math.min(cleared, Math.max(0, parts.length - 1)); }); });
 
   // Hybrid: called once every note of the part is judged (right after its last strike, not at the next bar,
@@ -219,8 +220,14 @@
       partFails = 0;
       return;
     }
+    // Missed: the purple count stays up a moment (so a going back never comes without it), then back we go.
     announce = { text: "TRY AGAIN", color: "#ff5a5a", breaker: true, splash: comboSplash(seed(), { breaker: true }), pos: splashPos(), id: ++announceId };
-    if (prefs.arcade) comboBreaker(); else status = `${parts[partIdx].label}: again, without a wrong key or a missed note`;
+    if (!prefs.arcade) status = `${parts[partIdx].label}: again, without a wrong key or a missed note`;
+    retryAt = performance.now() + RETRY_PAUSE_MS;
+  }
+  function retryPart() {
+    retryAt = 0;
+    retryBuzz();                                             // bzz bzz: the part again
     stop(false);
     start(parts[partIdx].a, true, true);                     // a bar to put the hand back, then a discreet cue
   }
@@ -296,7 +303,7 @@
   function start(at = null, lap = false, quiet = false) {
     if (!notes.length) return;
     countBeats = quiet ? 4 : lap ? 1 : COUNT_IN;
-    quietLead = quiet; finishAtEnd = false; bomb = 0;
+    quietLead = quiet; finishAtEnd = false; bomb = 0; retryAt = 0;
     if (!lap) { endlessBook.reset(); endlessShown = 0; laps = 0; }
     if (hybrid && parts.length) {                            // hybrid: play the part asked for, if it's unlocked
       if (!lap) partIdx = Math.min(partAt(parts, at ?? (position >= current.durationMs ? 0 : position)), cleared, parts.length - 1);
@@ -457,6 +464,7 @@
       }
       if (hybrid && parts[partIdx]) {                       // hybrid: the part is judged as soon as all its notes are
         if (finishAtEnd) { if (t > current.durationMs + 400) { finish(); status = "Song cleared — every part unlocked!"; return; } }
+        else if (retryAt) { if (now >= retryAt) { retryPart(); return; } }
         else {
           const st = partState(notes, judge.result, parts[partIdx]);
           if (st.missed) partFails = Math.max(partFails, 1);

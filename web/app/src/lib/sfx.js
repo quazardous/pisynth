@@ -70,3 +70,11 @@ export function restartCue() {
   voice(ac, { type: "triangle", freq: 660, at: t0, dur: 0.12, peak: 0.05, cutoff: 3000 });
   voice(ac, { type: "triangle", freq: 880, at: t0 + 0.1, dur: 0.16, peak: 0.05, cutoff: 3000 });
 }
+
+// A part missed, played again: a quick "bzz bzz" — two short, low buzzes.
+export function retryBuzz() {
+  const ac = audioContext();
+  if (!ac) return;
+  const t0 = ac.currentTime + 0.01;
+  for (const k of [0, 1]) voice(ac, { type: "square", freq: 180, to: 150, at: t0 + k * 0.13, dur: 0.09, peak: 0.07, cutoff: 1800 });   // (audible on a phone speaker)
+}

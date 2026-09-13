@@ -45,9 +45,6 @@
   let liveOn = $state(new Set());
   let guide = $state(new Set());
   let ghost = $state(new Set());                    // "I play": the perfect timing, on the keyboard (#2429)
-  const GHOST_KEY = "pisynth.ghost";
-  let ghostOn = $state((() => { try { return localStorage.getItem(GHOST_KEY) !== "0"; } catch { return true; } })());
-  $effect(() => { const v = ghostOn; try { localStorage.setItem(GHOST_KEY, v ? "1" : "0"); } catch { /* private mode */ } });
   const GHOST_PULSE_MS = 220;
   let view = $state({ x0: 0, span: 15 });
   let stageW = $state(0), stageH = $state(0);
@@ -204,7 +201,7 @@
       if (loop && t >= loop.b) { stop(false); start(loop.a); return; }
       if (t > current.durationMs + 800) { finish(); return; }
       if (Math.abs(Math.max(from, t) - position) > 100) position = Math.max(from, t);    // (count-in: stays at the start)
-      const ghosting = mode === "play" && ghostOn;
+      const ghosting = mode === "play" && prefs.ghost;
       const lit = new Set(), ahead = mode === "play" ? 60 * tf() : 0;   // play: keys due now · listen: keys sounding
       if (!ghosting) for (const n of visibleNotes(notes, t, ahead, 0, maxLen)) if (n.start <= t + ahead && n.end >= t) lit.add(n.note);
       if (!sameSet(lit, guide)) guide = lit;
@@ -291,7 +288,7 @@
       ctx.fillRect(x - 4 * dpr, hitY - 26 * dpr * a, w + 8 * dpr, 26 * dpr * a);
     }
 
-    if (judged && playing && ghostOn) {                         // ghost: an outline pulses where a note should be hit
+    if (judged && playing && prefs.ghost) {                         // ghost: an outline pulses where a note should be hit
       const pulse = GHOST_PULSE_MS * tf();
       ctx.lineWidth = 2 * dpr;
       for (const p of ghostPulses(notes, ghostTime(now), maxLen, pulse)) {
@@ -378,9 +375,6 @@
           <button class="small" onclick={setB} disabled={!loop && position === 0}>B = {loop ? fmt(loop.b) : "—"}</button>
           {#if loop}<button class="small ghost" onclick={() => (loop = null)}>clear</button>{/if}
         </div>
-        {#if mode === "play"}
-          <label class="check"><input type="checkbox" bind:checked={ghostOn}> Ghost keys — the perfect timing, next to your playing</label>
-        {/if}
         <p class="muted">{hands.length >= 2 ? "2 hands: right hand blue, left hand green. " : ""}{mode === "play" ? "Hit each note as it reaches the yellow line." : "pisynth plays the song; the notes light up as they sound."}</p>
         <button class="link" onclick={() => { stop(); song = null; options = false; }}>close the song (live keyboard)</button>
       {/if}
@@ -450,8 +444,6 @@
   .sheet p { margin-top: 8px; }
   .link { background: none; color: var(--accent); padding: 4px 0; margin-top: 4px; font-weight: 400; display: block; }
   .loop { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-  .check { display: flex !important; align-items: center; gap: 8px; margin-top: 10px; font-size: .9rem; }
-  .check input { width: 20px; height: 20px; }
   .small { margin: 0; padding: 6px 10px; font-size: .85rem; border-radius: 8px; }
   .ghost { background: #3a3a48; }
   .player { display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: var(--bar); }

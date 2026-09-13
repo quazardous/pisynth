@@ -3,7 +3,7 @@
   // the player, which keeps playing underneath — change the reverb while pisynth plays a song.
   import Sound from "./Sound.svelte";
   import Latency from "./Latency.svelte";
-  import { prefs, setNotation } from "./lib/prefs.svelte.js";
+  import { prefs, setNotation, setGhost } from "./lib/prefs.svelte.js";
   import { noteName } from "./lib/theory.js";
 
   let { panel, onPanel, onClose, onFrame, onMessage, send } = $props();
@@ -57,6 +57,14 @@
             <span>{label}<br><small class="muted">middle C = {noteName(60, id)}</small></span>
           </label>
         {/each}
+      </section>
+      <section class="card">
+        <h1>Playing along</h1>
+        <label class="choice">
+          <input type="checkbox" checked={prefs.ghost} onchange={e => setGhost(e.target.checked)}>
+          <span>Ghost keys<br><small class="muted">In "I play", the keyboard shows the perfect timing next to your playing:
+            in time, your blue key gets a yellow outline.</small></span>
+        </label>
       </section>
     {:else if panel === "latency"}
       <Latency {onFrame} />

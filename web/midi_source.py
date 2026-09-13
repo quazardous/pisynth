@@ -41,12 +41,35 @@ def pack(status, d1, d2, t_ms):
     return FRAME.pack(status, d1, d2, t_ms & 0xFFFFFFFF)
 
 
+def _aconnect(*args):
+    try:                                              # LC_ALL=C: aconnect's labels are translated
+        return subprocess.run(["aconnect", *args], capture_output=True, text=True, timeout=4,
+                              env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"}).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def subscribed(aconnect_list, pid):
+    """From `aconnect -l`: does the ALSA client of process `pid` still receive from a port?
+    True / False, or None when that client isn't listed (not subscribed yet, or gone)."""
+    lines = aconnect_list.splitlines()
+    for i, ln in enumerate(lines):
+        m = re.match(r"client\s+\d+\s*:\s*'.*'\s*\[.*\bpid=(\d+)", ln)
+        if m and int(m.group(1)) == pid:
+            for nxt in lines[i + 1:]:
+                if nxt.startswith("client"):
+                    break
+                if "Connected From" in nxt:
+                    return True
+            return False
+    return None
+
+
 def auto_port():
     """The first hardware MIDI input (client carrying `card=`), port 0 — the keyboard. ''
     if none is plugged in."""
-    try:
-        out = subprocess.run(["aconnect", "-i"], capture_output=True, text=True, timeout=4).stdout
-    except (OSError, subprocess.SubprocessError):
+    out = _aconnect("-i")
+    if not out:
         return ""
     for ln in out.splitlines():
         m = re.match(r"client\s+\d+\s*:\s*'(.+?)'\s*\[(.*)\]", ln)
@@ -97,6 +120,7 @@ class AlsaSeqSource:
                     break
                 continue
             proc = self._proc
+            threading.Thread(target=self._watch, args=(proc,), name="midi-watch", daemon=True).start()
             for line in proc.stdout:                  # blocks per line; terminate() ends it
                 t_ns = time.monotonic_ns()
                 ev = parse_line(line)
@@ -107,6 +131,22 @@ class AlsaSeqSource:
             self._proc = None
             if not self._stop.is_set():               # aseqdump ended (keyboard unplugged) → retry
                 self._stop.wait(1.0)
+
+    def _watch(self, proc, period=2.0):
+        """aseqdump doesn't exit when its keyboard is unplugged: it just stops receiving, and a
+        replugged keyboard is a new port it never subscribes to again (#2410). Every `period`,
+        check its subscription is still there; if not, end it so the loop resubscribes."""
+        if self._stop.wait(period):                   # let it subscribe first
+            return
+        while proc.poll() is None and not self._stop.is_set():
+            if subscribed(_aconnect("-l"), proc.pid) is False:
+                try:
+                    proc.terminate()
+                except OSError:
+                    pass
+                return
+            if self._stop.wait(period):
+                return
 
 
 class CommandSource(AlsaSeqSource):

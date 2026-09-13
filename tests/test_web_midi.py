@@ -50,3 +50,29 @@ def test_make_source_selects_by_env():
     src = make_source(None, {"PISYNTH_WEB_MIDI_SOURCE": "pi", "PISYNTH_HOST": "david@pi"})
     assert isinstance(src, CommandSource) and src.argv[:1] == ["ssh"] and "david@pi" in src.argv
     assert "aseqdump" in pi_bridge_argv("h")[-1]
+
+
+# `aconnect -l` on the Pi right after the keyboard was unplugged and plugged back (#2410): the
+# companion's aseqdump (pid 28607) lost its subscription, midi-bridge's (29252) was restarted.
+ACONNECT_AFTER_REPLUG = """client 24: 'Keystation 61 MK3' [type=kernel,card=2]
+    0 'Keystation 61 MK3(USB MIDI)'
+	Connecting To: 130:0
+    1 'Keystation 61 MK3(Transport)'
+	Connecting To: 128:0
+client 128: 'aseqdump' [type=user,pid=29252]
+    0 'aseqdump        '
+	Connected From: 24:1
+client 129: 'aseqdump' [type=user,pid=28607]
+    0 'aseqdump        '
+client 130: 'FLUID Synth (29085)' [type=user,pid=29085]
+    0 'Synth input port (29085:0)'
+	Connected From: 0:1, 14:0, 24:0
+"""
+
+
+def test_subscription_check_spots_an_aseqdump_left_behind_by_a_replug():
+    from web.midi_source import subscribed
+    assert subscribed(ACONNECT_AFTER_REPLUG, 29252) is True
+    assert subscribed(ACONNECT_AFTER_REPLUG, 28607) is False        # → restarted by the watchdog
+    assert subscribed(ACONNECT_AFTER_REPLUG, 12345) is None         # not listed (yet): leave it
+    assert subscribed("", 1) is None

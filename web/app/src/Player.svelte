@@ -89,13 +89,16 @@
   // The keyboard shows where each finger goes: the keys due within `aheadMs` (song ms) of `t`. Playing, a hand
   // about to move shows both, right after the key before the move: where it is (blue) and where it goes (green),
   // with an arrow from one to the other.
-  function showFingers(t, aheadMs, withMoves = false) {
+  // `dueMs`: notes held or starting within it are shown in full; the later ones (up to `aheadMs`) faintly, so
+  // the hand can get ready.
+  function showFingers(t, aheadMs, withMoves = false, dueMs = aheadMs) {
     const m = keyFingers(notes, fingers, t, aheadMs, maxLen);
     const moves = withMoves ? upcomingShifts(notes, fingers, shifts, t, 3 * beatMs(), beatMs()) : [];
-    const sig = `${fingersKey(m)}|${moves.map(mv => `${fingersKey(mv.from)}>${fingersKey(mv.to)}`).join(";")}`;
+    const faint = f => f.start > t + dueMs;
+    const sig = `${[...m].map(([n, f]) => `${n}:${f.finger}${faint(f) ? "~" : ""}`).join(",")}|${moves.map(mv => `${fingersKey(mv.from)}>${fingersKey(mv.to)}`).join(";")}`;
     if (sig === keyFingSig) return;
     keyFingSig = sig;
-    const shown = new Map([...m].map(([n, f]) => [n, { finger: f.finger, color: handColor(f.track), move: "" }]));
+    const shown = new Map([...m].map(([n, f]) => [n, { finger: f.finger, color: handColor(f.track), move: faint(f) ? "soon" : "" }]));
     for (const mv of moves) {
       for (const [n, f] of mv.from) shown.set(n, { finger: f.finger, color: "#5aa0ff", move: "from" });
       for (const [n, f] of mv.to) shown.set(n, { finger: f.finger, color: "#4fd18b", move: "to" });
@@ -448,7 +451,7 @@
       // and its ghost light up together (#2429).
       const g = ghosting ? ghostKeys(notes, ghostTime(now), maxLen, GHOST_MIN_MS * tf()) : new Set();
       if (!sameSet(g, ghost)) ghost = g;
-      if (aids.fingers || aids.moves) showFingers(t, Math.max(beatMs(), 500), aids.moves);   // the fingers for what is held and due within a beat, and moves
+      if (aids.fingers || aids.moves) showFingers(t, 3 * beatMs(), aids.moves, Math.max(beatMs(), 500));   // held and due within a beat in full, the next beats faint, and moves
     }
 
     if (follow) {

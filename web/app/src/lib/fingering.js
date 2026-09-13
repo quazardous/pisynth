@@ -161,7 +161,7 @@ export function fingering(notes) {
 
 // The fingers to show on the keyboard at song time `t`: for each key, the note held there or the next one
 // starting before `t + aheadMs`, first come first shown. `maxLen` (longest note) bounds the backward scan.
-// → Map note → {finger, hand, track}
+// → Map note → {finger, hand, track, start}
 export function keyFingers(notes, fingers, t, aheadMs, maxLen = Infinity) {
   const out = new Map();
   let i = 0, hi = notes.length;
@@ -173,7 +173,7 @@ export function keyFingers(notes, fingers, t, aheadMs, maxLen = Infinity) {
     if (n.start > t + aheadMs) break;
     if (n.end < t) continue;
     const f = fingers[n.i];
-    if (f && !out.has(n.note)) out.set(n.note, { ...f, track: n.track });
+    if (f && !out.has(n.note)) out.set(n.note, { ...f, track: n.track, start: n.start });
   }
   return out;
 }

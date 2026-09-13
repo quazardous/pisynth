@@ -52,6 +52,8 @@
             display: grid; place-items: center; font: 800 clamp(10px, 2.6vw, 14px)/1 system-ui, sans-serif; color: #fff;
             background: var(--hand); box-shadow: 0 0 0 2px rgba(0,0,0,.55); pointer-events: none; }
   .black .finger { bottom: 8%; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
+  /* a finger coming a little later: faint, so the hand can get ready */
+  .finger.soon { opacity: .38; }
   /* a hand move coming (#2431): where the hand is (blue ring), where it goes (green), an arrow between */
   .finger.from { box-shadow: 0 0 0 2px #fff, 0 0 8px #5aa0ff; }
   .finger.to { color: #0d2a1a; box-shadow: 0 0 0 2px #0d2a1a, 0 0 10px #4fd18b; animation: pulse-to .6s ease-in-out infinite alternate; }

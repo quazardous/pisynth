@@ -25,6 +25,21 @@ Mutopia's contributors. Files are unchanged, only renamed. Each has one track pe
 | `4-advanced/Chopin-Prelude-Op28-15.mid` | F. Chopin — Prelude op. 28 no. 15 | https://www.mutopiaproject.org/ftp/ChopinFF/O28/Chop-28-15/Chop-28-15.mid |
 | `4-advanced/Handel-Sonatina-B-flat-HWV-585.mid` | G. F. Handel — Sonatina in B♭ major, HWV 585 | https://www.mutopiaproject.org/ftp/HandelGF/HWV585/sonatina-in-b-flat-major/sonatina-in-b-flat-major.mid |
 
+## Homer (`0-homer/`)
+
+The very first notes: well-known children's songs, **right hand only**, a handful of notes within C–G,
+very slow (60–72 bpm). Same generator, same **CC0** release as below.
+
+| File | Tune |
+|---|---|
+| `0-homer/1-Do-Re-Mi.mid` | three-finger exercise, C–D–E |
+| `0-homer/2-Hot-cross-buns.mid` | Hot cross buns (traditional) |
+| `0-homer/3-Au-clair-de-la-lune.mid` | Au clair de la lune, first phrase (French traditional) |
+| `0-homer/4-Mary-had-a-little-lamb.mid` | Mary had a little lamb (traditional) |
+| `0-homer/5-Frere-Jacques.mid` | Frère Jacques, the beginning (French traditional) |
+| `0-homer/6-Jingle-bells.mid` | Jingle Bells, the beginning — J. L. Pierpont (1857) |
+| `0-homer/7-Ode-to-joy.mid` | Ode to Joy, first phrase — L. van Beethoven |
+
 ## First steps (`1-first-steps/`)
 
 The easiest level, below beginner: well-known **public domain tunes**, arranged for pisynth as simply as

@@ -1,17 +1,46 @@
 #!/usr/bin/env python3
-"""Generate the "first steps" starter level (below beginner) as MIDI files (#2421 follow-up).
+"""Generate the two easiest starter levels as MIDI files (#2421 follow-up).
 
-Well-known public domain tunes, arranged here as simply as possible: the right hand plays the melody
-(mostly in the C–G five-finger position), the left hand holds one note per bar (C or G), slow tempo.
-Two tracks, so the note highway can show and practise each hand. The arrangements are ours and
-released as CC0 (see library/midi/SOURCES.md).
+Well-known public domain tunes (children's songs), arranged here as simply as possible:
+- 0-homer: the very first notes — right hand only, a handful of notes, very slow;
+- 1-first-steps: the right hand plays the melody (mostly in the C–G five-finger position), the left
+  hand holds one note per bar (C or G), slow — two tracks, so each hand can be practised.
+The arrangements are ours and released as CC0 (see library/midi/SOURCES.md).
 
-    python3 tools/make_first_steps.py            # writes library/midi/1-first-steps/*.mid
+    python3 tools/make_first_steps.py            # writes library/midi/0-homer/ and 1-first-steps/
 """
 import os
 import struct
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "library", "midi", "1-first-steps")
+MIDI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "library", "midi")
+
+# 0-homer: (file, title, bpm, beats per bar, right hand) — no left hand, few notes, slow
+HOMER = [
+    ("1-Do-Re-Mi.mid", "Do Ré Mi (three fingers)", 60, 4,
+     [("C4", 2), ("D4", 2), ("E4", 4), ("E4", 2), ("D4", 2), ("C4", 4),
+      ("C4", 2), ("D4", 2), ("E4", 2), ("D4", 2), ("C4", 4), ("r", 4)]),
+    ("2-Hot-cross-buns.mid", "Hot cross buns", 66, 4,
+     [("E4", 2), ("D4", 2), ("C4", 4), ("E4", 2), ("D4", 2), ("C4", 4),
+      ("C4", 1), ("C4", 1), ("C4", 1), ("C4", 1), ("D4", 1), ("D4", 1), ("D4", 1), ("D4", 1),
+      ("E4", 2), ("D4", 2), ("C4", 4)]),
+    ("3-Au-clair-de-la-lune.mid", "Au clair de la lune (3 notes)", 66, 4,
+     [("C4", 1), ("C4", 1), ("C4", 1), ("D4", 1), ("E4", 2), ("D4", 2),
+      ("C4", 1), ("E4", 1), ("D4", 1), ("D4", 1), ("C4", 4)]),
+    ("4-Mary-had-a-little-lamb.mid", "Mary had a little lamb (4 notes)", 66, 4,
+     [("E4", 1), ("D4", 1), ("C4", 1), ("D4", 1), ("E4", 1), ("E4", 1), ("E4", 2),
+      ("D4", 1), ("D4", 1), ("D4", 2), ("E4", 1), ("G4", 1), ("G4", 2),
+      ("E4", 1), ("D4", 1), ("C4", 1), ("D4", 1), ("E4", 1), ("E4", 1), ("E4", 2),
+      ("D4", 1), ("D4", 1), ("E4", 1), ("D4", 1), ("C4", 4)]),
+    ("5-Frere-Jacques.mid", "Frère Jacques (the beginning)", 70, 4,
+     [("C4", 1), ("D4", 1), ("E4", 1), ("C4", 1), ("C4", 1), ("D4", 1), ("E4", 1), ("C4", 1),
+      ("E4", 1), ("F4", 1), ("G4", 2), ("E4", 1), ("F4", 1), ("G4", 2)]),
+    ("6-Jingle-bells.mid", "Jingle bells (the beginning)", 72, 4,
+     [("E4", 1), ("E4", 1), ("E4", 2), ("E4", 1), ("E4", 1), ("E4", 2),
+      ("E4", 1), ("G4", 1), ("C4", 1), ("D4", 1), ("E4", 4)]),
+    ("7-Ode-to-joy.mid", "Ode to Joy (the beginning)", 66, 4,
+     [("E4", 1), ("E4", 1), ("F4", 1), ("G4", 1), ("G4", 1), ("F4", 1), ("E4", 1), ("D4", 1),
+      ("C4", 1), ("C4", 1), ("D4", 1), ("E4", 1), ("E4", 2), ("D4", 2)]),
+]
 TPQ = 480                                              # ticks per quarter note
 NAMES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 
@@ -99,6 +128,8 @@ def song_bytes(title, bpm, beats_per_bar, right, left):
             n = midi_note(note)
             rh += [(tick, bytes((0x90, n, 84))), (tick + dur - TPQ // 16, bytes((0x80, n, 0)))]
         tick += dur
+    if left is None:                                  # 0-homer: the right hand alone
+        return b"MThd" + struct.pack(">IHHH", 6, 1, 2, TPQ) + t0 + track(rh)
     lh = [(0, meta_text(0x03, "Left hand"))]
     bar = beats_per_bar * TPQ
     for i, note in enumerate(left):
@@ -108,13 +139,17 @@ def song_bytes(title, bpm, beats_per_bar, right, left):
 
 
 def main():
-    os.makedirs(OUT, exist_ok=True)
-    for name, title, bpm, bpb, right, left in SONGS:
-        melody_bars = sum(b for _, b in right) / bpb
-        assert abs(melody_bars - len(left)) < 1e-9, f"{name}: {melody_bars} melody bars, {len(left)} left-hand bars"
-        with open(os.path.join(OUT, name), "wb") as f:
-            f.write(song_bytes(title, bpm, bpb, right, left))
-        print(f"{name}: {len(left)} bars @ {bpm} bpm")
+    levels = [("0-homer", [(*s, None) for s in HOMER]), ("1-first-steps", SONGS)]
+    for folder, songs in levels:
+        out = os.path.join(MIDI_DIR, folder)
+        os.makedirs(out, exist_ok=True)
+        for name, title, bpm, bpb, right, left in songs:
+            bars = sum(b for _, b in right) / bpb
+            assert bars == int(bars), f"{name}: the melody isn't whole bars ({bars})"
+            assert left is None or len(left) == bars, f"{name}: {bars} melody bars, {len(left)} left-hand bars"
+            with open(os.path.join(out, name), "wb") as f:
+                f.write(song_bytes(title, bpm, bpb, right, left))
+            print(f"{folder}/{name}: {int(bars)} bars @ {bpm} bpm")
 
 
 if __name__ == "__main__":

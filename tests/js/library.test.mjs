@@ -18,8 +18,8 @@ test("paths: encode each segment, parent, base and display names", () => {
   assert.equal(parentOf("c.mid"), "");
   assert.equal(baseName("a/b/c.mid"), "c.mid");
   assert.equal(displayName("starter/beginner/Bach-Minuet_in_G.MIDI"), "Bach Minuet in G");
-  assert.equal(folderLabel("starter/1-first-steps"), "first steps");
-  assert.equal(folderLabel("2-beginner"), "beginner");
+  assert.equal(folderLabel("starter/1-first-steps"), "1 · first steps");
+  assert.equal(folderLabel("0-homer"), "0 · homer");
   assert.equal(folderLabel("Mes morceaux"), "Mes morceaux");
   assert.equal(folderLabel("2024"), "2024");
 });

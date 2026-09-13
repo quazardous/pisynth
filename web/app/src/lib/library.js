@@ -8,8 +8,8 @@ export const encodePath = p => p.split("/").map(encodeURIComponent).join("/");
 export const parentOf = p => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
 export const baseName = p => p.slice(p.lastIndexOf("/") + 1);
 export const displayName = name => baseName(name).replace(/\.midi?$/i, "").replace(/[-_]+/g, " ").trim();
-// Folder label: a leading "1-", "2-"… only orders the levels ("1-first-steps" → "first steps").
-export const folderLabel = name => baseName(name).replace(/^\d+[-_ ]+/, "").replace(/[-_]+/g, " ").trim() || baseName(name);
+// Folder label: a leading "0-", "1-"… numbers the levels and shows as "0 · homer", "1 · first steps".
+export const folderLabel = name => baseName(name).replace(/^(\d+)[-_ ]+/, "$1 · ").replace(/[-_]+/g, " ").trim() || baseName(name);
 
 // Direct children of `dir` ("" = the library root): folders first, then files, by name.
 export function childrenOf(entries, dir) {

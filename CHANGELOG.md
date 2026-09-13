@@ -10,7 +10,7 @@ All notable changes to pisynth, in plain language. Newest first.
   (TRIPLE, SUPER, HYPER … ULTRA COMBO, perfects count double), a HITS counter, a short screen punch
   on milestones, "COMBO BREAKER" when a big one is lost, the score racing up like an arcade counter,
   and the best combo on the results card. Switch them off under the cog → Display.
-- **"First steps" level, below beginner** — seven very easy tunes in the MIDI library (Au clair de
+- **"Homer" and "First steps" levels, below beginner** — "0 · homer": children's songs with a few notes, right hand only, very slow; "1 · first steps": seven very easy tunes in the MIDI library (Au clair de
   la lune, Frère Jacques, Ode to Joy, Mary had a little lamb, Twinkle twinkle, Jingle Bells and a
   five-finger exercise): the melody in the right hand around C–G, one left-hand note per bar, slow.
   The levels now list in order: first steps, beginner, intermediate, advanced.

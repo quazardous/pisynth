@@ -36,6 +36,8 @@
   .word small { font-size: .55em; }
   /* Both pop in, then sink like a boat: going down right away, listing more and more, fading at the end. */
   .oops { animation: sink 1.1s cubic-bezier(.2,1.8,.4,1) forwards; }
+  .levelup { animation: sink 2.8s cubic-bezier(.2,1.8,.4,1) forwards; }
+  .levelup .word { flex-direction: column; gap: 0; line-height: .95; }
   @keyframes sink {
     0%   { transform: rotate(calc(var(--tilt) - 25deg)) scale(0); opacity: 0; }
     12%  { transform: rotate(var(--tilt)) scale(calc(var(--s) * 1.15)); opacity: 1; }

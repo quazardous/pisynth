@@ -114,8 +114,10 @@ export function fingerHand(notes, mirror = false) {
   }
 
   const out = new Map();
+  out.cost = 0;                                                 // the whole hand's effort (#2436 difficulty)
   if (!events.length) return out;
   let si = prev.reduce((b, s, k) => (s.total < prev[b].total ? k : b), 0);
+  out.cost = prev[si].total;
   for (let ei = events.length - 1; ei >= 0; ei--) {
     const s = events[ei].states[si];
     events[ei].notes.forEach((n, k) => out.set(n.i, s.fs[k]));
@@ -143,12 +145,14 @@ export function splitHands(notes) {
   return notes.map(n => (n.note >= 60 ? "R" : "L"));
 }
 
-// Song notes (with `i`, their index) → [{finger, hand}] by index.
+// Song notes (with `i`, their index) → [{finger, hand}] by index; `.cost` = both hands' total effort.
 export function fingering(notes) {
   const hands = splitHands(notes), out = new Array(notes.length).fill(null);
+  out.cost = 0;
   for (const h of ["R", "L"]) {
-    const mine = notes.filter((_, k) => hands[k] === h);
-    for (const [i, finger] of fingerHand(mine, h === "L")) out[i] = { finger, hand: h };
+    const mine = notes.filter((_, k) => hands[k] === h), m = fingerHand(mine, h === "L");
+    for (const [i, finger] of m) out[i] = { finger, hand: h };
+    out.cost += m.cost;
   }
   return out;
 }

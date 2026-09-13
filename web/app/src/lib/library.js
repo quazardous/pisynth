@@ -3,6 +3,7 @@
 // Everything but the fetch calls is pure and unit-tested under Node.
 
 import { songNotes, noteRange, noteTracks } from "./highway.js";
+import { songFeatures, difficulty } from "./difficulty.js";
 
 export const encodePath = p => p.split("/").map(encodeURIComponent).join("/");
 export const parentOf = p => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
@@ -25,15 +26,17 @@ export function crumbs(dir) {
   return parts.map((name, i) => ({ name, path: parts.slice(0, i + 1).join("/") }));
 }
 
-// What the modes need to know about a parsed song (#2418 viewport, hands).
+// What the modes need to know about a parsed song (#2418 viewport, hands, #2436 difficulty as written).
 export function songInfo(song) {
-  const notes = songNotes(song.events, song.durationMs), r = noteRange(notes);
-  return { durationMs: Math.round(song.durationMs), low: r.low, high: r.high, hands: noteTracks(notes).length, notes: notes.length };
+  const notes = songNotes(song.events, song.durationMs).map((n, i) => ({ ...n, i })), r = noteRange(notes);
+  return { durationMs: Math.round(song.durationMs), low: r.low, high: r.high, hands: noteTracks(notes).length, notes: notes.length,
+    difficulty: difficulty(songFeatures(notes)) };
 }
 
 // Per-file info remembered in the browser, keyed by path + size (a replaced file is re-read).
+// (The key's version goes up when songInfo() learns something new, so old entries are worked out again.)
 export class InfoCache {
-  constructor(storage = globalThis.localStorage, key = "pisynth.midiInfo", max = 400) {
+  constructor(storage = globalThis.localStorage, key = "pisynth.midiInfo.2", max = 400) {
     this.storage = storage; this.key = key; this.max = max;
     try { this.map = JSON.parse(storage?.getItem(key) || "{}"); } catch { this.map = {}; }
   }

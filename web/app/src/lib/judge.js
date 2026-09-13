@@ -50,7 +50,7 @@ export class Judge {
     this.counts[kind]++;
     this.streak = kind === "perfect" || kind === "good" ? this.streak + 1 : 0;
     this.bestStreak = Math.max(this.bestStreak, this.streak);
-    this.score += Math.round(POINTS[kind] * (1 + Math.min(this.streak, 50) / 50));
+    this.score += Math.round(POINTS[kind] * (1 + Math.min(this.streak, 50) / 50) * this.tempo);   // faster pays more (#2436)
     return { kind, note, index: best, delta: delta / this.tempo };      // delta in real ms
   }
 

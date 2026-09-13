@@ -19,7 +19,9 @@
   import { countInTimes, scheduleCountdown } from "./lib/click.js";
   import { ComboTracker, ParticlePool, RollingNumber } from "./lib/arcade.js";
   import { comboSting, comboBreaker, oops } from "./lib/sfx.js";
-  import { comboSplash, oopsSplash } from "./lib/comic.js";
+  import { comboSplash, oopsSplash, levelUpSplash } from "./lib/comic.js";
+  import { songFeatures, difficulty } from "./lib/difficulty.js";
+  import { Progress, levelDifficulty } from "./lib/progress.js";
   import { detectChord, noteName, pitchName } from "./lib/theory.js";
   import { prefs } from "./lib/prefs.svelte.js";
   import { RecordBook, songKey } from "./lib/records.js";
@@ -67,6 +69,10 @@
   const plan = $derived(song && stageW ? planView(range.low, range.high, stageW) : null);
   const sounding = $derived([...liveOn].sort((a, b) => a - b));
   const fingers = $derived(fingering(notes));                // suggested finger per note, worked out once per song (#2431)
+  const features = $derived(songFeatures(notes, fingers));
+  const diffNow = $derived(difficulty(features, tempo / 100));   // how hard at the tempo chosen (#2436)
+  const progress = new Progress();                              // XP and level, on this phone
+  let lv = $state.raw(progress.level), xpGain = $state.raw(null), levelUp = $state.raw(null), runActive = false;
   const handColor = track => TRACK_COLORS[Math.max(0, hands.indexOf(track)) % TRACK_COLORS.length];
   let keyFing = $state.raw(new Map()), keyFingSig = "";      // fingers shown on the keyboard: {note → {finger, color}}
 
@@ -203,6 +209,7 @@
       clockStart = now + CLICK_LEAD_MS + COUNT_IN * beatReal;  // the song reaches `from` after the count-in
       judge.setTempo(tf());
       judge.reset(from);
+      runActive = true;                                       // this run will earn XP when it ends (#2436)
       stats = { score: 0, streak: 0, accuracy: 0 };
       combo.reset(); rolling.jump(0); shownScore = 0; hitsShown = 0; announce = null; oopsAt = null; sparks.items = [];
       cancelClicks = scheduleCountdown(countInTimes(clockStart, beatReal, COUNT_IN), clockStart);   // from the phone
@@ -231,10 +238,21 @@
     if (sender) { if (tell) sender.stop(); else sender.playing = false; sender = null; }
     cancelClicks(); cancelClicks = () => {};
     if (simulated && mode === "play") send({ t: "sim_stop" });
+    if (runActive) { runActive = false; awardXp(); }            // stopped, finished or looped: the notes judged count
     playing = false; countIn = 0; guide = new Set(); ghost = new Set();
     rolling.jump(judge.score); shownScore = judge.score;
     releaseAwake();
     paint();
+  }
+
+  function awardXp() {
+    const r = progress.award(songKey(song), judge.counts, diffNow);
+    lv = r.after;
+    xpGain = r.xp > 0 ? { ...r, diff: diffNow, id: ++announceId } : null;
+    if (r.levelUp) {
+      levelUp = { splash: levelUpSplash(seed(), r.after.level), id: ++announceId };
+      comboSting(7);
+    }
   }
 
   function finish() {
@@ -459,6 +477,9 @@
       <button class:on={mode === "play"} onclick={() => onMode("play")}>I play</button>
       <button class:on={mode === "listen"} onclick={() => onMode("listen")}>Listen</button>
     </div>
+    <span class="lv" title="{lv.into} / {lv.need} XP to the next level">Lv {lv.level}<i style:width="{Math.round((lv.into / lv.need) * 100)}%"></i>
+      {#key xpGain?.id}{#if xpGain && !finished}<b class="xp-pop">+{xpGain.xp} XP</b>{/if}{/key}
+    </span>
     {#if song && mode === "play"}
       <span class="score" class:racing={prefs.arcade && shownScore !== stats.score}>{prefs.arcade ? shownScore : stats.score}</span>
       {#if stats.streak > 1}<span class="streak">×{stats.streak}</span>{/if}
@@ -483,6 +504,9 @@
           </div>
         {/if}
       {/key}
+      {#key levelUp?.id}
+        {#if levelUp}<div class="levelup-at"><Comic splash={levelUp.splash} kind="levelup" width="min(88vw, 420px)" /></div>{/if}
+      {/key}
       {#key oopsAt?.id}
         {#if oopsAt && prefs.arcade && playing}
           <div class="oops-at" style:left="{oopsAt.x}%"><Comic splash={oopsAt.splash} kind="oops" width="min(40vw, 170px)" /></div>
@@ -498,6 +522,7 @@
           {#if best?.newScore && best.previous}<p class="record">NEW RECORD!</p>{/if}
           <h2>{stats.accuracy}%</h2>
           <p><b>{judge.score}</b> points · best streak {judge.bestStreak}</p>
+          {#if xpGain}<p class="xp">+{xpGain.xp} XP <small>· ◆ {xpGain.diff.toFixed(1)}{tempo !== 100 ? ` at ${tempo} %` : ""}{xpGain.easy < 0.99 ? ` · easy for Lv ${xpGain.before.level} ×${xpGain.easy.toFixed(2)}` : ""}{xpGain.play > 1 ? ` · play ${xpGain.play} today ×${xpGain.repeat.toFixed(2)}` : ""}</small></p>{/if}
           {#if prefs.arcade && combo.maxHits >= 2}<p class="best-combo">max combo {combo.maxHits} hits{combo.bestTierName ? ` · ${combo.bestTierName}` : ""}</p>{/if}
           {#if best?.previous}<p class="muted">best {best.record.score} pts{best.record.tempo !== 100 ? ` at ${best.record.tempo} %` : ""} · {best.record.accuracy}% · {best.record.plays} plays</p>{/if}
           <p class="muted">perfect {judge.counts.perfect} · good {judge.counts.good} · early {judge.counts.early} · late {judge.counts.late} · missed {judge.counts.miss} · wrong {judge.counts.wrong}</p>
@@ -532,6 +557,7 @@
           <button class="small" onclick={setB} disabled={!loop && position === 0}>B = {loop ? fmt(loop.b) : "—"}</button>
           {#if loop}<button class="small ghost" onclick={() => (loop = null)}>clear</button>{/if}
         </div>
+        <p class="muted">Difficulty ◆ {diffNow.toFixed(1)} at this tempo (your level: ◆ {levelDifficulty(lv.level).toFixed(1)}). Faster earns more points and XP.</p>
         <p class="muted">{hands.length >= 2 ? "2 hands: right hand blue, left hand green. " : ""}{mode === "play" ? "Hit each note as it reaches the yellow line." : "pisynth plays the song; the notes light up as they sound."}</p>
     </section>
   {/if}
@@ -599,6 +625,18 @@
   @keyframes glitch { 50% { translate: 6px -2px; } }
   .best-combo { color: var(--yellow); font-style: italic; font-weight: 700; }
   .acc { color: var(--muted); font-size: .85rem; }
+  /* level (#2436): the number over a thin XP bar; a run's XP floats up from it */
+  .lv { position: relative; flex: 0 0 auto; font-weight: 800; font-size: .8rem; color: #c38bff; padding-bottom: 4px; white-space: nowrap; }
+  .lv::before, .lv i { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; border-radius: 2px; }
+  .lv::before { right: 0; background: rgba(195,139,255,.25); }
+  .lv i { background: #c38bff; }
+  .xp-pop { position: absolute; left: 0; top: 100%; z-index: 4; color: #e3c8ff; font-size: .85rem; text-shadow: 0 1px 0 #000;
+            pointer-events: none; animation: xp-float 2.4s ease-out forwards; }
+  @keyframes xp-float { 0% { transform: translateY(6px) scale(.8); opacity: 0; } 12% { transform: none; opacity: 1; }
+                        70% { opacity: 1; } 100% { transform: translateY(18px); opacity: 0; } }
+  .levelup-at { position: absolute; inset: 0; z-index: 6; pointer-events: none; }   /* over the results card */
+  .results .xp { color: #c38bff; font-weight: 800; }
+  .results .xp small { font-weight: 500; color: var(--muted); }
   .song { margin-left: auto; color: var(--muted); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .area { flex: 1; position: relative; min-height: 0; display: flex; flex-direction: column; }
   .stage { flex: 1; position: relative; min-height: 0; overflow: hidden; background: linear-gradient(#0d0d12, #17171f); }

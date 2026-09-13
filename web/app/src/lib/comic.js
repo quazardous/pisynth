@@ -41,6 +41,10 @@ export function comboSplash(seed, { color = "#ffd23f", breaker = false } = {}) {
   };
 }
 
+// A new level (#2436): the big one, golden, the level under the words.
+export const levelUpSplash = (seed, level) =>
+  ({ seed, word: "LEVEL UP!", caption: `Lv ${level}`, color: "#ffd23f", scale: 1, dx: 0, dy: 0, tilt: -5 - rng(seed)() * 6, spikes: 18 });
+
 // A wrong key: "OOPS!" in a smaller, softer bubble, with the points it cost.
 export const oopsSplash = (seed, penalty) => {
   const r = rng(seed);

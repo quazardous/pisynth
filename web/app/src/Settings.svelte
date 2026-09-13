@@ -3,7 +3,7 @@
   // the player, which keeps playing underneath — change the reverb while pisynth plays a song.
   import Sound from "./Sound.svelte";
   import Latency from "./Latency.svelte";
-  import { prefs, setNotation, setGhost, setArcade } from "./lib/prefs.svelte.js";
+  import { prefs, setNotation, setGhost, setArcade, setFingers } from "./lib/prefs.svelte.js";
   import { noteName } from "./lib/theory.js";
 
   let { panel, onPanel, onClose, onFrame, onMessage, send } = $props();
@@ -60,6 +60,11 @@
       </section>
       <section class="card">
         <h1>Playing along</h1>
+        <label class="choice">
+          <input type="checkbox" checked={prefs.fingers} onchange={e => setFingers(e.target.checked)}>
+          <span>Finger numbers<br><small class="muted">A suggested finger on each note and on the keys: 1 = thumb … 5 = little
+            finger. Worked out from the usual rules; a teacher may choose otherwise.</small></span>
+        </label>
         <label class="choice">
           <input type="checkbox" checked={prefs.ghost} onchange={e => setGhost(e.target.checked)}>
           <span>Ghost keys<br><small class="muted">In "I play", the keyboard shows the perfect timing next to your playing:

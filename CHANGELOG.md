@@ -5,6 +5,14 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
+- **Suggested fingering** — each falling note shows which finger to use (1 = thumb … 5 = little
+  finger), and the keyboard shows the finger on the keys coming up. MIDI files carry no fingering, so
+  the phone works it out when a song loads, with the usual rules (thumb under, no thumb on black keys
+  when avoidable, comfortable spans, chords in order) — the children's songs get the fingering of the
+  method books. Switch it off under the cog → Display.
+- **Find your place before playing** — with a song loaded and stopped, the keyboard shows the fingers
+  of the opening bars, and the keys you tap light up their lane (green on a key the song starts with),
+  so you can put your hands in place, then press Play.
 - **Arcade effects in "I play"** — hits explode into sparks (a shockwave ring on a perfect), misses
   crumble; streaks of good and perfect hits build combos announced on screen with their own sound
   (TRIPLE, SUPER, HYPER … ULTRA COMBO, perfects count double), a HITS counter, a short screen punch

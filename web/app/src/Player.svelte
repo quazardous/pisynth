@@ -13,6 +13,7 @@
   import { planView, FollowView, keyRect, toPct } from "./lib/viewport.js";
   import { Judge } from "./lib/judge.js";
   import { ghostKeys, ghostPulses, sameSet, GHOST_MIN_MS } from "./lib/ghost.js";
+  import { fingering, keyFingers, fingersKey } from "./lib/fingering.js";
   import { ClockSync } from "./lib/clock.js";
   import { DemoSender } from "./lib/demo.js";
   import { countInTimes, scheduleCountdown } from "./lib/click.js";
@@ -33,6 +34,7 @@
   const PAST_MS = 300;             // a note stays drawn this long after it ends
   const FOLLOW_AHEAD_MS = 2000;    // the sliding window looks this far ahead
   const COUNT_IN = 3;               // "3 · 2 · 1 · GO!" (video-game count-in, played by the phone)
+  const START_BEATS = 3;            // stopped: the keyboard shows the fingers of this many beats from the start
   const TRACK_COLORS = ["#5aa0ff", "#4fd18b", "#c38bff", "#ff9f5a"];
   const EMPTY = { events: [], durationMs: 0, name: "" };
 
@@ -64,6 +66,21 @@
   const hands = $derived(noteTracks(notes));
   const plan = $derived(song && stageW ? planView(range.low, range.high, stageW) : null);
   const sounding = $derived([...liveOn].sort((a, b) => a - b));
+  const fingers = $derived(fingering(notes));                // suggested finger per note, worked out once per song (#2431)
+  const handColor = track => TRACK_COLORS[Math.max(0, hands.indexOf(track)) % TRACK_COLORS.length];
+  let keyFing = $state.raw(new Map()), keyFingSig = "";      // fingers shown on the keyboard: {note → {finger, color}}
+
+  // The keyboard shows where each finger goes: the keys due within `aheadMs` (song ms) of `t`.
+  function showFingers(t, aheadMs) {
+    const m = keyFingers(notes, fingers, t, aheadMs, maxLen), sig = fingersKey(m);
+    if (sig === keyFingSig) return;
+    keyFingSig = sig;
+    keyFing = new Map([...m].map(([n, f]) => [n, { finger: f.finger, color: handColor(f.track) }]));
+  }
+  // Stopped: the hand position to start from — the first beats from where Play will start. Tap the keys
+  // to find your place before playing (#2431): they light up in their lane, green where a song note starts.
+  const startAt = $derived(loop?.a ?? (position >= current.durationMs ? 0 : position));
+  $effect(() => { if (!playing) { notes; fingers; startAt; untrack(() => showFingers(startAt, START_BEATS * beatMs())); } });
 
   let judge = $state.raw(new Judge([]));             // (raw: its counters are read, not tracked)
   const clock = new ClockSync();
@@ -275,6 +292,7 @@
       // and its ghost light up together (#2429).
       const g = ghosting ? ghostKeys(notes, ghostTime(now), maxLen, GHOST_MIN_MS * tf()) : new Set();
       if (!sameSet(g, ghost)) ghost = g;
+      if (prefs.fingers) showFingers(t, Math.max(beatMs(), 500));   // the fingers for what is held and due within a beat
     }
 
     if (follow) {
@@ -296,7 +314,7 @@
     const hitY = H - 3 * dpr, pxPerMs = hitY / AHEAD_MS;
     const xOf = r => { const p = toPct(r, v); return [(p.left / 100) * W, (p.width / 100) * W]; };
     const judged = mode === "play";
-    const notation = prefs.notation;
+    const notation = prefs.notation, showFinger = prefs.fingers;
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
 
@@ -312,6 +330,19 @@
       const [x, w] = xOf(r);
       if (r.black) { ctx.fillStyle = "rgba(0,0,0,.28)"; ctx.fillRect(x, 0, w, hitY); }
       else if (n % 12 === 0) { ctx.fillStyle = "rgba(255,255,255,.07)"; ctx.fillRect(x, 0, 1 * dpr, hitY); }
+    }
+
+    if (!playing) {                                             // finding your place: the keys you tap light their lane (#2431)
+      for (const k of liveOn) {
+        const r = keyRect(k);
+        if (r.x + r.w < v.x0 || r.x > v.x0 + v.span) continue;
+        const [x, w] = xOf(r), start = keyFing.has(k);           // green: a key of the starting position
+        const g = ctx.createLinearGradient(0, hitY, 0, hitY * 0.35);
+        g.addColorStop(0, start ? "rgba(79,209,139,.55)" : "rgba(90,160,255,.45)");
+        g.addColorStop(1, "rgba(90,160,255,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(x, hitY * 0.35, w, hitY * 0.65);
+      }
     }
 
     const res = judge.result;
@@ -338,14 +369,27 @@
       ctx.beginPath();
       ctx.roundRect ? ctx.roundRect(x, yBot - h, w, h, 4 * dpr) : ctx.rect(x, yBot - h, w, h);
       ctx.fill();
-      if (w >= 11 * dpr && h >= 13 * dpr) {                    // the note's name at its bottom, if it fits (#2418)
+      const finger = showFinger && w >= 11 * dpr && h >= 17 * dpr ? fingers[n.i]?.finger : 0;
+      let named = false;
+      if (w >= 11 * dpr && h >= (finger ? 36 : 13) * dpr) {    // the note's name at its bottom, if it fits (#2418)
         const label = pitchName(n.note, notation);
         const size = Math.min(12 * dpr, w * 0.46, h - 2 * dpr);
         ctx.font = `700 ${size}px system-ui, sans-serif`;
         if (ctx.measureText(label).width <= w - 2 * dpr) {
           ctx.fillStyle = "rgba(13,13,18,.85)";
           ctx.fillText(label, x + w / 2, yBot - 3 * dpr);
+          named = true;
         }
+      }
+      if (finger) {                                            // the suggested finger, a disc above the name (#2431)
+        const rad = Math.min(8 * dpr, w * 0.42), cy = yBot - (named ? 17 * dpr : 2 * dpr) - rad;
+        ctx.fillStyle = "rgba(13,13,18,.78)";
+        ctx.beginPath(); ctx.arc(x + w / 2, cy, rad, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.font = `800 ${rad * 1.35}px system-ui, sans-serif`;
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(finger), x + w / 2, cy + rad * 0.06);
+        ctx.textBaseline = "bottom";
       }
     }
     ctx.globalAlpha = 1;
@@ -401,7 +445,7 @@
     }
   }
 
-  $effect(() => { stageW; stageH; view; song; prefs.notation; untrack(() => { if (!playing) paint(); }); });   // redraw when idle, resized or renamed
+  $effect(() => { stageW; stageH; view; song; prefs.notation; prefs.fingers; liveOn; keyFing; untrack(() => { if (!playing) paint(); }); });   // redraw when idle, resized, renamed or a key is tapped
   onDestroy(() => { stop(); exitPlayMode(); });
 
   const fmt = ms => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -460,7 +504,8 @@
           <button onclick={() => { finished = false; start(loop?.a ?? 0); }}>Play again</button>
         </section>
       {/if}
-      {#if error}<p class="error">{error}</p>{:else if status}<p class="status-msg">{status}</p>{/if}
+      {#if error}<p class="error">{error}</p>{:else if status}<p class="status-msg">{status}</p>
+      {:else if !playing && !finished && !sheet}<p class="status-msg warmup">Tap your keys to find your place{prefs.fingers ? " — the numbers are your fingers" : ""}, then Play</p>{/if}
     </div>
   {:else}
     <div class="live">
@@ -521,7 +566,7 @@
       </button>
     {/if}
   </div>
-  <Keyboard view={song ? view : null} on={liveOn} demo={guide} {ghost} height={song ? "clamp(64px, 19vh, 170px)" : "clamp(90px, 30vh, 240px)"} minHeight="64px" />
+  <Keyboard view={song ? view : null} on={liveOn} demo={guide} {ghost} fingers={song && prefs.fingers ? keyFing : null} height={song ? "clamp(64px, 19vh, 170px)" : "clamp(90px, 30vh, 240px)"} minHeight="64px" />
 </main>
 
 <style>

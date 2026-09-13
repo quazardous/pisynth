@@ -690,6 +690,20 @@
   .more svg { width: 20px; height: 20px; fill: var(--muted); }
   .more.open svg { fill: var(--accent); }
   .meta { flex: 1; min-width: 0; }
+  /* sideways (#2419): main's blocks join the app grid (app.css) — score and controls in the side column,
+     the notes and the keyboard in the wide one */
+  @media (orientation: landscape) {
+    main { display: contents; }
+    .hud { grid-column: 1; grid-row: 2; flex-wrap: wrap; align-content: flex-start; gap: 8px 10px;
+           padding: 6px 8px 6px max(12px, env(safe-area-inset-left, 0)); background: var(--bar); }
+    .song { margin-left: 0; flex-basis: 100%; white-space: normal; }
+    .area { grid-column: 2; grid-row: 1 / 4; border-left: 1px solid #000; }
+    .player { grid-column: 1; grid-row: 3 / 5; flex-wrap: wrap; align-content: flex-end; gap: 10px;
+              padding: 8px 8px max(10px, env(safe-area-inset-bottom, 0)) max(12px, env(safe-area-inset-left, 0)); }
+    .meta { order: 3; flex-basis: 100%; }
+    .more { margin-left: auto; }
+    main > :global(.keyboard) { grid-column: 2; grid-row: 4; border-left: 1px solid #000; }
+  }
   .bar { position: relative; }
   .loopzone { position: absolute; top: 6px; height: 6px; background: rgba(255,210,63,.35); border-radius: 3px; pointer-events: none; }
   .seek { width: 100%; height: 18px; margin: 0; accent-color: var(--accent); display: block; position: relative; }

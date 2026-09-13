@@ -36,7 +36,19 @@
   .word small { font-size: .55em; }
   /* Both pop in, then sink like a boat: going down right away, listing more and more, fading at the end. */
   .oops { animation: sink 1.1s cubic-bezier(.2,1.8,.4,1) forwards; }
-  .levelup { animation: sink 2.8s cubic-bezier(.2,1.8,.4,1) forwards; }
+  /* LEVEL UP: pops in, breathes three times, then melts away growing */
+  .levelup { animation: breathe 3.4s cubic-bezier(.2,1.8,.4,1) forwards; }
+  @keyframes breathe {
+    0%   { transform: rotate(calc(var(--tilt) - 25deg)) scale(0); opacity: 0; }
+    9%   { transform: rotate(var(--tilt)) scale(calc(var(--s) * 1.15)); opacity: 1; }
+    15%  { transform: rotate(var(--tilt)) scale(var(--s)); animation-timing-function: ease-in-out; }
+    28%  { transform: rotate(var(--tilt)) scale(calc(var(--s) * 1.08)); animation-timing-function: ease-in-out; }
+    41%  { transform: rotate(var(--tilt)) scale(var(--s)); animation-timing-function: ease-in-out; }
+    54%  { transform: rotate(var(--tilt)) scale(calc(var(--s) * 1.08)); animation-timing-function: ease-in-out; }
+    67%  { transform: rotate(var(--tilt)) scale(var(--s)); animation-timing-function: ease-in-out; }
+    80%  { transform: rotate(var(--tilt)) scale(calc(var(--s) * 1.08)); opacity: 1; animation-timing-function: ease-in; }
+    100% { transform: rotate(var(--tilt)) scale(calc(var(--s) * 1.35)); opacity: 0; }
+  }
   .levelup .word { flex-direction: column; gap: 0; line-height: .95; }
   @keyframes sink {
     0%   { transform: rotate(calc(var(--tilt) - 25deg)) scale(0); opacity: 0; }

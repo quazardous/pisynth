@@ -3,6 +3,7 @@
 // Everything but the fetch calls is pure and unit-tested under Node.
 
 import { songNotes, noteRange, noteTracks } from "./highway.js";
+import { parseMidi } from "./midifile.js";
 import { songFeatures, difficulty } from "./difficulty.js";
 
 export const encodePath = p => p.split("/").map(encodeURIComponent).join("/");
@@ -17,6 +18,21 @@ export function childrenOf(entries, dir) {
   const inside = entries.filter(e => parentOf(e.path) === dir);
   const byName = (a, b) => baseName(a.path).localeCompare(baseName(b.path), undefined, { numeric: true, sensitivity: "base" });
   return { folders: inside.filter(e => e.kind === "dir").sort(byName), files: inside.filter(e => e.kind === "file").sort(byName) };
+}
+
+// The song after `path`: the next file in its folder, else the first file of a following folder beside it
+// (the next level: homer → first steps → …). null at the very end.
+export function nextSongEntry(entries, path) {
+  const dir = parentOf(path), { files } = childrenOf(entries, dir);
+  const i = files.findIndex(f => f.path === path);
+  if (i >= 0 && i + 1 < files.length) return files[i + 1];
+  if (i < 0 || !dir) return null;
+  const { folders } = childrenOf(entries, parentOf(dir));
+  for (let k = folders.findIndex(f => f.path === dir) + 1; k < folders.length; k++) {
+    const first = childrenOf(entries, folders[k].path).files[0];
+    if (first) return first;
+  }
+  return null;
 }
 
 // "a/b/c" → [{name:"a", path:"a"}, {name:"b", path:"a/b"}, {name:"c", path:"a/b/c"}]
@@ -63,6 +79,14 @@ export async function listLibrary() {
 
 export async function fetchFile(path) {
   return (await check(await fetch(`/api/midi/${encodePath(path)}`, { credentials: "same-origin" }))).arrayBuffer();
+}
+
+// A library file → {song (parsed, named, with its path), info}, the info remembered in `cache`.
+export async function loadSong(entry, cache = new InfoCache()) {
+  const song = { ...parseMidi(await fetchFile(entry.path)), name: displayName(entry.path), path: entry.path };
+  const info = songInfo(song);
+  cache.set(entry, info);
+  return { song, info };
 }
 
 export async function uploadFile(dir, file) {

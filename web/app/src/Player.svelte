@@ -28,6 +28,7 @@
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
   import Keyboard from "./Keyboard.svelte";
   import Library from "./Library.svelte";
+  import { listLibrary, loadSong, nextSongEntry, displayName } from "./lib/library.js";
   import Comic from "./Comic.svelte";
   import Gauge from "./Gauge.svelte";
 
@@ -100,7 +101,7 @@
 
   $effect(() => {                                   // a new song: fresh judge, back to the start
     const n = notes;
-    untrack(() => { judge = new Judge(n, { tempo: tempo / 100 }); position = 0; loop = null; finished = false; });
+    untrack(() => { judge = new Judge(n, { tempo: tempo / 100, beatMs: beatMs() }); position = 0; loop = null; finished = false; });
   });
   $effect(() => {                                   // song or screen width changed: re-plan the view
     const p = plan, first = notes.slice(0, 8).map(n => n.note);
@@ -264,6 +265,26 @@
     if (judged && origin === 0) {                             // a whole run, from the start: file it
       best = new RecordBook().submit(songKey(song), { score: judge.score, accuracy: judge.accuracy(), maxHits: combo.maxHits, tempo });
     } else best = null;
+    if (judged) findNext();
+  }
+
+  // The results card offers the next song of the library: the next file in the folder, or the next level.
+  let nextUp = $state.raw(null);
+  async function findNext() {
+    nextUp = null;
+    const path = song?.path;
+    if (!path) return;
+    try {
+      const entry = nextSongEntry(await listLibrary(), path);
+      if (song?.path === path) nextUp = entry;
+    } catch { /* pisynth unreachable: no Next */ }
+  }
+  async function playNext() {
+    const entry = nextUp;
+    if (!entry) return;
+    nextUp = null; status = "loading…";
+    try { load((await loadSong(entry)).song); }
+    catch (err) { status = ""; error = `${displayName(entry.path)}: ${err.message}`; }
   }
 
   function seek(e) {
@@ -527,7 +548,10 @@
           {#if prefs.arcade && combo.maxHits >= 2}<p class="best-combo">max combo {combo.maxHits} hits{combo.bestTierName ? ` · ${combo.bestTierName}` : ""}</p>{/if}
           {#if best?.previous}<p class="muted">best {best.record.score} pts{best.record.tempo !== 100 ? ` at ${best.record.tempo} %` : ""} · {best.record.accuracy}% · {best.record.plays} plays</p>{/if}
           <p class="muted">perfect {judge.counts.perfect} · good {judge.counts.good} · early {judge.counts.early} · late {judge.counts.late} · missed {judge.counts.miss} · wrong {judge.counts.wrong}</p>
-          <button onclick={() => { finished = false; start(loop?.a ?? 0); }}>Play again</button>
+          <div class="again">
+            <button onclick={() => { finished = false; start(loop?.a ?? 0); }}>Play again</button>
+            {#if nextUp}<button class="next" onclick={playNext}>Next ›<small>{displayName(nextUp.path)}</small></button>{/if}
+          </div>
         </section>
       {/if}
       {#if error}<p class="error">{error}</p>{:else if status}<p class="status-msg">{status}</p>
@@ -666,6 +690,9 @@
   .results { position: absolute; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); max-height: calc(100% - 12px); overflow: auto; background: rgba(34,34,46,.95); border-radius: 14px; padding: 14px 18px; text-align: center; }
   .results h2 { font-size: clamp(1.6rem, 9vh, 2.6rem); color: var(--yellow); }
   .results button { margin-top: 8px; }
+  .again { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 10px; }
+  .next { background: #2c2c3a; display: inline-flex; flex-direction: column; align-items: center; line-height: 1.15; max-width: 60%; }
+  .next small { font-weight: 500; font-size: .7rem; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .results p { margin-top: 6px; }
   .results .record { margin: 0 0 2px; font-weight: 900; letter-spacing: .06em; color: var(--yellow); text-shadow: 0 0 12px rgba(255,210,63,.7); animation: record-pop .5s cubic-bezier(.2,1.6,.4,1) both; }
   @keyframes record-pop { from { transform: scale(2.2) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }

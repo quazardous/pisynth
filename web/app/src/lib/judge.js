@@ -1,20 +1,36 @@
 // Play-along judge (#2418): matches the keys you press against the song's notes. Pure,
-// unit-tested under Node. Times are song ms; the windows are REAL ms, scaled by the tempo, so
-// "perfect" means the same thing at 50 % and at 150 %.
+// unit-tested under Node. Times are song ms.
+//
+// The timing windows are a share of the beat, so they follow the song's tempo and the tempo slider: a
+// slow song, or the same song at 50 %, gives more time. Each is kept between a floor (a press can't
+// be judged tighter than hands and Wi-Fi allow) and a ceiling (a window never swallows the next note),
+// both in real ms.
 
-export const WINDOWS = { perfect: 50, good: 120, ok: 250 };     // ± real ms
+export const WINDOWS = {                                      // ± share of a beat, bounded in real ms
+  perfect: { beat: 0.1, min: 70, max: 150 },
+  good: { beat: 0.22, min: 140, max: 320 },
+  ok: { beat: 0.45, min: 260, max: 600 },
+};
 export const POINTS = { perfect: 100, good: 70, early: 30, late: 30 };
 export const WRONG_PENALTY = 25;                              // a wrong key costs points (never below 0)
 
 export class Judge {
-  constructor(notes, { tempo = 1, windows = WINDOWS } = {}) {
+  // tempo: 1 = as written · beatMs: song ms per beat (60000 / bpm)
+  constructor(notes, { tempo = 1, beatMs = 500, windows = WINDOWS } = {}) {
     this.notes = notes;                  // songNotes() output, sorted by start
     this.windows = windows;
+    this.beatMs = beatMs;
     this.setTempo(tempo);
     this.reset(0);
   }
 
   setTempo(tempo) { this.tempo = tempo; }
+
+  // ± window in real ms at the current tempo (what the player feels).
+  realWindow(kind) {
+    const w = this.windows[kind];
+    return Math.min(w.max, Math.max(w.min, (w.beat * this.beatMs) / this.tempo));
+  }
 
   // Forget everything from `fromMs` on (start, seek, loop). Notes before it are out of play.
   reset(fromMs = 0) {
@@ -26,7 +42,7 @@ export class Judge {
     this.score = 0; this.streak = 0; this.bestStreak = 0;
   }
 
-  win(kind) { return this.windows[kind] * this.tempo; }
+  win(kind) { return this.realWindow(kind) * this.tempo; }     // in song ms
 
   // A key pressed at song time `t`. Returns {kind, note, index?, delta?, penalty?}.
   press(note, t) {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { encodePath, parentOf, baseName, displayName, folderLabel, childrenOf, crumbs, songInfo, InfoCache } from "../../web/app/src/lib/library.js";
+import { encodePath, parentOf, baseName, displayName, folderLabel, childrenOf, crumbs, songInfo, InfoCache, nextSongEntry } from "../../web/app/src/lib/library.js";
 import { sampleSong } from "../../web/app/src/lib/midifile.js";
 
 const entries = [
@@ -51,4 +51,18 @@ test("info cache: keyed by path + size, persisted, bounded", () => {
   assert.equal(c.get(entries[2]), null);                             // oldest dropped
   assert.deepEqual(c.get(entries[4]), { durationMs: 3 });
   assert.equal(new InfoCache({ getItem: () => "{bad json" }).get(entries[2]), null);
+});
+
+test("next song: the next file in the folder, then the first of the next folder (the next level)", () => {
+  const e = (path, kind = "file") => ({ path, kind });
+  const entries = [e("starter", "dir"), e("starter/0-homer", "dir"), e("starter/1-first-steps", "dir"), e("starter/2-empty", "dir"),
+    e("starter/3-beginner", "dir"), e("starter/0-homer/2-b.mid"), e("starter/0-homer/10-c.mid"), e("starter/0-homer/1-a.mid"),
+    e("starter/1-first-steps/x.mid"), e("starter/3-beginner/y.mid"), e("mine.mid")];
+  assert.equal(nextSongEntry(entries, "starter/0-homer/1-a.mid").path, "starter/0-homer/2-b.mid");
+  assert.equal(nextSongEntry(entries, "starter/0-homer/2-b.mid").path, "starter/0-homer/10-c.mid");      // numeric order
+  assert.equal(nextSongEntry(entries, "starter/0-homer/10-c.mid").path, "starter/1-first-steps/x.mid");  // next level
+  assert.equal(nextSongEntry(entries, "starter/1-first-steps/x.mid").path, "starter/3-beginner/y.mid");  // skips an empty one
+  assert.equal(nextSongEntry(entries, "starter/3-beginner/y.mid"), null);
+  assert.equal(nextSongEntry(entries, "mine.mid"), null);
+  assert.equal(nextSongEntry(entries, "gone.mid"), null);
 });

@@ -2,6 +2,20 @@
 
 All notable changes to pisynth, in plain language. Newest first.
 
+## Unreleased
+
+### Added
+- **Next song** — the results card offers "Next ›": the next song in the folder, or after the last
+  one, the first song of the next folder (homer → first steps → …), read from the library on the Pi.
+- **Replay** — paused halfway, a ↻ button starts the song again from the beginning (from A with a loop).
+
+### Changed
+- **Fairer timing** — the perfect / good / early-late windows are now a share of the beat: a slow song,
+  or a song slowed down with the tempo slider, gives you more time; they are also a little more
+  forgiving overall.
+- **Sideways layout** — with the phone turned sideways, the top bar, score and player controls sit in a
+  side column, and the falling notes and keyboard get the whole height.
+
 ## 0.5.0 — 2026-09-13
 
 The web companion release: your phone becomes a play-along coach.

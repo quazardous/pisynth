@@ -2,11 +2,10 @@
   // MIDI library browser (#2421), shared by Demo and Play: folders on the Pi, tap a file to load
   // it (parsed here on the phone), add files to the folder you're in, make folders, delete what
   // the phone added. Level = folder name (starter/beginner, …).
-  import { parseMidi } from "./lib/midifile.js";
   import { RecordBook } from "./lib/records.js";
   import Gauge from "./Gauge.svelte";
-  import { listLibrary, fetchFile, uploadFile, makeFolder, removeEntry, childrenOf, crumbs, displayName, folderLabel,
-           songInfo, InfoCache } from "./lib/library.js";
+  import { listLibrary, loadSong, uploadFile, makeFolder, removeEntry, childrenOf, crumbs, displayName, folderLabel,
+           InfoCache } from "./lib/library.js";
 
   let { onPick, current = "" } = $props();
 
@@ -43,9 +42,7 @@
   async function pick(entry) {
     busy = "loading…"; error = "";
     try {
-      const song = { ...parseMidi(await fetchFile(entry.path)), name: displayName(entry.path), path: entry.path };
-      const info = songInfo(song);
-      cache.set(entry, info);
+      const { song, info } = await loadSong(entry, cache);
       infos = { ...infos, [entry.path]: info };
       onPick(song, info);
     } catch (err) { error = `${displayName(entry.path)}: ${err.message}`; }

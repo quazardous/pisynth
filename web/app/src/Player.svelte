@@ -26,6 +26,7 @@
   import { prefs } from "./lib/prefs.svelte.js";
   import { RecordBook, songKey } from "./lib/records.js";
   import { EndlessScore } from "./lib/endless.js";
+  import { musicians, currentMusician, storeKey } from "./lib/musician.svelte.js";
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
   import Keyboard from "./Keyboard.svelte";
   import Library from "./Library.svelte";
@@ -33,7 +34,7 @@
   import Comic from "./Comic.svelte";
   import Gauge from "./Gauge.svelte";
 
-  let { onFrame, onMessage, send, mode = "play", onMode = () => {} } = $props();
+  let { onFrame, onMessage, send, mode = "play", onMode = () => {}, onPanel = () => {} } = $props();
 
   const AHEAD_MS = 2600;           // song ms visible above the line: at 50 % tempo the notes fall half as fast
   const PAST_MS = 300;             // a note stays drawn this long after it ends
@@ -76,7 +77,7 @@
   const fingers = $derived(fingering(notes));                // suggested finger per note, worked out once per song (#2431)
   const features = $derived(songFeatures(notes, fingers));
   const songDiff = $derived(difficulty(features));             // how hard the song is (#2436); the tempo weighs on XP
-  const progress = new Progress();                              // XP and level, on this phone
+  let progress = new Progress(undefined, storeKey("pisynth.progress"));   // XP and level of the musician playing
   let lv = $state.raw(progress.level), xpGain = $state.raw(null), levelUp = $state.raw(null), runActive = false;
   const handColor = track => TRACK_COLORS[Math.max(0, hands.indexOf(track)) % TRACK_COLORS.length];
   let keyFing = $state.raw(new Map()), keyFingSig = "";      // fingers shown on the keyboard: {note → {finger, color}}
@@ -117,6 +118,15 @@
     });
   });
   $effect(() => { mode; untrack(() => { if (playing) stop(); finished = false; flash = null; paint(); }); });   // switching keeps the position
+  $effect(() => {                                   // another musician: stop, and their own level, records, infinite bests
+    musicians.current;
+    untrack(() => {
+      if (playing) stop();
+      progress = new Progress(undefined, storeKey("pisynth.progress"));
+      endlessBook = new EndlessScore(undefined, storeKey("pisynth.endless"));
+      lv = progress.level; xpGain = null; best = null; finished = false; endlessShown = 0; laps = 0;
+    });
+  });
 
   const tf = () => tempo / 100;
   const songPos = now => origin + (now - clockStart) * tf();
@@ -148,7 +158,7 @@
   });
 
   // ---- infinite mode: a toggle; the song starts over lap after lap, with its own up-and-down score ----
-  const endlessBook = new EndlessScore();
+  let endlessBook = new EndlessScore(undefined, storeKey("pisynth.endless"));
   let endless = $state(false), endlessShown = $state(0), laps = $state(0), lastJudged = 0;
   function toggleEndless() {
     endless = !endless;
@@ -285,7 +295,7 @@
     position = judged ? current.durationMs : 0;
     finished = judged;
     if (judged && origin === 0) {                             // a whole run, from the start: file it
-      best = new RecordBook().submit(songKey(song), { score: judge.score, accuracy: judge.accuracy(), maxHits: combo.maxHits, tempo });
+      best = new RecordBook(undefined, storeKey("pisynth.records")).submit(songKey(song), { score: judge.score, accuracy: judge.accuracy(), maxHits: combo.maxHits, tempo });
     } else best = null;
     if (judged) findNext();
   }
@@ -550,6 +560,7 @@
       <button class:on={mode === "play"} onclick={() => onMode("play")}>I play</button>
       <button class:on={mode === "listen"} onclick={() => onMode("listen")}>Listen</button>
     </div>
+    <button class="who" onclick={() => onPanel("musicians")} aria-label="musician: {currentMusician().name} — change">{currentMusician().name}</button>
     <span class="lv" title="{lv.into} / {lv.need} XP to the next level">Lv {lv.level}<i style:width="{Math.round((lv.into / lv.need) * 100)}%"></i>
       {#key xpGain?.id}{#if xpGain && !finished}<b class="xp-pop">+{xpGain.xp} XP</b>{/if}{/key}
     </span>
@@ -713,6 +724,9 @@
   @keyframes glitch { 50% { translate: 6px -2px; } }
   .best-combo { color: var(--yellow); font-style: italic; font-weight: 700; }
   .acc { color: var(--muted); font-size: .85rem; }
+  /* the musician playing: tap to change (cog → Musicians) */
+  .who { margin: 0; padding: 3px 9px; border-radius: 999px; background: #2c2c3a; color: var(--fg); font-size: .78rem; font-weight: 700;
+         max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
   /* level (#2436): the number over a thin XP bar; a run's XP floats up from it */
   .lv { position: relative; flex: 0 0 auto; font-weight: 800; font-size: .8rem; color: #c38bff; padding-bottom: 4px; white-space: nowrap; }
   .lv::before, .lv i { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; border-radius: 2px; }

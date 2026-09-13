@@ -1,13 +1,16 @@
 <script>
-  // Settings panel behind the cog (#2419): Sound (#2417), Latency (#659) and About. It opens over
+  // Settings panel behind the cog (#2419): Sound (#2417), Display, Musicians, Latency (#659) and About. It opens over
   // the player, which keeps playing underneath — change the reverb while pisynth plays a song.
   import Sound from "./Sound.svelte";
   import Latency from "./Latency.svelte";
   import { prefs, setNotation, setGhost, setArcade, setFingers } from "./lib/prefs.svelte.js";
   import { noteName } from "./lib/theory.js";
+  import { musicians, selectMusician, renameMusician } from "./lib/musician.svelte.js";
+  import { musicianKey } from "./lib/musicians.js";
+  import { Progress } from "./lib/progress.js";
 
   let { panel, onPanel, onClose, onFrame, onMessage, send } = $props();
-  const TABS = [["sound", "Sound"], ["display", "Display"], ["latency", "Latency"], ["about", "About"]];
+  const TABS = [["sound", "Sound"], ["display", "Display"], ["musicians", "Musicians"], ["latency", "Latency"], ["about", "About"]];
 
   let build = $state("…");
   let confirmUnpair = $state(false);
@@ -76,6 +79,19 @@
             racing score. Turn off for calmer practice.</small></span>
         </label>
       </section>
+    {:else if panel === "musicians"}
+      <section class="card">
+        <h1>Musicians</h1>
+        <p class="muted">Who is playing? Each musician has their own level, XP and records on this phone. Tap a name to
+          rename it.</p>
+        {#each musicians.list as m (m.id)}
+          <div class="musician" class:on={musicians.current === m.id}>
+            <input type="radio" name="musician" checked={musicians.current === m.id} onchange={() => selectMusician(m.id)} aria-label="play as {m.name}">
+            <input class="mname" value={m.name} maxlength="24" onchange={e => { renameMusician(m.id, e.target.value); e.target.value = musicians.list.find(x => x.id === m.id).name; }}>
+            <span class="mlevel">Lv {new Progress(undefined, musicianKey("pisynth.progress", m.id)).level.level}</span>
+          </div>
+        {/each}
+      </section>
     {:else if panel === "latency"}
       <Latency {onFrame} />
     {:else}
@@ -98,13 +114,20 @@
   .back { margin: 0; padding: 8px; background: none; display: grid; place-items: center; }
   .back svg { width: 24px; height: 24px; fill: none; stroke: var(--fg); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   .title { font-weight: 700; }
-  .tabs { display: flex; gap: 4px; padding: 6px 12px; background: var(--bar); border-top: 1px solid #2c2c3a; }
+  .tabs { display: flex; gap: 4px; padding: 6px 12px; background: var(--bar); border-top: 1px solid #2c2c3a; overflow-x: auto; }
+  .tabs button { flex: 0 0 auto; }
   .tabs button { margin: 0; padding: 6px 14px; border-radius: 999px; background: none; color: var(--muted); font-size: .9rem; font-weight: 600; }
   .tabs button.on { background: #2c2c3a; color: var(--fg); }
   .body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
   .danger { background: #a33; }
   .choice { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
   .choice input { width: 22px; height: 22px; flex: 0 0 auto; }
+  .musician { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 6px 8px; border-radius: 10px; }
+  .musician.on { background: rgba(195,139,255,.14); }
+  .musician input[type=radio] { width: 22px; height: 22px; flex: 0 0 auto; }
+  .mname { flex: 1; min-width: 0; font: inherit; font-weight: 600; padding: 8px 10px; border-radius: 8px; border: 1px solid #3a3a48;
+           background: #17171f; color: var(--fg); -webkit-user-select: text; user-select: text; }
+  .mlevel { color: #c38bff; font-weight: 800; font-size: .85rem; }
   .error { color: #ff7a7a; margin-top: 8px; }
   code { font-size: .85em; }
 </style>

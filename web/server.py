@@ -46,7 +46,7 @@ _TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=
 _SECURITY_HEADERS = {"X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
                      "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; "
                                                 "connect-src 'self'; frame-ancestors 'none'"}
-_ROUTES = ("/", "/latency", "/demo", "/sound", "/play", "/listen", "/about", "/display")   # app screens → index.html
+_ROUTES = ("/", "/latency", "/demo", "/sound", "/play", "/listen", "/about", "/display", "/musicians")   # app screens → index.html
 
 
 # ---- static files, loaded once ----

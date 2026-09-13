@@ -3,6 +3,7 @@
   // it (parsed here on the phone), add files to the folder you're in, make folders, delete what
   // the phone added. Level = folder name (starter/beginner, …).
   import { RecordBook } from "./lib/records.js";
+  import { storeKey } from "./lib/musician.svelte.js";
   import Gauge from "./Gauge.svelte";
   import { listLibrary, loadSong, uploadFile, makeFolder, removeEntry, childrenOf, crumbs, displayName, folderLabel,
            InfoCache } from "./lib/library.js";
@@ -19,7 +20,7 @@
   let confirmDelete = $state("");
   let fileInput;
   const cache = new InfoCache();
-  const records = new RecordBook();  // your best per song, on this phone (re-read each time the sheet opens)
+  const records = new RecordBook(undefined, storeKey("pisynth.records"));  // this musician's best per song (re-read each time the sheet opens)
   let infos = $state({});          // path → info, for what's shown
 
   function readDir() { try { return localStorage.getItem(DIR_KEY) || ""; } catch { return ""; } }

@@ -5,6 +5,9 @@ All notable changes to pisynth, in plain language. Newest first.
 ## Unreleased
 
 ### Added
+- **Several musicians** — four on each phone by default (Musician 1 … 4), each with their own level,
+  XP, records and infinite-mode bests. Rename them and choose who plays under the cog → Musicians, or
+  tap the name in the player's header. What the phone had before becomes Musician 1's.
 - **Infinite mode (∞)** — a toggle next to Play: the song starts over by itself, lap after lap (a
   one-beat count-in between laps, the A–B loop if there is one), with a score of its own that climbs
   with the notes you hit and drops with misses and wrong keys. The best it reached is kept per song.

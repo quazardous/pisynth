@@ -81,7 +81,7 @@
     {/if}
   </section>
 {:else}
-  <Player {onFrame} {onMessage} {send} {mode} onMode={m => navigate({ mode: m, panel: null })} />
+  <Player {onFrame} {onMessage} {send} {mode} onMode={m => navigate({ mode: m, panel: null })} onPanel={p => navigate({ panel: p })} />
   {#if panel}
     <Settings {panel} onPanel={p => navigate({ panel: p })} onClose={() => navigate({ panel: null })} {onFrame} {onMessage} {send} />
   {/if}

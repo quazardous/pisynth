@@ -2,8 +2,8 @@
 // the build hash of the built files and their exact precache list are filled in, so every
 // new build is a new service worker: it installs the new files, drops the old cache and the
 // page reloads once. Pairing, session checks and the MIDI WebSocket always go to the network.
-const VERSION = "pisynth-fe62624ba262";
-const PRECACHE = ["/","/assets/bangers-latin-400-normal-DeHY8Ncq.woff2","/assets/index-B3j_UYmi.js","/assets/index-CwA_mRTq.css","/Bangers-OFL.txt","/icon.svg","/manifest.webmanifest"];
+const VERSION = "pisynth-b8d7623d785a";
+const PRECACHE = ["/","/assets/bangers-latin-400-normal-DeHY8Ncq.woff2","/assets/index-CK9UOFfm.js","/assets/index-OIMOlyMq.css","/Bangers-OFL.txt","/icon.svg","/manifest.webmanifest"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting()));

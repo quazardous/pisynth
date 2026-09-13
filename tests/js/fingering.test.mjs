@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
-import { fingerHand, fingering, splitHands, keyFingers, fingersKey, isBlack } from "../../web/app/src/lib/fingering.js";
+import { fingerHand, fingering, splitHands, keyFingers, fingersKey, isBlack, handShifts, upcomingShifts } from "../../web/app/src/lib/fingering.js";
 import { parseMidi } from "../../web/app/src/lib/midifile.js";
 import { songNotes } from "../../web/app/src/lib/highway.js";
 
@@ -78,4 +78,22 @@ test("fingering: every note of the starter library gets a finger, quickly", () =
     const bare = fg.filter(x => !x).length;
     assert.ok(bare <= notes.length * 0.01, `${f}: ${bare} notes without a finger`);            // only chords of 6+ keys in a hand
   }
+});
+
+test("hand moves: where the thumb has to go, shown right after the key before the move", () => {
+  const scale = line("C4 D4 E4 F4 G4 A4 B4 C5");                 // 1 2 3 1 2 3 4 5: one move, up, at F
+  const f = fingering(scale), sh = handShifts(scale, f);
+  assert.deepEqual(sh.map(x => x?.dir ?? 0), [0, 0, 0, 1, 0, 0, 0, 0]);
+  assert.equal(sh[3].after, 800);                                // after E (the key before the move)
+  assert.deepEqual(handShifts(line("C4 D4 E4 F4 G4 F4 E4"), fingering(line("C4 D4 E4 F4 G4 F4 E4"))).filter(Boolean), []);
+  const lh = line("C3 D3 E3 F3 G3 A3 B3 C4"), lf = fingerHand(lh, true);
+  const lfing = lh.map(n => ({ finger: lf.get(n.i), hand: "L" }));
+  assert.deepEqual(handShifts(lh, lfing).map(x => x?.dir ?? 0), [0, 0, 0, 0, 0, 1, 0, 0]);   // 5 4 3 2 1 | 3 2 1
+  const early = upcomingShifts(scale, f, sh, 700, 1600, 500);   // E not struck yet
+  assert.equal(early.arrows.size, 0);
+  const now = upcomingShifts(scale, f, sh, 820, 1600, 500);     // just after E
+  assert.deepEqual([...now.arrows], [[65, 1]]);
+  assert.deepEqual([...now.next.keys()], [65, 67]);               // F and G, the new position
+  assert.equal(now.next.get(65).finger, 1);
+  assert.equal(upcomingShifts(scale, f, sh, 100, 1600, 500).arrows.size, 0);   // D and E still to play first
 });

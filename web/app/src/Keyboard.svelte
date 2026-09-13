@@ -5,7 +5,8 @@
   // on = your keys (blue) · demo = keys to light yellow · ghost = the perfect timing (#2429), drawn
   // as a translucent, outlined key that can overlap yours · fingers = Map note → {finger, color}: the
   // suggested finger, a numbered badge on the key (#2431)
-  let { low = 36, high = 96, view = null, on = new Set(), demo = new Set(), ghost = new Set(), fingers = null, height = "34vh", minHeight = "150px" } = $props();
+  // arrows = Map note → +1 / −1: the hand moves there next (a green arrow, the new position's fingers in green)
+  let { low = 36, high = 96, view = null, on = new Set(), demo = new Set(), ghost = new Set(), fingers = null, arrows = null, height = "34vh", minHeight = "150px" } = $props();
 
   const shown = $derived(view ?? rangeView(low, high));
   const layout = $derived(keysInView(shown).map(k => ({ ...k, ...toPct(k, shown) })));
@@ -15,7 +16,12 @@
   {#each layout as k (k.n)}
     <div class="key" class:black={k.black} class:white={!k.black} class:on={on.has(k.n)} class:demo={demo.has(k.n) && !on.has(k.n)} class:ghost={ghost.has(k.n)}
          style:left="{k.left}%" style:width="{k.width}%">
-      {#if fingers?.has(k.n)}<span class="finger" style:--hand={fingers.get(k.n).color}>{fingers.get(k.n).finger}</span>{/if}
+      {#if arrows?.has(k.n)}
+        <span class="move" class:down={arrows.get(k.n) < 0} aria-label="move the hand {arrows.get(k.n) > 0 ? 'up' : 'down'}">
+          <svg viewBox="0 0 24 24"><path d="M4 10.5h10V6l7 6-7 6v-4.5H4z" /></svg>
+        </span>
+      {/if}
+      {#if fingers?.has(k.n)}<span class="finger" class:next={fingers.get(k.n).next} style:--hand={fingers.get(k.n).color}>{fingers.get(k.n).finger}</span>{/if}
     </div>
   {/each}
 </div>
@@ -39,4 +45,12 @@
             display: grid; place-items: center; font: 800 clamp(10px, 2.6vw, 14px)/1 system-ui, sans-serif; color: #fff;
             background: var(--hand); box-shadow: 0 0 0 2px rgba(0,0,0,.55); pointer-events: none; }
   .black .finger { bottom: 8%; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
+  /* a hand move coming (#2431): the new position's fingers in green, a green arrow pointing the way */
+  .finger.next { background: #4fd18b; color: #0d2a1a; box-shadow: 0 0 0 2px #0d2a1a, 0 0 10px #4fd18b; }
+  .move { position: absolute; left: 50%; bottom: 34%; translate: -50% 0; width: 26px; height: 26px; z-index: 3; pointer-events: none;
+          animation: nudge .5s ease-in-out infinite alternate; }
+  .black .move { bottom: 40%; }
+  .move svg { width: 100%; height: 100%; fill: #4fd18b; filter: drop-shadow(0 0 3px #0d2a1a); }
+  .move.down svg { transform: scaleX(-1); }
+  @keyframes nudge { from { transform: translateX(-3px); } to { transform: translateX(3px); } }
 </style>

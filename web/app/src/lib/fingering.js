@@ -6,6 +6,8 @@
 // Everything is worked out for the right hand; the left hand mirrors the pitches (a left hand going up
 // is a right hand going down), keeping each key's colour.
 
+import { keyX } from "./viewport.js";
+
 const BLACK = new Set([1, 3, 6, 8, 10]);
 export const isBlack = n => BLACK.has(((n % 12) + 12) % 12);
 
@@ -174,6 +176,57 @@ export function keyFingers(notes, fingers, t, aheadMs, maxLen = Infinity) {
     if (f && !out.has(n.note)) out.set(n.note, { ...f, track: n.track });
   }
   return out;
+}
+
+// Where the hand has to move (#2431): a hand's position is where its thumb sits, worked out from each
+// key and its finger (a finger rests about one white key per finger from the thumb; the left hand mirrors).
+// When the next notes need the thumb 1.5 white keys or more away, that's a new position.
+// → by note index: null, or {dir: +1 up / −1 down, after: song ms of the hand's previous strike}.
+export function handShifts(notes, fingers, threshold = 1.5) {
+  const out = new Array(notes.length).fill(null);
+  for (const hand of ["R", "L"]) {
+    let anchor = null, lastStart = null, group = [], groupStart = -Infinity;
+    const flush = () => {
+      if (!group.length) return;
+      const here = group.reduce((s, n) => s + keyX(n.note) + (hand === "R" ? 1 - fingers[n.i].finger : fingers[n.i].finger - 1), 0) / group.length;
+      if (anchor !== null && Math.abs(here - anchor) >= threshold) {
+        for (const n of group) out[n.i] = { dir: Math.sign(here - anchor), after: lastStart };
+      }
+      anchor = here; lastStart = group[0].start; group = [];
+    };
+    for (const n of notes) {                                    // sorted by start
+      if (fingers[n.i]?.hand !== hand) continue;
+      if (n.start - groupStart > 40) { flush(); groupStart = n.start; }
+      group.push(n);
+    }
+    flush();
+  }
+  return out;
+}
+
+// At song time `t`: the moves to show, for each hand its next shift whose previous strike has just been
+// played (so the arrow appears right after that key), and the keys of the new position (its notes over
+// `spanMs`). → {arrows: Map note → dir, next: Map note → {finger, hand, track}}
+export function upcomingShifts(notes, fingers, shifts, t, aheadMs, spanMs) {
+  const arrows = new Map(), next = new Map(), done = new Set();
+  let i = 0, hi = notes.length;
+  while (i < hi) { const mid = (i + hi) >> 1; if (notes[mid].start < t - 150) i = mid + 1; else hi = mid; }
+  for (; i < notes.length && notes[i].start <= t + aheadMs; i++) {
+    const n = notes[i], f = fingers[n.i], s = shifts[n.i];
+    if (!f || done.has(f.hand)) continue;
+    if (!s) {                                                  // this hand plays on in its position first
+      if (n.start > t) done.add(f.hand);
+      continue;
+    }
+    done.add(f.hand);
+    if (s.after > t) continue;                                 // the key before the move isn't struck yet
+    arrows.set(n.note, s.dir);
+    for (let j = i; j < notes.length && notes[j].start <= n.start + spanMs; j++) {
+      const g = fingers[notes[j].i];
+      if (g?.hand === f.hand && !next.has(notes[j].note)) next.set(notes[j].note, { ...g, track: notes[j].track });
+    }
+  }
+  return { arrows, next };
 }
 
 // Stable text for a keyFingers() map, to skip re-rendering when nothing changed.

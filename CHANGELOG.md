@@ -5,6 +5,9 @@ All notable changes to pisynth, in plain language. Newest first.
 ## Unreleased
 
 ### Added
+- **Hand moves shown in green** — when your hand has to move to a new position, right after the key
+  before the move, a green arrow on the keyboard points the way and the new position's fingers light
+  up in green; the falling note where the move starts wears a green arrow and a green finger disc.
 - **Play modes: normal, hybrid (the new default), infinite** — pick one in the `⋯` menu, or tap the mode
   button next to Play to cycle. **Hybrid** plays a song part by part: a part must go by without a wrong
   key or a missed note to unlock the next one ("UNLOCKED!"), otherwise it starts again ("TRY AGAIN").

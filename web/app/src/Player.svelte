@@ -13,7 +13,7 @@
   import { planView, FollowView, keyRect, toPct } from "./lib/viewport.js";
   import { Judge } from "./lib/judge.js";
   import { ghostKeys, ghostPulses, sameSet, GHOST_MIN_MS } from "./lib/ghost.js";
-  import { fingering, keyFingers, fingersKey } from "./lib/fingering.js";
+  import { fingering, keyFingers, fingersKey, handShifts, upcomingShifts } from "./lib/fingering.js";
   import { ClockSync } from "./lib/clock.js";
   import { DemoSender } from "./lib/demo.js";
   import { countInTimes, scheduleCountdown } from "./lib/click.js";
@@ -81,14 +81,22 @@
   let progress = new Progress(undefined, storeKey("pisynth.progress"));   // XP and level of the musician playing
   let lv = $state.raw(progress.level), xpGain = $state.raw(null), levelUp = $state.raw(null), runActive = false;
   const handColor = track => TRACK_COLORS[Math.max(0, hands.indexOf(track)) % TRACK_COLORS.length];
-  let keyFing = $state.raw(new Map()), keyFingSig = "";      // fingers shown on the keyboard: {note → {finger, color}}
+  const shifts = $derived(handShifts(notes, fingers));         // where a hand has to move to a new position
+  let keyFing = $state.raw(new Map()), keyFingSig = "";      // fingers shown on the keyboard: {note → {finger, color, next}}
+  let keyArrows = $state.raw(new Map());                     // hand moves on the keyboard: note → +1 up / −1 down
 
-  // The keyboard shows where each finger goes: the keys due within `aheadMs` (song ms) of `t`.
-  function showFingers(t, aheadMs) {
-    const m = keyFingers(notes, fingers, t, aheadMs, maxLen), sig = fingersKey(m);
+  // The keyboard shows where each finger goes: the keys due within `aheadMs` (song ms) of `t`. Playing, a hand
+  // about to move gets a green arrow and its next position's fingers in green, right after the key before the move.
+  function showFingers(t, aheadMs, moves = false) {
+    const m = keyFingers(notes, fingers, t, aheadMs, maxLen);
+    const up = moves ? upcomingShifts(notes, fingers, shifts, t, 3 * beatMs(), beatMs()) : { arrows: new Map(), next: new Map() };
+    const sig = `${fingersKey(m)}|${fingersKey(up.next)}|${[...up.arrows].join(",")}`;
     if (sig === keyFingSig) return;
     keyFingSig = sig;
-    keyFing = new Map([...m].map(([n, f]) => [n, { finger: f.finger, color: handColor(f.track) }]));
+    const shown = new Map([...m].map(([n, f]) => [n, { finger: f.finger, color: handColor(f.track), next: false }]));
+    for (const [n, f] of up.next) shown.set(n, { finger: f.finger, color: handColor(f.track), next: true });
+    keyFing = shown;
+    keyArrows = up.arrows;
   }
   // Stopped: the hand position to start from — the first beats from where Play will start. Tap the keys
   // to find your place before playing (#2431): they light up in their lane, green where a song note starts.
@@ -430,7 +438,7 @@
       // and its ghost light up together (#2429).
       const g = ghosting ? ghostKeys(notes, ghostTime(now), maxLen, GHOST_MIN_MS * tf()) : new Set();
       if (!sameSet(g, ghost)) ghost = g;
-      if (prefs.fingers) showFingers(t, Math.max(beatMs(), 500));   // the fingers for what is held and due within a beat
+      if (prefs.fingers) showFingers(t, Math.max(beatMs(), 500), true);   // the fingers for what is held and due within a beat, and moves
     }
 
     if (follow) {
@@ -532,9 +540,14 @@
           named = true;
         }
       }
+      if (showFinger && shifts[n.i] && w >= 9 * dpr && h >= 12 * dpr) {   // a hand move starts here: a green arrow over the note
+        const dir = shifts[n.i].dir, cx = x + w / 2, ay = yBot - h - 7 * dpr, s = Math.min(7 * dpr, w * 0.45);
+        ctx.fillStyle = "#4fd18b";
+        ctx.beginPath(); ctx.moveTo(cx + dir * s, ay); ctx.lineTo(cx - dir * s * 0.6, ay - s * 0.8); ctx.lineTo(cx - dir * s * 0.6, ay + s * 0.8); ctx.fill();
+      }
       if (finger) {                                            // the suggested finger, a disc above the name (#2431)
         const rad = Math.min(8 * dpr, w * 0.42), cy = yBot - (named ? 17 * dpr : 2 * dpr) - rad;
-        ctx.fillStyle = "rgba(13,13,18,.78)";
+        ctx.fillStyle = shifts[n.i] ? "#1f8a52" : "rgba(13,13,18,.78)";   // (green: the first finger of a new position)
         ctx.beginPath(); ctx.arc(x + w / 2, cy, rad, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#fff";
         ctx.font = `800 ${rad * 1.35}px system-ui, sans-serif`;
@@ -757,7 +770,7 @@
       </button>
     {/if}
   </div>
-  <Keyboard view={song ? view : null} on={liveOn} demo={guide} {ghost} fingers={song && prefs.fingers ? keyFing : null} height={song ? "clamp(64px, 19vh, 170px)" : "clamp(90px, 30vh, 240px)"} minHeight="64px" />
+  <Keyboard view={song ? view : null} on={liveOn} demo={guide} {ghost} fingers={song && prefs.fingers ? keyFing : null} arrows={song && prefs.fingers && playing ? keyArrows : null} height={song ? "clamp(64px, 19vh, 170px)" : "clamp(90px, 30vh, 240px)"} minHeight="64px" />
 </main>
 
 <style>

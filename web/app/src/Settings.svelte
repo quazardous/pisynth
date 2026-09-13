@@ -89,8 +89,8 @@
     {:else if panel === "musicians"}
       <section class="card">
         <h1>Musicians</h1>
-        <p class="muted">Who is playing? Each musician has their own level, XP and records on this phone. Tap a name to
-          rename it.</p>
+        <p class="muted">Each musician has their own level, XP, records and help options on this phone. Tap a name to rename
+          it; choose who plays here or with the menu at the top.</p>
         {#each musicians.list as m (m.id)}
           <div class="musician" class:on={musicians.current === m.id}>
             <input type="radio" name="musician" checked={musicians.current === m.id} onchange={() => selectMusician(m.id)} aria-label="play as {m.name}">

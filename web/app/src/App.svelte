@@ -7,7 +7,7 @@
   import { parseRoute, routePath } from "./lib/routes.js";
   import Player from "./Player.svelte";
   import Settings from "./Settings.svelte";
-  import { currentMusician } from "./lib/musician.svelte.js";
+  import { musicians, selectMusician } from "./lib/musician.svelte.js";
 
   const initial = parseRoute(location.pathname);
   let mode = $state(initial.mode ?? "play");
@@ -59,9 +59,12 @@
 
 <header>
   {#if pairing === "paired"}
-    <button class="who" onclick={() => navigate({ panel: panel === "musicians" ? null : "musicians" })} aria-label="musician: {currentMusician().name} — change">
-      <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5z" /></svg>{currentMusician().name}
-    </button>
+    <label class="who">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5z" /></svg>
+      <select value={musicians.current} onchange={e => selectMusician(e.target.value)} aria-label="who is playing">
+        {#each musicians.list as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
+      </select>
+    </label>
   {:else}
     <span class="title">pisynth</span>
   {/if}
@@ -95,10 +98,12 @@
 {/if}
 
 <style>
-  /* the musician playing, in place of the title: tap to choose or rename (cog → Musicians) */
-  .who { margin: 0; padding: 5px 12px 5px 8px; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; background: #2c2c3a;
-         color: var(--fg); font-weight: 700; min-width: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* the musician playing, in place of the title: a dropdown to choose (names are edited under the cog → Musicians) */
+  .who { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px 0 8px; border-radius: 999px; background: #2c2c3a; min-width: 0; max-width: 60%; }
   .who svg { width: 18px; height: 18px; fill: #c38bff; flex: 0 0 auto; }
+  .who select { min-width: 0; max-width: 100%; font: inherit; font-weight: 700; color: var(--fg); background: transparent; border: 0;
+                padding: 6px 4px; text-overflow: ellipsis; }
+  .who option { color: #121218; }
   .cog { margin: 0 0 0 4px; padding: 6px; background: none; display: grid; place-items: center; border-radius: 50%; }
   .cog svg { width: 24px; height: 24px; fill: var(--muted); }
   .cog:active svg { fill: var(--fg); }

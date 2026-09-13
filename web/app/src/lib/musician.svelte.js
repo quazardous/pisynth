@@ -1,7 +1,7 @@
 // The musician playing on this phone, shared by every screen (see lib/musicians.js). Choose and rename
 // under the cog → Musicians, or tap the name in the player's header.
 
-import { loadMusicians, saveMusicians, musicianKey, cleanName } from "./musicians.js";
+import { loadMusicians, saveMusicians, musicianKey, cleanName, cleanColor, COLORS } from "./musicians.js";
 
 const loaded = loadMusicians();
 export const musicians = $state({ list: loaded.list, current: loaded.current });
@@ -20,6 +20,14 @@ export function selectMusician(id) {
   musicians.current = id;
   saveMusicians(musicians);
   listeners.forEach(fn => fn(id));
+}
+
+// The next colour of the palette for this musician (tap the colour dot under the cog → Musicians).
+export function recolorMusician(id) {
+  const m = musicians.list.find(x => x.id === id);
+  if (!m) return;
+  m.color = cleanColor(COLORS[(COLORS.indexOf(m.color) + 1) % COLORS.length], COLORS[0]);
+  saveMusicians(musicians);
 }
 
 export function renameMusician(id, name) {

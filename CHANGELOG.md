@@ -17,7 +17,8 @@ All notable changes to pisynth, in plain language. Newest first.
   the header shows your progress, and each musician's cleared parts are remembered.
 - **Whole children's songs** — the homer and first steps songs are now complete (all the phrases of
   Au clair de la lune, the whole Ode to Joy theme and Jingle Bells chorus…), each cut into its parts.
-- **The musician in the top bar** — a dropdown with who is playing replaces the pisynth title.
+- **The musician in the top bar** — a dropdown with who is playing replaces the pisynth title, in that
+  musician's colour (each has one; tap its dot under the cog → Musicians to change it).
 - **Several musicians** — four on each phone by default (Musician 1 … 4), each with their own level,
   XP, records, infinite-mode bests, cleared parts and help options. Pick who plays from the top bar;
   rename them under the cog → Musicians. What the phone had before becomes Musician 1's.

@@ -12,6 +12,7 @@ test("musicians: four by default, the first selected, what the phone had becomes
   const store = memory({ "pisynth.progress": '{"xp":375}', "pisynth.records": '{"a.mid":{"score":9}}' });
   const s = loadMusicians(store);
   assert.deepEqual(s.list.map(m => m.name), ["Musician 1", "Musician 2", "Musician 3", "Musician 4"]);
+  assert.equal(new Set(s.list.map(m => m.color)).size, 4);          // a colour each
   assert.equal(s.current, "m1");
   assert.equal(store.getItem("pisynth.progress.m1"), '{"xp":375}');
   assert.equal(store.getItem("pisynth.records.m1"), '{"a.mid":{"score":9}}');
@@ -23,10 +24,12 @@ test("musicians: four by default, the first selected, what the phone had becomes
 test("musicians: names and choice are kept, cleaned, and a broken save falls back to the defaults", () => {
   const store = memory();
   const s = loadMusicians(store);
-  s.list[1].name = "Léa"; s.current = "m2";
+  s.list[1].name = "Léa"; s.list[1].color = "#ffd23f"; s.list[2].color = "not-a-colour"; s.current = "m2";
   saveMusicians(s, store);
   const again = loadMusicians(store);
   assert.equal(again.list[1].name, "Léa");
+  assert.equal(again.list[1].color, "#ffd23f");
+  assert.equal(again.list[2].color, "#ff9f5a");                    // an unknown colour → Musician 3's default
   assert.equal(again.current, "m2");
   assert.equal(cleanName("   ", "Musician 3"), "Musician 3");
   assert.equal(cleanName("  David   B ", "x"), "David B");

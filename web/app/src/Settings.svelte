@@ -6,7 +6,7 @@
   import { prefs, setNotation, setArcade } from "./lib/prefs.svelte.js";
   import { aids, setAid } from "./lib/aids.svelte.js";
   import { noteName } from "./lib/theory.js";
-  import { musicians, selectMusician, renameMusician, currentMusician } from "./lib/musician.svelte.js";
+  import { musicians, selectMusician, renameMusician, recolorMusician, currentMusician } from "./lib/musician.svelte.js";
   import { musicianKey } from "./lib/musicians.js";
   import { Progress } from "./lib/progress.js";
 
@@ -90,10 +90,11 @@
       <section class="card">
         <h1>Musicians</h1>
         <p class="muted">Each musician has their own level, XP, records and help options on this phone. Tap a name to rename
-          it; choose who plays here or with the menu at the top.</p>
+          it, the dot to change its colour; choose who plays here or with the menu at the top.</p>
         {#each musicians.list as m (m.id)}
           <div class="musician" class:on={musicians.current === m.id}>
             <input type="radio" name="musician" checked={musicians.current === m.id} onchange={() => selectMusician(m.id)} aria-label="play as {m.name}">
+            <button class="mcolor" style:background={m.color} onclick={() => recolorMusician(m.id)} aria-label="{m.name}'s colour — tap for the next one"></button>
             <input class="mname" value={m.name} maxlength="24" onchange={e => { renameMusician(m.id, e.target.value); e.target.value = musicians.list.find(x => x.id === m.id).name; }}>
             <span class="mlevel">Lv {new Progress(undefined, musicianKey("pisynth.progress", m.id)).level.level}</span>
           </div>
@@ -131,6 +132,7 @@
   .choice input { width: 22px; height: 22px; flex: 0 0 auto; }
   .musician { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 6px 8px; border-radius: 10px; }
   .musician.on { background: rgba(195,139,255,.14); }
+  .mcolor { margin: 0; padding: 0; width: 26px; height: 26px; flex: 0 0 auto; border-radius: 50%; box-shadow: 0 0 0 2px #121218, 0 0 0 3px #3a3a48; }
   .musician input[type=radio] { width: 22px; height: 22px; flex: 0 0 auto; }
   .mname { flex: 1; min-width: 0; font: inherit; font-weight: 600; padding: 8px 10px; border-radius: 8px; border: 1px solid #3a3a48;
            background: #17171f; color: var(--fg); -webkit-user-select: text; user-select: text; }

@@ -5,6 +5,10 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
+- **"First steps" level, below beginner** — seven very easy tunes in the MIDI library (Au clair de
+  la lune, Frère Jacques, Ode to Joy, Mary had a little lamb, Twinkle twinkle, Jingle Bells and a
+  five-finger exercise): the melody in the right hand around C–G, one left-hand note per bar, slow.
+  The levels now list in order: first steps, beginner, intermediate, advanced.
 - **Note names on the falling notes, in English or French** — each note shows its name (C D E… or
   Do Ré Mi…), and so do the live chord and note readouts. Choose under the cog → Display (a French
   phone starts in French; middle C is Do3 in French notation).

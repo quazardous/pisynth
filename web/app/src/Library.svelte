@@ -3,7 +3,7 @@
   // it (parsed here on the phone), add files to the folder you're in, make folders, delete what
   // the phone added. Level = folder name (starter/beginner, …).
   import { parseMidi } from "./lib/midifile.js";
-  import { listLibrary, fetchFile, uploadFile, makeFolder, removeEntry, childrenOf, crumbs, displayName,
+  import { listLibrary, fetchFile, uploadFile, makeFolder, removeEntry, childrenOf, crumbs, displayName, folderLabel,
            songInfo, InfoCache } from "./lib/library.js";
 
   let { onPick, current = "" } = $props();
@@ -86,7 +86,7 @@
   <nav class="crumbs">
     <button class="crumb" class:here={!dir} onclick={() => setDir("")}>Library</button>
     {#each crumbs(dir) as c (c.path)}
-      <span class="sep">›</span><button class="crumb" class:here={c.path === dir} onclick={() => setDir(c.path)}>{c.name}</button>
+      <span class="sep">›</span><button class="crumb" class:here={c.path === dir} onclick={() => setDir(c.path)}>{folderLabel(c.name)}</button>
     {/each}
   </nav>
 
@@ -95,7 +95,7 @@
       <li>
         <button class="row" onclick={() => setDir(f.path)}>
           <svg viewBox="0 0 24 24" class="icon"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h5l2 2h8A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" /></svg>
-          <span class="name">{f.path.slice(f.path.lastIndexOf("/") + 1)}</span>
+          <span class="name">{folderLabel(f.path)}</span>
         </button>
         {#if f.deletable}<button class="del" class:armed={confirmDelete === f.path} onclick={() => remove(f)} aria-label="delete folder">{confirmDelete === f.path ? "delete?" : "×"}</button>{/if}
       </li>

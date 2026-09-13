@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { encodePath, parentOf, baseName, displayName, childrenOf, crumbs, songInfo, InfoCache } from "../../web/app/src/lib/library.js";
+import { encodePath, parentOf, baseName, displayName, folderLabel, childrenOf, crumbs, songInfo, InfoCache } from "../../web/app/src/lib/library.js";
 import { sampleSong } from "../../web/app/src/lib/midifile.js";
 
 const entries = [
@@ -18,6 +18,10 @@ test("paths: encode each segment, parent, base and display names", () => {
   assert.equal(parentOf("c.mid"), "");
   assert.equal(baseName("a/b/c.mid"), "c.mid");
   assert.equal(displayName("starter/beginner/Bach-Minuet_in_G.MIDI"), "Bach Minuet in G");
+  assert.equal(folderLabel("starter/1-first-steps"), "first steps");
+  assert.equal(folderLabel("2-beginner"), "beginner");
+  assert.equal(folderLabel("Mes morceaux"), "Mes morceaux");
+  assert.equal(folderLabel("2024"), "2024");
 });
 
 test("children: folders first, natural name order, one level only", () => {

@@ -1,6 +1,6 @@
-// "Play mode" for the phone (#2418 / #2419): fullscreen, portrait lock, screen kept awake.
-// Every piece is optional — iOS Safari has no orientation lock, desktops don't need fullscreen —
-// so each call is feature-checked and never throws.
+// "Play mode" for the phone (#2418 / #2419): fullscreen and the screen kept awake. No orientation
+// lock: the player works in portrait and in landscape, the phone turns freely. Every piece is
+// optional — desktops don't need fullscreen — so each call is feature-checked and never throws.
 
 let wakeLock = null, wantAwake = false, enteredFullscreen = false;
 
@@ -38,13 +38,11 @@ export async function enterPlayMode({ fullscreen = isTouch() } = {}) {
       await el.requestFullscreen({ navigationUI: "hide" });
       enteredFullscreen = true;
     }
-    await screen.orientation?.lock?.("portrait");
-  } catch { /* not allowed here: the layout adapts anyway */ }
+  } catch { /* not allowed here: fine, the page still works */ }
 }
 
 export async function exitPlayMode() {
   await releaseAwake();
-  try { screen.orientation?.unlock?.(); } catch { /* nothing locked */ }
   try { if (enteredFullscreen && document.fullscreenElement) await document.exitFullscreen(); } catch { /* left already */ }
   enteredFullscreen = false;
 }

@@ -83,21 +83,25 @@
   let lv = $state.raw(progress.level), xpGain = $state.raw(null), levelUp = $state.raw(null), runActive = false;
   const handColor = track => TRACK_COLORS[Math.max(0, hands.indexOf(track)) % TRACK_COLORS.length];
   const shifts = $derived(handShifts(notes, fingers));         // where a hand has to move to a new position
-  let keyFing = $state.raw(new Map()), keyFingSig = "";      // fingers shown on the keyboard: {note → {finger, color, next}}
-  let keyArrows = $state.raw(new Map());                     // hand moves on the keyboard: note → +1 up / −1 down
+  let keyFing = $state.raw(new Map()), keyFingSig = "";      // fingers shown on the keyboard: {note → {finger, color, move}}
+  let keyMoves = $state.raw([]);                             // hand moves on the keyboard: [{from: [notes], to: [notes], dir}]
 
   // The keyboard shows where each finger goes: the keys due within `aheadMs` (song ms) of `t`. Playing, a hand
-  // about to move gets a green arrow and its next position's fingers in green, right after the key before the move.
-  function showFingers(t, aheadMs, moves = false) {
+  // about to move shows both, right after the key before the move: where it is (blue) and where it goes (green),
+  // with an arrow from one to the other.
+  function showFingers(t, aheadMs, withMoves = false) {
     const m = keyFingers(notes, fingers, t, aheadMs, maxLen);
-    const up = moves ? upcomingShifts(notes, fingers, shifts, t, 3 * beatMs(), beatMs()) : { arrows: new Map(), next: new Map() };
-    const sig = `${fingersKey(m)}|${fingersKey(up.next)}|${[...up.arrows].join(",")}`;
+    const moves = withMoves ? upcomingShifts(notes, fingers, shifts, t, 3 * beatMs(), beatMs()) : [];
+    const sig = `${fingersKey(m)}|${moves.map(mv => `${fingersKey(mv.from)}>${fingersKey(mv.to)}`).join(";")}`;
     if (sig === keyFingSig) return;
     keyFingSig = sig;
-    const shown = new Map([...m].map(([n, f]) => [n, { finger: f.finger, color: handColor(f.track), next: false }]));
-    for (const [n, f] of up.next) shown.set(n, { finger: f.finger, color: handColor(f.track), next: true });
+    const shown = new Map([...m].map(([n, f]) => [n, { finger: f.finger, color: handColor(f.track), move: "" }]));
+    for (const mv of moves) {
+      for (const [n, f] of mv.from) shown.set(n, { finger: f.finger, color: "#5aa0ff", move: "from" });
+      for (const [n, f] of mv.to) shown.set(n, { finger: f.finger, color: "#4fd18b", move: "to" });
+    }
     keyFing = shown;
-    keyArrows = up.arrows;
+    keyMoves = moves.map(mv => ({ from: [...mv.from.keys()], to: [...mv.to.keys()], dir: mv.dir }));
   }
   // Stopped: the hand position to start from — the first beats from where Play will start. Tap the keys
   // to find your place before playing (#2431): they light up in their lane, green where a song note starts.
@@ -778,7 +782,7 @@
       </button>
     {/if}
   </div>
-  <Keyboard view={song ? view : null} on={liveOn} demo={guide} {ghost} fingers={song && aids.fingers ? keyFing : null} arrows={song && aids.moves && playing ? keyArrows : null} height={song ? "clamp(64px, 19vh, 170px)" : "clamp(90px, 30vh, 240px)"} minHeight="64px" />
+  <Keyboard view={song ? view : null} on={liveOn} demo={guide} {ghost} fingers={song && aids.fingers ? keyFing : null} moves={song && aids.moves && playing ? keyMoves : null} height={song ? "clamp(64px, 19vh, 170px)" : "clamp(90px, 30vh, 240px)"} minHeight="64px" />
 </main>
 
 <style>

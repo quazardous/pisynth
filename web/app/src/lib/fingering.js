@@ -204,11 +204,12 @@ export function handShifts(notes, fingers, threshold = 1.5) {
   return out;
 }
 
-// At song time `t`: the moves to show, for each hand its next shift whose previous strike has just been
-// played (so the arrow appears right after that key), and the keys of the new position (its notes over
-// `spanMs`). → {arrows: Map note → dir, next: Map note → {finger, hand, track}}
+// At song time `t`: the moves to show — for each hand, its next move whose previous key has just been struck
+// (so it appears right after that key). A move = where the hand is (`from`: its keys over the last `spanMs`
+// before the move) and where it goes (`to`: its keys over the `spanMs` from the move), both with fingers.
+// → [{hand, dir, from: Map note → {finger, hand, track}, to: Map note → …}]
 export function upcomingShifts(notes, fingers, shifts, t, aheadMs, spanMs) {
-  const arrows = new Map(), next = new Map(), done = new Set();
+  const moves = [], done = new Set();
   let i = 0, hi = notes.length;
   while (i < hi) { const mid = (i + hi) >> 1; if (notes[mid].start < t - 150) i = mid + 1; else hi = mid; }
   for (; i < notes.length && notes[i].start <= t + aheadMs; i++) {
@@ -220,13 +221,21 @@ export function upcomingShifts(notes, fingers, shifts, t, aheadMs, spanMs) {
     }
     done.add(f.hand);
     if (s.after > t) continue;                                 // the key before the move isn't struck yet
-    arrows.set(n.note, s.dir);
-    for (let j = i; j < notes.length && notes[j].start <= n.start + spanMs; j++) {
-      const g = fingers[notes[j].i];
-      if (g?.hand === f.hand && !next.has(notes[j].note)) next.set(notes[j].note, { ...g, track: notes[j].track });
-    }
+    const pick = (lo, hi2) => {
+      const out = new Map();
+      for (const m of notes) {
+        if (m.start > hi2) break;
+        const g = fingers[m.i];
+        if (m.start >= lo && g?.hand === f.hand && !out.has(m.note)) out.set(m.note, { ...g, track: m.track });
+      }
+      return out;
+    };
+    const to = pick(n.start, n.start + spanMs);
+    const from = pick(s.after - spanMs, n.start - 1);
+    for (const k of to.keys()) from.delete(k);                 // a key in both: it's where the hand goes
+    moves.push({ hand: f.hand, dir: s.dir, from, to });
   }
-  return { arrows, next };
+  return moves;
 }
 
 // Stable text for a keyFingers() map, to skip re-rendering when nothing changed.

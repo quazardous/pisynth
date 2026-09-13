@@ -89,11 +89,11 @@ test("hand moves: where the thumb has to go, shown right after the key before th
   const lh = line("C3 D3 E3 F3 G3 A3 B3 C4"), lf = fingerHand(lh, true);
   const lfing = lh.map(n => ({ finger: lf.get(n.i), hand: "L" }));
   assert.deepEqual(handShifts(lh, lfing).map(x => x?.dir ?? 0), [0, 0, 0, 0, 0, 1, 0, 0]);   // 5 4 3 2 1 | 3 2 1
-  const early = upcomingShifts(scale, f, sh, 700, 1600, 500);   // E not struck yet
-  assert.equal(early.arrows.size, 0);
-  const now = upcomingShifts(scale, f, sh, 820, 1600, 500);     // just after E
-  assert.deepEqual([...now.arrows], [[65, 1]]);
-  assert.deepEqual([...now.next.keys()], [65, 67]);               // F and G, the new position
-  assert.equal(now.next.get(65).finger, 1);
-  assert.equal(upcomingShifts(scale, f, sh, 100, 1600, 500).arrows.size, 0);   // D and E still to play first
+  assert.deepEqual(upcomingShifts(scale, f, sh, 700, 1600, 500), []);   // E not struck yet
+  const [move] = upcomingShifts(scale, f, sh, 820, 1600, 500);             // just after E
+  assert.equal(move.dir, 1);
+  assert.deepEqual([...move.from.keys()], [62, 64]);              // where the hand is: D and E (the last half second)
+  assert.deepEqual([...move.to.keys()], [65, 67]);                // where it goes: F and G
+  assert.equal(move.to.get(65).finger, 1);
+  assert.deepEqual(upcomingShifts(scale, f, sh, 100, 1600, 500), []);     // D and E still to play first
 });

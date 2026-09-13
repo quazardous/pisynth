@@ -5,9 +5,10 @@ All notable changes to pisynth, in plain language. Newest first.
 ## Unreleased
 
 ### Added
-- **Hand moves shown in green** — when your hand has to move to a new position, right after the key
-  before the move, a green arrow on the keyboard points the way and the new position's fingers light
-  up in green; the falling note where the move starts wears a green arrow and a green finger disc.
+- **Hand moves shown on the keyboard** — when your hand has to move to a new position, right after the
+  key before the move, the keyboard shows both at once: where the hand is (fingers in blue) and where it
+  goes (fingers in green), with a green arrow from one to the other. The falling note where the move
+  starts wears a green arrow and a green finger disc.
 - **Help options per musician** — finger numbers, hand moves, ghost keys and shaking notes can each be
   switched on or off under the cog → Display ("Help for …"), and each musician keeps their own choice.
 - **Play modes: normal, hybrid (the new default), infinite** — pick one in the `⋯` menu, or tap the mode

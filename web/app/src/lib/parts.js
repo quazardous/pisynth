@@ -8,7 +8,8 @@ const LONG_SONG_MS = 90_000;
 // A marker's text → the part's name: "Part 2 · Mon ami Pierrot" → "Mon ami Pierrot".
 export const partName = text => String(text || "").replace(/^\s*part\s*\d+\s*[·:.\-–—]?\s*/i, "").trim();
 
-// song (parseMidi: markers, bpm, durationMs) + its notes → [{a, b, name, notes}] in song ms, back to back.
+// song (parseMidi: markers, bpm, durationMs) + its notes (sorted by start) → [{a, b, name, label, notes, first, last}]
+// in song ms, back to back; first/last = the part's note indices.
 export function songParts(song, notes, { beatsPerBar = 4 } = {}) {
   const end = song.durationMs || 0;
   if (!notes.length || end <= 0) return [];
@@ -30,7 +31,24 @@ export function songParts(song, notes, { beatsPerBar = 4 } = {}) {
     out.push({ a: s.a, b, name: s.name, notes: count });
   });
   if (out.length) out[0].a = Math.min(out[0].a, notes[0].start);   // notes before the first marker belong to part 1
-  return out.map((p, i) => ({ ...p, label: p.name || `Part ${i + 1}` }));
+  return out.map((p, i) => {
+    const first = notes.findIndex(n => n.start >= p.a && n.start < p.b);
+    return { ...p, label: p.name || `Part ${i + 1}`, first, last: first + p.notes - 1 };
+  });
+}
+
+// Where a part stands, from the judge's per-note results: how many strikes are left (a chord is one),
+// whether every note is judged, and whether one was missed.
+export function partState(notes, result, part, chordMs = 40) {
+  let remaining = 0, missed = false, done = true, lastStart = -Infinity;
+  for (let i = part.first; i <= part.last && i >= 0; i++) {
+    const r = result[i];
+    if (r === "miss") missed = true;
+    if (r) continue;
+    done = false;
+    if (notes[i].start - lastStart > chordMs) { remaining++; lastStart = notes[i].start; }
+  }
+  return { remaining, missed, done };
 }
 
 // The part holding song time `t` (the last one past the end).

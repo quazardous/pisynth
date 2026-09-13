@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseMidi } from "../../web/app/src/lib/midifile.js";
 import { songNotes } from "../../web/app/src/lib/highway.js";
-import { songParts, partAt, partName, PartBook } from "../../web/app/src/lib/parts.js";
+import { songParts, partAt, partName, partState, PartBook } from "../../web/app/src/lib/parts.js";
 
 const load = f => {
   const b = readFileSync(new URL(`../../library/midi/${f}`, import.meta.url));
@@ -20,6 +20,9 @@ test("parts: the starter songs' markers, named, back to back, covering every not
   for (let i = 1; i < parts.length; i++) assert.equal(parts[i].a, parts[i - 1].b);
   assert.equal(parts.at(-1).b, song.durationMs);
   assert.equal(parts.reduce((s, p) => s + p.notes, 0), notes.length);
+  assert.equal(parts[0].first, 0);
+  assert.equal(parts[1].first, parts[0].last + 1);
+  assert.equal(parts.at(-1).last, notes.length - 1);
   assert.equal(partAt(parts, parts[2].a + 10), 2);
   assert.equal(partAt(parts, -5), 0);
   assert.equal(partName("Part 3 · Ding, dang, dong"), "Ding, dang, dong");
@@ -49,4 +52,13 @@ test("cleared parts are remembered per song and can be forgotten", () => {
   assert.equal(new PartBook(store, "k").cleared("a.mid"), 2);
   book.forget("a.mid");
   assert.equal(new PartBook(store, "k").cleared("a.mid"), 0);
+});
+
+test("a part's state: strikes left (a chord counts once), done when all judged, missed if one was", () => {
+  const notes = [{ start: 0 }, { start: 500 }, { start: 510 }, { start: 1000 }, { start: 1500 }];   // 510: chord with 500
+  const part = { first: 0, last: 3 };
+  assert.deepEqual(partState(notes, [null, null, null, null, null], part), { remaining: 3, missed: false, done: false });
+  assert.deepEqual(partState(notes, ["perfect", "good", null, null, null], part), { remaining: 2, missed: false, done: false });
+  assert.deepEqual(partState(notes, ["perfect", "good", "late", "perfect", null], part), { remaining: 0, missed: false, done: true });
+  assert.equal(partState(notes, ["perfect", "miss", "late", "early", null], part).missed, true);
 });

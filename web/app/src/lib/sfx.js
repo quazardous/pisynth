@@ -53,3 +53,20 @@ export function comboBreaker() {
     voice(ac, { type: "square", freq: 700 - i * 120, to: 90, at: t0 + i * 0.08, dur: 0.12, peak: 0.08, cutoff: 3000 });
   }
 }
+
+// Hybrid mode's bomb: a fuse tick per strike left, higher and brighter as it gets close (5 … 1).
+export function fuseTick(left) {
+  const ac = audioContext();
+  if (!ac) return;
+  const t0 = ac.currentTime + 0.005, f = 520 * Math.pow(2, (5 - Math.min(5, left)) / 5);
+  voice(ac, { type: "square", freq: f, to: f * 1.5, at: t0, dur: 0.07, peak: 0.035 + (5 - left) * 0.008, cutoff: 5000 });
+}
+
+// A part starts again: a discreet two-note "here we go" (no count-in fanfare).
+export function restartCue() {
+  const ac = audioContext();
+  if (!ac) return;
+  const t0 = ac.currentTime + 0.01;
+  voice(ac, { type: "triangle", freq: 660, at: t0, dur: 0.12, peak: 0.05, cutoff: 3000 });
+  voice(ac, { type: "triangle", freq: 880, at: t0 + 0.1, dur: 0.16, peak: 0.05, cutoff: 3000 });
+}

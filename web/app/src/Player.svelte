@@ -18,7 +18,7 @@
   import { DemoSender } from "./lib/demo.js";
   import { countInTimes, scheduleCountdown } from "./lib/click.js";
   import { ComboTracker, ParticlePool, RollingNumber } from "./lib/arcade.js";
-  import { comboSting, comboBreaker, oops } from "./lib/sfx.js";
+  import { comboSting, comboBreaker, oops, fuseTick, restartCue } from "./lib/sfx.js";
   import { comboSplash, oopsSplash, levelUpSplash, unlockSplash } from "./lib/comic.js";
   import { songFeatures, difficulty } from "./lib/difficulty.js";
   import { Progress, levelDifficulty } from "./lib/progress.js";
@@ -27,7 +27,7 @@
   import { aids } from "./lib/aids.svelte.js";
   import { RecordBook, songKey } from "./lib/records.js";
   import { EndlessScore } from "./lib/endless.js";
-  import { songParts, partAt, PartBook } from "./lib/parts.js";
+  import { songParts, partAt, partState, PartBook } from "./lib/parts.js";
   import { musicians, storeKey } from "./lib/musician.svelte.js";
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
   import Keyboard from "./Keyboard.svelte";
@@ -196,26 +196,33 @@
   // Hybrid: a part must go by without a wrong key or a missed note to unlock the next one.
   const parts = $derived(song ? songParts(current, notes) : []);
   let partBook = $state.raw(new PartBook(undefined, storeKey("pisynth.parts")));
-  let partIdx = $state(0), partFails = 0, cleared = $state(0);
+  let partIdx = $state(0), partFails = $state(0), cleared = $state(0);
+  const BOMB_FROM = 5;                                       // the bomb shows for the last strikes of a clean part
+  let bomb = $state(0), finishAtEnd = false, quietLead = $state(false);
   $effect(() => { song; partBook; untrack(() => { cleared = partBook.cleared(songKey(song)); partIdx = Math.min(cleared, Math.max(0, parts.length - 1)); }); });
 
-  function partDone(now) {
+  // Hybrid: called once every note of the part is judged (right after its last strike, not at the next bar,
+  // so what's played past it belongs to the next part).
+  function partDone() {
     const key = songKey(song);
+    bomb = 0;
     if (partFails === 0) {
       partBook.clear(key, partIdx + 1);
       cleared = partBook.cleared(key);
-      if (partIdx + 1 >= parts.length) { finish(); status = "Song cleared — every part unlocked!"; return; }
+      const last = partIdx + 1 >= parts.length;
+      levelUp = { splash: last ? { ...unlockSplash(seed(), 0), word: "CLEARED!", caption: "the whole song" } : unlockSplash(seed(), partIdx + 2),
+                  id: ++announceId };                           // (the big bubble, reused)
+      comboSting(5);
+      if (partIdx + 1 >= parts.length) { finishAtEnd = true; return; }   // the last part: let the song ring to its end
       partIdx++;
       loop = { a: parts[partIdx].a, b: parts[partIdx].b };
       partFails = 0;
-      levelUp = { splash: unlockSplash(seed(), partIdx + 1), id: ++announceId };   // (the big bubble, reused)
-      comboSting(4);
       return;
     }
-    announce = { text: "TRY AGAIN", color: "#ff5a5a", breaker: true, splash: comboSplash(seed(), { breaker: true }), id: ++announceId };
+    announce = { text: "TRY AGAIN", color: "#ff5a5a", breaker: true, splash: comboSplash(seed(), { breaker: true }), pos: splashPos(), id: ++announceId };
     if (prefs.arcade) comboBreaker(); else status = `${parts[partIdx].label}: again, without a wrong key or a missed note`;
     stop(false);
-    start(parts[partIdx].a, true);
+    start(parts[partIdx].a, true, true);                     // a bar to put the hand back, then a discreet cue
   }
   function restartParts() {
     partBook.forget(songKey(song)); cleared = 0; partIdx = 0;
@@ -243,6 +250,8 @@
   let shownScore = $state(0), hitsShown = $state(0), announce = $state(null), announceId = 0, shakeUntil = 0;
   let oopsAt = $state(null);                                // {splash, x (% of the stage), id}: a wrong key
   const seed = () => Math.floor(Math.random() * 2 ** 32);  // every splash its own shape
+  // Where a combo splash lands: high in the lanes, never twice in the same place (x: % off centre, y: % from the top).
+  const splashPos = () => ({ x: Math.round((Math.random() - 0.5) * 30), y: Math.round(8 + Math.random() * 16) });
 
   function laneAt(note) {                                     // canvas px of a lane's centre on the line
     const dpr = globalThis.devicePixelRatio || 1;
@@ -267,11 +276,11 @@
     const res = combo.onResult(kind);
     hitsShown = res.hits;
     if (res.announce) {
-      announce = { ...res.announce, splash: comboSplash(seed(), { color: res.announce.color }), id: ++announceId };
+      announce = { ...res.announce, splash: comboSplash(seed(), { color: res.announce.color }), pos: splashPos(), id: ++announceId };
       comboSting(res.announce.tier);
       if (res.announce.tier >= 1) shakeUntil = now + 140;
     } else if (res.broke) {
-      announce = { text: "C-C-C-COMBO BREAKER", color: "#ff5a5a", breaker: true, splash: comboSplash(seed(), { breaker: true }), id: ++announceId };
+      announce = { text: "C-C-C-COMBO BREAKER", color: "#ff5a5a", breaker: true, splash: comboSplash(seed(), { breaker: true }), pos: splashPos(), id: ++announceId };
       comboBreaker();
       shakeUntil = now + 200;
     }
@@ -283,9 +292,11 @@
   }
 
   // `lap`: infinite mode starting the song over by itself — a one-beat count-in, the infinite score goes on.
-  function start(at = null, lap = false) {
+  // `quiet`: hybrid starting a part again — a whole bar to put the hand back, no count-in, a discreet cue.
+  function start(at = null, lap = false, quiet = false) {
     if (!notes.length) return;
-    countBeats = lap ? 1 : COUNT_IN;
+    countBeats = quiet ? 4 : lap ? 1 : COUNT_IN;
+    quietLead = quiet; finishAtEnd = false; bomb = 0;
     if (!lap) { endlessBook.reset(); endlessShown = 0; laps = 0; }
     if (hybrid && parts.length) {                            // hybrid: play the part asked for, if it's unlocked
       if (!lap) partIdx = Math.min(partAt(parts, at ?? (position >= current.durationMs ? 0 : position)), cleared, parts.length - 1);
@@ -310,9 +321,12 @@
       lastJudged = 0;
       stats = { score: 0, streak: 0, accuracy: 0 };
       combo.reset(); rolling.jump(0); shownScore = 0; hitsShown = 0; announce = null; oopsAt = null; sparks.items = [];
-      cancelClicks = scheduleCountdown(countInTimes(clockStart, beatReal, countBeats), clockStart);   // from the phone
+      if (quiet) {                                            // the cue as the part starts again
+        const id = setTimeout(restartCue, Math.max(0, clockStart - performance.now() - 60));
+        cancelClicks = () => clearTimeout(id);
+      } else cancelClicks = scheduleCountdown(countInTimes(clockStart, beatReal, countBeats), clockStart);   // from the phone
       if (simulated) {                                        // dev stack: the simulated keyboard plays along (#2434)
-        const end = loop?.b ?? Infinity;
+        const end = hybrid ? Infinity : loop?.b ?? Infinity;       // (hybrid goes on past the part when it's unlocked)
         const part = notes.filter(n => n.start >= from && n.start < end).slice(0, 5000)
           .map(n => [Math.round((n.start - from) / tf()), Math.round((Math.min(n.end, end) - from) / tf()), n.note]);
         send({ t: "sim", notes: part, in_ms: Math.round(clockStart - performance.now()) });
@@ -435,10 +449,18 @@
         if (missed.length) stats = { score: judge.score, streak: judge.streak, accuracy: judge.accuracy() };
         if (endless) for (const _ of missed) scoreEndless("miss", tf());
         if (hybrid) partFails += missed.length;
-        countIn = t < from ? Math.min(countBeats, Math.ceil((from - t) / beatMs())) : t < from + 450 * tf() ? "GO!" : 0;
+        countIn = quietLead ? 0 : t < from ? Math.min(countBeats, Math.ceil((from - t) / beatMs())) : t < from + 450 * tf() ? "GO!" : 0;
+        if (quietLead && t >= from) quietLead = false;
       }
-      if (hybrid && parts[partIdx]) {                       // hybrid: judge the part once its last notes had their chance
-        if (t >= parts[partIdx].b + judge.win("ok")) { partDone(now); return; }
+      if (hybrid && parts[partIdx]) {                       // hybrid: the part is judged as soon as all its notes are
+        if (finishAtEnd) { if (t > current.durationMs + 400) { finish(); status = "Song cleared — every part unlocked!"; return; } }
+        else {
+          const st = partState(notes, judge.result, parts[partIdx]);
+          if (st.missed) partFails = Math.max(partFails, 1);
+          if (st.done) { partDone(); return; }
+          const left = partFails === 0 && st.remaining <= BOMB_FROM ? st.remaining : 0;
+          if (left !== bomb) { if (left && prefs.arcade) fuseTick(left); bomb = left; }
+        }
       } else if (loop && t >= loop.b) { if (endless) laps++; stop(false); start(loop.a, endless); return; }
       if (!hybrid && t > current.durationMs + 800) {
         if (endless && mode === "play") { laps++; stop(false); start(0, true); } else finish();   // infinite: the next lap
@@ -668,20 +690,31 @@
       {#if prefs.arcade && playing && hitsShown >= 2}
         {#key hitsShown}<div class="hits"><b>{hitsShown}</b> HITS</div>{/key}
       {/if}
+      {#if hybrid && playing && bomb}
+        <!-- hybrid: a clean part's last strikes — a number about to go off, shaking and heating up as it gets close -->
+        <div class="bomb" style:--k={(BOMB_FROM - bomb) / (BOMB_FROM - 1)} aria-label="{bomb} to unlock the next part">
+          {#key bomb}<b>{bomb}</b>{/key}
+        </div>
+      {/if}
+      {#if hybrid && playing && !bomb && partFails > 0}
+        {#key partFails}<div class="fails" aria-label="{partFails} mistakes in this part">✗ {partFails}</div>{/key}
+      {/if}
+      {#if quietLead && playing}<div class="again-cue">↺ {parts[partIdx]?.label}</div>{/if}
       {#key announce?.id}
         {#if announce && prefs.arcade && playing}
-          <div class="announce" class:breaker={announce.breaker} style:--tier-color={announce.color}>
-            <Comic splash={announce.splash} text={false} width={announce.breaker ? "min(96vw, 440px)" : "min(84vw, 400px)"} />
+          <div class="announce" class:breaker={announce.breaker} style:--tier-color={announce.color}
+               style:top="{announce.pos?.y ?? 14}%" style:left="{announce.pos?.x ?? 0}%" style:right="{-(announce.pos?.x ?? 0)}%">
+            <Comic splash={announce.splash} text={false} width={announce.breaker ? "min(77vw, 352px)" : "min(67vw, 320px)"} />
             <span class="announce-text">{announce.text}</span>
           </div>
         {/if}
       {/key}
       {#key levelUp?.id}
-        {#if levelUp}<div class="levelup-at"><Comic splash={levelUp.splash} kind="levelup" width="min(88vw, 420px)" /></div>{/if}
+        {#if levelUp}<div class="levelup-at"><Comic splash={levelUp.splash} kind="levelup" width="min(70vw, 336px)" /></div>{/if}
       {/key}
       {#key oopsAt?.id}
         {#if oopsAt && prefs.arcade && playing}
-          <div class="oops-layer"><div class="oops-at" style:left="{oopsAt.x}%"><Comic splash={oopsAt.splash} kind="oops" width="min(40vw, 170px)" /></div></div>
+          <div class="oops-layer"><div class="oops-at" style:left="{oopsAt.x}%"><Comic splash={oopsAt.splash} kind="oops" width="min(32vw, 136px)" /></div></div>
         {/if}
       {/key}
       {#key flash?.id}
@@ -801,12 +834,35 @@
   /* arcade (#2434) */
   .score { display: inline-block; min-width: 3ch; }
   .score.racing { transform: scale(1.18); text-shadow: 0 0 10px rgba(255,210,63,.7); transition: transform .08s; }
+  /* hybrid's countdown, under the HITS counter: the strikes left to unlock the next part — shakes harder,
+     beats faster and turns from yellow to red as it gets close, like something about to go off */
+  .bomb { position: absolute; top: 40px; right: 10px; width: 56px; text-align: center; pointer-events: none; z-index: 3;
+          animation: bomb-shake calc(.3s - var(--k) * .22s) linear infinite; }
+  .bomb b { display: inline-block; font: 400 calc(2rem + var(--k) * .9rem)/1 Bangers, Impact, "Arial Black", sans-serif;
+            color: hsl(calc(50 - var(--k) * 50), 100%, 60%); -webkit-text-stroke: 2px #000; paint-order: stroke fill;
+            text-shadow: 0 0 calc(6px + var(--k) * 16px) hsl(calc(40 - var(--k) * 40), 100%, 55%);
+            animation: bomb-pop .3s cubic-bezier(.2,1.8,.4,1); }
+  @keyframes bomb-shake {
+    0%, 100% { transform: translate(0, 0) rotate(0); }
+    25% { transform: translate(calc(var(--k) * 4px + 1px), calc(var(--k) * -3px)) rotate(calc(var(--k) * 16deg + 4deg)) scale(calc(1 + var(--k) * .08)); }
+    75% { transform: translate(calc(var(--k) * -4px - 1px), calc(var(--k) * 3px)) rotate(calc(var(--k) * -16deg - 4deg)); }
+  }
+  @keyframes bomb-pop { from { transform: scale(1.9); } to { transform: scale(1); } }
+  /* hybrid, a part already missed: its mistakes (wrong keys, missed notes) in purple where the bomb would be */
+  .fails { position: absolute; top: 46px; right: 12px; z-index: 3; pointer-events: none; font: 400 1.5rem/1 Bangers, Impact, "Arial Black", sans-serif;
+           color: #b98bff; -webkit-text-stroke: 1.5px #000; paint-order: stroke fill; text-shadow: 0 0 10px rgba(168,107,255,.6);
+           animation: bomb-pop .3s cubic-bezier(.2,1.8,.4,1); }
+  /* hybrid starting a part again: a discreet marker during the bar before it */
+  .again-cue { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); padding: 3px 12px; border-radius: 999px; z-index: 3;
+               background: rgba(34,34,46,.85); color: var(--muted); font-size: .8rem; font-weight: 700; pointer-events: none;
+               animation: cue-in .4s ease-out; }
+  @keyframes cue-in { from { opacity: 0; transform: translate(-50%, -6px); } }
   .hits { position: absolute; top: 8px; right: 10px; font-style: italic; font-weight: 800; font-size: .9rem; color: #fff; pointer-events: none;
           text-shadow: 0 2px 0 #000, 0 0 12px rgba(90,160,255,.8); animation: hitpop .25s ease-out; }
   .hits b { font-size: 1.6rem; color: var(--yellow); }
   @keyframes hitpop { from { transform: scale(1.5); } to { transform: scale(1); } }
-  .announce { position: absolute; left: 0; right: 0; top: 32%; text-align: center; pointer-events: none; z-index: 3;
-              font-family: Bangers, Impact, "Arial Black", system-ui, sans-serif; font-weight: 400; font-size: clamp(1.9rem, 11vw, 3.2rem); letter-spacing: 2px;
+  .announce { position: absolute; left: 0; right: 0; top: 14%; text-align: center; pointer-events: none; z-index: 3;
+              font-family: Bangers, Impact, "Arial Black", system-ui, sans-serif; font-weight: 400; font-size: clamp(1.5rem, 8.8vw, 2.6rem); letter-spacing: 2px;
               color: #fff; -webkit-text-stroke: 2px #000; paint-order: stroke fill; text-shadow: 0 4px 0 #000, 0 0 22px var(--tier-color);
               animation: slam 1.05s cubic-bezier(.2,1.6,.4,1) forwards; }
   .announce-text { position: relative; }                  /* over its splash bubble */

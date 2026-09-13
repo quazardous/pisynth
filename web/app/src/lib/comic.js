@@ -34,8 +34,8 @@ export function comboSplash(seed, { color = "#ffd23f", breaker = false } = {}) {
     seed,
     color: breaker ? "#ff3b3b" : color,
     scale: 0.85 + r() * 0.45,                              // × the base size
-    dx: (r() - 0.5) * 30,
-    dy: (r() - 0.5) * 30,
+    dx: (r() - 0.5) * 40,
+    dy: (r() - 0.5) * 40,
     tilt: (r() - 0.5) * 30,                                // degrees
     spikes: breaker ? 22 : 11 + Math.floor(r() * 8),
   };

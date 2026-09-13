@@ -19,7 +19,7 @@ test("comic bursts: seeded, closed, alternating spikes inside the box", () => {
 test("combo splashes vary in size, place and tilt, in the tier colour; the breaker is red", () => {
   const all = Array.from({ length: 40 }, (_, i) => comboSplash(i + 1));
   assert.ok(new Set(all.map(s => s.scale.toFixed(2))).size > 10);
-  assert.ok(all.every(s => s.scale >= 0.85 && s.scale <= 1.3 && Math.abs(s.dx) <= 15 && Math.abs(s.tilt) <= 15));
+  assert.ok(all.every(s => s.scale >= 0.85 && s.scale <= 1.3 && Math.abs(s.dx) <= 20 && Math.abs(s.tilt) <= 15));
   assert.equal(comboSplash(3, { color: "#5ad1ff" }).color, "#5ad1ff");
   assert.equal(comboSplash(3, { breaker: true }).color, "#ff3b3b");
   assert.deepEqual(oopsSplash(5, 25).word + oopsSplash(5, 25).caption, "OOPS!−25");

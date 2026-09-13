@@ -314,7 +314,10 @@
       clockStart = now + leadMs;                              // the Pi anchors the song this far ahead
     } else {
       const beatReal = beatMs() / tf();
-      clockStart = now + CLICK_LEAD_MS + countBeats * beatReal;  // the song reaches `from` after the count-in
+      // The song reaches `from` after the count-in — and never before its first notes have fallen the whole
+      // height of the lanes, so they come in from the top (a restart doesn't find them already at the line).
+      const leadSong = Math.max(countBeats * beatMs(), AHEAD_MS);
+      clockStart = now + CLICK_LEAD_MS + leadSong / tf();
       judge.setTempo(tf());
       judge.reset(from);
       runActive = true;                                       // this run will earn XP when it ends (#2436)

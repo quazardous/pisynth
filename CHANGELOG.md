@@ -57,6 +57,9 @@ All notable changes to pisynth, in plain language. Newest first.
 - **Sideways layout** — with the phone turned sideways, the top bar, score and player controls sit in a
   side column, and the falling notes and keyboard get the whole height.
 
+### Fixed
+- The results card no longer shows a stray horizontal scrollbar while "NEW RECORD!" pops in.
+
 ## 0.5.0 — 2026-09-13
 
 The web companion release: your phone becomes a play-along coach.

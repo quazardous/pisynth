@@ -6,7 +6,7 @@ Your **phone** becomes a play-along coach: the notes fall onto the keyboard, you
 the combos pile up.
 
 <p align="center">
-  <img src="docs/img/companion-combo.jpg" width="340" alt="The web companion on a phone: notes falling onto the keyboard with finger numbers, 17 hits, a KILLER COMBO comic splash">
+  <img src="docs/img/companion-combo.jpg" width="340" alt="The web companion on a phone: Alex playing, notes falling with finger numbers, 16 hits, a KILLER COMBO comic splash, the five fingers of each hand on the keyboard">
 </p>
 
 Built on **fluidsynth** (SoundFont playback, straight to ALSA for low latency), a framebuffer
@@ -25,28 +25,41 @@ local network.
 - 🛡️ **Optional read-only mode.** Unplug at the wall without corrupting the SD card.
 
 ### The web companion (your phone)
-Scan the QR code on the pisynth screen; the page is served over HTTPS by the Pi.
+Scan the QR code on the pisynth screen; the page is served over HTTPS by the Pi (its certificate is
+optional: the companion also works after accepting the browser's warning).
 - 🎮 **Play along.** The song's notes fall onto the keyboard, rock-game style, and your timing is judged from the moment you pressed the key: perfect, good, early, late, miss.
-  - Tempo from 50 to 150 %, A–B loop, a video-game count-in.
-  - Ghost keys show the perfect timing next to your own.
+  - The timing windows follow the song's tempo and the tempo slider (50 to 150 %).
+  - A–B loop, a video-game count-in, notes that shake as they reach the line.
+  - ↻ goes back to the start; **Next ›** loads the following song.
+- 🔓 **Three play modes:**
+  - **hybrid** (the default): a song unlocks part by part, each verse or phrase to be played without a mistake, with a countdown that heats up before "UNLOCKED!";
+  - **normal**: the whole song, once;
+  - **infinite**: it loops, with a score that climbs and drops.
 - 💥 **Arcade effects:** sparks on every hit, Killer Instinct-style combos (TRIPLE … KILLER … ULTRA) in comic-book splashes, an OOPS on wrong keys, a racing score.
-- ✋ **Suggested fingering** on every falling note and on the keys, computed from the usual piano rules. Before you start, the keyboard shows where your fingers go.
+- ✋ **Help for the hands:**
+  - a suggested finger on every note;
+  - the five fingers of each hand always placed on the keyboard (the thumb ringed in orange);
+  - hand moves shown blue → green with an arrow;
+  - ghost keys for the perfect timing.
+- 👥 **Several musicians** on one phone: each with a colour, their own level, records and help options.
 - 📈 **Progress:**
   - XP and levels: harder songs and faster tempos earn more;
   - each song's difficulty shown as a gauge;
   - your best score per song.
 - 📚 **MIDI library on the Pi,** organised by level:
-  - homer and first steps: children's songs, arranged here;
+  - homer and first steps: whole children's songs, arranged here and cut into parts;
   - beginner, intermediate and advanced: public domain classics;
   - plus your own files, from the computer or uploaded from the phone.
 - 🎧 **Listen mode.** pisynth plays the song and the same notes light up as they sound.
 - 🎛️ **The synth's settings from the phone:** sound, reverb, chorus, metronome… Note names in English or French.
 - ⏱️ **Latency check** with the phone's microphone.
 
-| | | |
-|---|---|---|
-| ![Library with difficulty gauges and records](docs/img/companion-library.jpg) | ![Finger numbers on the notes and the keys](docs/img/companion-fingers.jpg) | ![LEVEL UP over the results](docs/img/companion-levelup.jpg) |
-| **Library** · difficulty gauge, your ★ best | **Fingering** · on the notes and on the keys | **Results** · XP, records, LEVEL UP |
+| | |
+|---|---|
+| ![Hybrid mode: parts 2 of 4, a countdown of 2 strikes under the HITS counter](docs/img/companion-hybrid.jpg) | ![UNLOCKED part 4, both hands moving: fingers in blue, where they go in green](docs/img/companion-moves.jpg) |
+| **Hybrid** · parts to unlock, the countdown heating up | **Unlocked** · hand moves, blue → green |
+| ![Library with difficulty gauges and records](docs/img/companion-library.jpg) | ![Results: new record, XP, combo, Next](docs/img/companion-results.jpg) |
+| **Library** · difficulty gauge, your ★ best | **Results** · record, XP, best combo, Next › |
 
 ## The touchscreen
 

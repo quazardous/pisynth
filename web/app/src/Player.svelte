@@ -919,7 +919,7 @@
   .flash.perfect { color: #ffd23f; } .flash.good { color: #4fd18b; }
   .flash.early, .flash.late { color: #ff9f5a; } .flash.wrong, .flash.miss { color: #ff6b6b; }
   @keyframes rise { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -24px); } }
-  .results { position: absolute; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); max-height: calc(100% - 12px); overflow: auto; background: rgba(34,34,46,.95); border-radius: 14px; padding: 14px 18px; text-align: center; }
+  .results { position: absolute; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); max-height: calc(100% - 12px); overflow-x: hidden; overflow-y: auto; background: rgba(34,34,46,.95);   /* (x: the NEW RECORD pop overflows for a moment) */ border-radius: 14px; padding: 14px 18px; text-align: center; }
   .results h2 { font-size: clamp(1.6rem, 9vh, 2.6rem); color: var(--yellow); }
   .results button { margin-top: 8px; }
   .again { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 10px; }

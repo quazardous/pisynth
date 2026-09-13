@@ -17,13 +17,15 @@
   import { DemoSender } from "./lib/demo.js";
   import { countInTimes, scheduleCountdown } from "./lib/click.js";
   import { ComboTracker, ParticlePool, RollingNumber } from "./lib/arcade.js";
-  import { comboSting, comboBreaker } from "./lib/sfx.js";
+  import { comboSting, comboBreaker, oops } from "./lib/sfx.js";
+  import { comboSplash, oopsSplash } from "./lib/comic.js";
   import { detectChord, noteName, pitchName } from "./lib/theory.js";
   import { prefs } from "./lib/prefs.svelte.js";
   import { RecordBook, songKey } from "./lib/records.js";
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
   import Keyboard from "./Keyboard.svelte";
   import Library from "./Library.svelte";
+  import Comic from "./Comic.svelte";
 
   let { onFrame, onMessage, send, mode = "play", onMode = () => {} } = $props();
 
@@ -122,12 +124,14 @@
     flash = { kind: r.kind, delta: r.delta, id: ++flashId };
     stats = { score: judge.score, streak: judge.streak, accuracy: judge.accuracy() };
     rolling.set(judge.score);
-    if (prefs.arcade) arcade(r.kind, r.note, now);
+    if (prefs.arcade) arcade(r.kind, r.note, now, r.penalty);
   }
 
   // ---- arcade layer (#2434): sparks, combos, announcer, racing score ----
   const combo = new ComboTracker(), sparks = new ParticlePool(300), rolling = new RollingNumber(0);
   let shownScore = $state(0), hitsShown = $state(0), announce = $state(null), announceId = 0, shakeUntil = 0;
+  let oopsAt = $state(null);                                // {splash, x (% of the stage), id}: a wrong key
+  const seed = () => Math.floor(Math.random() * 2 ** 32);  // every splash its own shape
 
   function laneAt(note) {                                     // canvas px of a lane's centre on the line
     const dpr = globalThis.devicePixelRatio || 1;
@@ -136,23 +140,27 @@
     return [((p.left + p.width / 2) / 100) * stageW * dpr, stageH * dpr - 3 * dpr, dpr];
   }
 
-  function arcade(kind, note, now) {
+  function arcade(kind, note, now, penalty = 0) {
     const [x, y, dpr] = laneAt(note);
     if (kind === "perfect") {
       sparks.burst(x, y, { count: 18, color: "#ffd23f", speed: 420 * dpr, size: 3 * dpr });
       sparks.burst(x, y, { count: 8, color: "#ffffff", speed: 560 * dpr, size: 2 * dpr, life: 380 });
     } else if (kind === "good") sparks.burst(x, y, { count: 10, color: "#4fd18b", speed: 320 * dpr, size: 3 * dpr });
     else if (kind === "early" || kind === "late") sparks.burst(x, y, { count: 6, color: "#ff9f5a", speed: 240 * dpr, size: 2.5 * dpr });
-    else if (kind === "wrong") sparks.burst(x, y, { count: 8, color: "#ff5a5a", speed: 200 * dpr, spread: 0.6, size: 2.5 * dpr });
+    else if (kind === "wrong") {
+      sparks.burst(x, y, { count: 8, color: "#ff5a5a", speed: 200 * dpr, spread: 0.6, size: 2.5 * dpr });
+      oopsAt = { splash: oopsSplash(seed(), penalty), x: Math.min(82, Math.max(18, (x / dpr / (stageW || 1)) * 100)), id: ++announceId };
+      oops();
+    }
     else if (kind === "miss") sparks.burst(x, y, { count: 6, color: "#6a6a78", speed: 140 * dpr, up: false, size: 3 * dpr, life: 500 });
     const res = combo.onResult(kind);
     hitsShown = res.hits;
     if (res.announce) {
-      announce = { ...res.announce, id: ++announceId };
+      announce = { ...res.announce, splash: comboSplash(seed(), { color: res.announce.color }), id: ++announceId };
       comboSting(res.announce.tier);
       if (res.announce.tier >= 1) shakeUntil = now + 140;
     } else if (res.broke) {
-      announce = { text: "C-C-C-COMBO BREAKER", color: "#ff5a5a", breaker: true, id: ++announceId };
+      announce = { text: "C-C-C-COMBO BREAKER", color: "#ff5a5a", breaker: true, splash: comboSplash(seed(), { breaker: true }), id: ++announceId };
       comboBreaker();
       shakeUntil = now + 200;
     }
@@ -179,7 +187,7 @@
       judge.setTempo(tf());
       judge.reset(from);
       stats = { score: 0, streak: 0, accuracy: 0 };
-      combo.reset(); rolling.jump(0); shownScore = 0; hitsShown = 0; announce = null; sparks.items = [];
+      combo.reset(); rolling.jump(0); shownScore = 0; hitsShown = 0; announce = null; oopsAt = null; sparks.items = [];
       cancelClicks = scheduleCountdown(countInTimes(clockStart, beatReal, COUNT_IN), clockStart);   // from the phone
       if (simulated) {                                        // dev stack: the simulated keyboard plays along (#2434)
         const end = loop?.b ?? Infinity;
@@ -425,11 +433,19 @@
       {/if}
       {#key announce?.id}
         {#if announce && prefs.arcade && playing}
-          <div class="announce" class:breaker={announce.breaker} style:--tier-color={announce.color}>{announce.text}</div>
+          <div class="announce" class:breaker={announce.breaker} style:--tier-color={announce.color}>
+            <Comic splash={announce.splash} text={false} width={announce.breaker ? "min(96vw, 440px)" : "min(84vw, 400px)"} />
+            <span class="announce-text">{announce.text}</span>
+          </div>
+        {/if}
+      {/key}
+      {#key oopsAt?.id}
+        {#if oopsAt && prefs.arcade && playing}
+          <div class="oops-at" style:left="{oopsAt.x}%"><Comic splash={oopsAt.splash} kind="oops" width="min(40vw, 170px)" /></div>
         {/if}
       {/key}
       {#key flash?.id}
-        {#if flash && playing}
+        {#if flash && playing && !(prefs.arcade && flash.kind === "wrong")}
           <div class="flash {flash.kind}">{LABEL[flash.kind]}{#if flash.delta !== undefined && flash.kind !== "perfect"} <small>{flash.delta > 0 ? "+" : ""}{Math.round(flash.delta)} ms</small>{/if}</div>
         {/if}
       {/key}
@@ -524,12 +540,17 @@
   .hits b { font-size: 1.6rem; color: var(--yellow); }
   @keyframes hitpop { from { transform: scale(1.5); } to { transform: scale(1); } }
   .announce { position: absolute; left: 0; right: 0; top: 32%; text-align: center; pointer-events: none; z-index: 3;
-              font-style: italic; font-weight: 900; font-size: clamp(1.6rem, 9vw, 2.8rem); letter-spacing: 1px;
-              color: var(--tier-color); -webkit-text-stroke: 2px #000; text-shadow: 0 4px 0 #000, 0 0 22px var(--tier-color);
-              animation: slam 1.2s cubic-bezier(.2,1.6,.4,1) forwards; }
-  .announce.breaker { font-size: clamp(1.2rem, 7vw, 2.1rem); animation: slam 1.2s cubic-bezier(.2,1.6,.4,1) forwards, glitch .12s steps(2) 4; }
+              font-family: Bangers, Impact, "Arial Black", system-ui, sans-serif; font-weight: 400; font-size: clamp(1.9rem, 11vw, 3.2rem); letter-spacing: 2px;
+              color: #fff; -webkit-text-stroke: 2px #000; paint-order: stroke fill; text-shadow: 0 4px 0 #000, 0 0 22px var(--tier-color);
+              animation: slam 1.05s cubic-bezier(.2,1.6,.4,1) forwards; }
+  .announce-text { position: relative; }                  /* over its splash bubble */
+  .oops-at { position: absolute; bottom: 70px; width: 0; height: 0; pointer-events: none; z-index: 2; }
+  .announce.breaker { font-size: clamp(1.2rem, 7vw, 2.1rem); animation: slam 1.05s cubic-bezier(.2,1.6,.4,1) forwards, glitch .12s steps(2) 4; }
+  /* slams in, holds a beat, then sinks like a boat — going down faster and faster, listing, fading */
   @keyframes slam { 0% { transform: scale(3) rotate(-8deg); opacity: 0; } 18% { transform: scale(1) rotate(-3deg); opacity: 1; }
-                    75% { transform: scale(1.04) rotate(-3deg); opacity: 1; } 100% { transform: scale(1.1) rotate(-3deg); opacity: 0; } }
+                    32% { transform: translateY(0) scale(1.03) rotate(-3deg); opacity: 1; animation-timing-function: cubic-bezier(.35,0,.75,.7); }
+                    75% { transform: translateY(14vh) scale(1) rotate(9deg); opacity: 1; animation-timing-function: linear; }
+                    100% { transform: translateY(26vh) scale(.94) rotate(16deg); opacity: 0; } }
   @keyframes glitch { 50% { translate: 6px -2px; } }
   .best-combo { color: var(--yellow); font-style: italic; font-weight: 700; }
   .acc { color: var(--muted); font-size: .85rem; }

@@ -106,7 +106,10 @@ test("judge: perfect / good / early / late / wrong, chords, streak and score", (
   const early = j.press(67, 1800);
   assert.equal(early.kind, "early");
   assert.equal(early.delta, -200);
-  assert.equal(j.press(62, 3000).kind, "wrong");
+  const before = j.score, wrong = j.press(62, 3000);
+  assert.equal(wrong.kind, "wrong");
+  assert.equal(wrong.penalty, 25);
+  assert.equal(j.score, before - 25);
   assert.equal(j.press(60, 3200).kind, "late");
   assert.deepEqual(j.counts, { perfect: 1, good: 1, early: 1, late: 1, miss: 0, wrong: 2 });
   assert.equal(j.accuracy(), Math.round(((1 + 0.7 + 0.6) / 4) * 100));
@@ -115,6 +118,9 @@ test("judge: perfect / good / early / late / wrong, chords, streak and score", (
 
 test("judge: misses once the window closes; windows scale with tempo; reset skips earlier notes", () => {
   const j = new Judge(song);
+  assert.equal(j.press(61, 900).penalty, 0);                 // a wrong key never takes the score below 0
+  assert.equal(j.score, 0);
+  j.counts.wrong = 0;
   assert.deepEqual(j.advance(1200), []);
   assert.deepEqual(j.advance(1300), [0, 1]);                // 1000 + 250 passed
   assert.equal(j.counts.miss, 2);

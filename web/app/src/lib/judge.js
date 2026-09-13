@@ -4,6 +4,7 @@
 
 export const WINDOWS = { perfect: 50, good: 120, ok: 250 };     // ± real ms
 export const POINTS = { perfect: 100, good: 70, early: 30, late: 30 };
+export const WRONG_PENALTY = 25;                              // a wrong key costs points (never below 0)
 
 export class Judge {
   constructor(notes, { tempo = 1, windows = WINDOWS } = {}) {
@@ -27,7 +28,7 @@ export class Judge {
 
   win(kind) { return this.windows[kind] * this.tempo; }
 
-  // A key pressed at song time `t`. Returns {kind, note, index?, delta?}.
+  // A key pressed at song time `t`. Returns {kind, note, index?, delta?, penalty?}.
   press(note, t) {
     const ok = this.win("ok");
     let best = -1, bestAbs = Infinity;
@@ -39,8 +40,9 @@ export class Judge {
       if (d <= ok && d < bestAbs) { best = i; bestAbs = d; }
     }
     if (best < 0) {
-      this.counts.wrong++; this.streak = 0;
-      return { kind: "wrong", note };
+      const penalty = Math.min(WRONG_PENALTY, this.score);
+      this.counts.wrong++; this.streak = 0; this.score -= penalty;
+      return { kind: "wrong", note, penalty };
     }
     const delta = t - this.notes[best].start;               // < 0 = early
     const kind = bestAbs <= this.win("perfect") ? "perfect" : bestAbs <= this.win("good") ? "good" : delta < 0 ? "early" : "late";

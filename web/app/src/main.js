@@ -1,6 +1,14 @@
 import { mount } from "svelte";
 import "./app.css";
 import App from "./App.svelte";
+import bangers from "@fontsource/bangers/files/bangers-latin-400-normal.woff2?url";
+
+// Bangers (SIL OFL 1.1, bundled — the Pi may have no internet): the comic splash lettering (#2434).
+if (globalThis.FontFace) {
+  const face = new FontFace("Bangers", `url(${bangers}) format("woff2")`, { display: "swap" });
+  document.fonts.add(face);
+  face.load().catch(() => {});                          // ready before the first combo
+}
 
 if ("serviceWorker" in navigator) {
   if (import.meta.env.DEV) {

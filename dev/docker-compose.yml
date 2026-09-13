@@ -18,6 +18,7 @@ services:
     environment:
       PISYNTH_WEB_MIDI_SOURCE: ${MIDI_SOURCE:-sim}
       PISYNTH_WEB_SIM_SPEED: ${SIM_SPEED:-1}
+      PISYNTH_WEB_SIM_SKILL: ${SIM_SKILL:-0.85}                # how well the simulator plays along (0–1)
       PISYNTH_HOST: ${PISYNTH_HOST:-}
       PISYNTH_WEB_CERT: /repo/dev/certs/cert.pem
       PISYNTH_WEB_KEY: /repo/dev/certs/key.pem

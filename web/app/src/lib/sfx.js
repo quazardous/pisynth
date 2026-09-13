@@ -1,5 +1,5 @@
 // Arcade sound effects for the note highway (#2434), synthesised by the phone (Web Audio): a rising
-// sting per combo tier and a glitchy "combo breaker". Short and quiet enough to sit over the piano.
+// sting per combo tier, a glitchy "combo breaker" and a little "oops" on a wrong key. Short and quiet enough to sit over the piano.
 
 import { audioContext } from "./click.js";
 
@@ -31,6 +31,17 @@ export function comboSting(tier) {
     }
   });
   voice(ac, { type: "square", freq: root * 4, to: root * 8, at: t0 + steps.length * 0.055, dur: 0.18, peak: 0.03, cutoff: 8000 });
+}
+
+// A wrong key: a soft, quick "wah-wah" (the sad trombone, shortened), at most one every 350 ms.
+let lastOops = 0;
+export function oops() {
+  const ac = audioContext();
+  if (!ac || ac.currentTime - lastOops < 0.35) return;
+  const t0 = ac.currentTime + 0.01;
+  lastOops = t0;
+  voice(ac, { type: "triangle", freq: 330, to: 294, at: t0, dur: 0.14, peak: 0.07, cutoff: 1800 });
+  voice(ac, { type: "triangle", freq: 262, to: 196, at: t0 + 0.15, dur: 0.26, peak: 0.07, cutoff: 1400 });
 }
 
 // Combo lost: a stuttering downward zap.

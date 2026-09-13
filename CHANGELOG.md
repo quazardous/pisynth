@@ -10,6 +10,13 @@ All notable changes to pisynth, in plain language. Newest first.
   (TRIPLE, SUPER, HYPER … ULTRA COMBO, perfects count double), a HITS counter, a short screen punch
   on milestones, "COMBO BREAKER" when a big one is lost, the score racing up like an arcade counter,
   and the best combo on the results card. Switch them off under the cog → Display.
+- **Comic-book splashes** — each combo slams in over a spiky, halftone comic bubble in its colour
+  (a little different in size, place and tilt every time), then both sink like a boat and fade;
+  a wrong key pops an "OOPS!" bubble with a small sad-trombone. Our own drawings, lettered with the
+  Bangers font (SIL Open Font License, bundled so it works without internet).
+
+### Changed (play along)
+- **A wrong key now costs 25 points** (the score never goes below zero), on top of breaking the streak.
 - **Your best on each song, kept on the phone** — a song played to the end files your best score
   (with its tempo), accuracy, longest combo and number of plays; the results card shows "NEW RECORD!"
   when you beat it, and the library shows your best as ★ next to each song.

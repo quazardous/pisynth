@@ -116,6 +116,7 @@ def paired(handler):
 async def _security_headers(request, response):
     for k, v in _SECURITY_HEADERS.items():
         response.headers.setdefault(k, v)
+    response.headers["Server"] = "pisynth"          # (not aiohttp's name and version)
 
 
 class _RateLimit:
@@ -134,22 +135,34 @@ class _RateLimit:
         return True
 
 
+_start_now = getattr(asyncio, "eager_task_factory", None)   # Python ≥ 3.12 (the Pi runs 3.13)
+
+
 class Phone:
-    """One connected WebSocket. Frames are queued without waiting and sent by its own task, so the
-    MIDI hot path never awaits a slow phone; one that falls MAX_WS_QUEUE frames behind is dropped.
-    Also the `owner` of a demo (demo.py only compares identities)."""
+    """One connected WebSocket. A frame is written to the socket right away — the send starts
+    eagerly, inside the MIDI callback, and only becomes a waiting task if the socket is backed up.
+    Meanwhile further frames wait in a bounded backlog; a phone that falls MAX_WS_QUEUE frames
+    behind is dropped. Also the `owner` of a demo (demo.py only compares identities)."""
 
     def __init__(self, ws):
         self.ws = ws
-        self.queue = asyncio.Queue(MAX_WS_QUEUE)
-        self.task = asyncio.ensure_future(self._pump())
+        self.backlog = collections.deque()
+        self.sending = False
 
     def push(self, data):
-        try:
-            self.queue.put_nowait(data)
+        if self.sending:                             # a send is waiting for the socket: queue behind it
+            if len(self.backlog) >= MAX_WS_QUEUE:
+                return False
+            self.backlog.append(data)
             return True
-        except asyncio.QueueFull:
-            return False
+        self.sending = True
+        loop = asyncio.get_running_loop()
+        coro = self._send(data)
+        if _start_now:
+            _start_now(loop, coro)                   # writes now; finishes here unless the socket is full
+        else:
+            loop.create_task(coro)
+        return True
 
     def send_json(self, obj):
         return self.push(json.dumps(obj, separators=(",", ":")))
@@ -157,19 +170,23 @@ class Phone:
     def is_closing(self):
         return self.ws.closed
 
-    async def _pump(self):
+    async def _send(self, data):
         try:
             while True:
-                data = await self.queue.get()
                 if isinstance(data, bytes):
                     await self.ws.send_bytes(data)
                 else:
                     await self.ws.send_str(data)
-        except (ConnectionError, RuntimeError, asyncio.CancelledError):
-            pass
+                if not self.backlog:
+                    break
+                data = self.backlog.popleft()
+        except (ConnectionError, RuntimeError, OSError):
+            self.backlog.clear()                     # the phone is gone; the handler cleans up
+        finally:
+            self.sending = False
 
     async def close(self):
-        self.task.cancel()
+        self.backlog.clear()
         await self.ws.close()
 
 
@@ -358,7 +375,7 @@ class WebCompanion:
                     await self._command(phone, msg.data)     # a JSON command from the phone (#2416)
         finally:
             self.clients.discard(phone)
-            phone.task.cancel()
+            phone.backlog.clear()
             if self.demo:
                 self.demo.release_owner(phone)       # the phone left: no stuck notes
         return ws

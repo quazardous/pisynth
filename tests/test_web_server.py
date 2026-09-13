@@ -88,6 +88,7 @@ def test_static_is_served_gzipped_with_etag_and_304(cert, static):
             code, hd, body = await h.http("GET", "/", {"Accept-Encoding": "gzip"})
             assert code == 200 and hd["content-encoding"] == "gzip" and gzip.decompress(body).startswith(b"<!doctype")
             assert "default-src 'self'" in hd["content-security-policy"] and hd["x-content-type-options"] == "nosniff"
+            assert hd["server"] == "pisynth"                                     # no framework name/version
             code, _, _ = await h.http("GET", "/index.html", {"If-None-Match": hd["etag"]})
             assert code == 304
             for route in ("/latency", "/play", "/listen", "/about", "/sound", "/demo"):
@@ -205,10 +206,11 @@ def test_a_phone_that_stops_reading_is_dropped_not_buffered(cert, static, monkey
             _, ws = await h.ws(await h.pair())
             await asyncio.sleep(0.05)
             phone = next(iter(h.app.clients))
-            phone.task.cancel()                                     # its sender is stuck: frames pile up
-            await asyncio.sleep(0)
-            for _ in range(6):
+            phone.sending = True                                    # a send stuck on a full socket: frames pile up
+            for _ in range(4):
                 h.app._broadcast(b"\x90<d\x00\x00\x00\x00")
+            assert h.app.clients and len(phone.backlog) == 4
+            h.app._broadcast(b"\x90<d\x00\x00\x00\x00")             # one too many
             assert not h.app.clients
             await ws.close()
     run(go())

@@ -18,7 +18,7 @@ REFRESH_MARGIN_S = 20                                   # mint a new code this l
 
 def companion_build():
     """Build hash of the phone app pisynth-web serves (web/static/build.json, written by the
-    Svelte build — the same hash versions the service worker). '?' if unknown."""
+    Svelte build from Vite's content hash). '?' if unknown."""
     import json
     import os
     here = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # …/lib/pisynth or ui/

@@ -3,10 +3,10 @@
 //
 // Dev server (#2415, `make dev`): HTTPS with the dev stack's cert (the phone's mic and service
 // worker need a secure context), proxying the Pi-side API to the pisynth-web container.
-import crypto from "node:crypto";
 import fs from "node:fs";
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { VitePWA } from "vite-plugin-pwa";
 
 const certs = process.env.PISYNTH_DEV_CERTS;
 const backend = process.env.PISYNTH_DEV_BACKEND || "https://127.0.0.1:8443";
@@ -18,37 +18,41 @@ const https = !process.env.PISYNTH_DEV_PLAIN && certs && fs.existsSync(`${certs}
   : undefined;
 const api = { target: backend, secure: false, changeOrigin: false };
 
-// Emits sw.js with the build hash + the exact precache list (see src/sw.template.js).
-function serviceWorker() {
+// build.json: which build this is ({hash}) — shown in About and on the pisynth screen, and fetched by the
+// setup page to test the certificate. The hash is Vite's own content hash of the app's entry chunk.
+function buildInfo() {
   return {
-    name: "pisynth-service-worker",
+    name: "pisynth-build-info",
     apply: "build",
-    enforce: "post",
     generateBundle(_, bundle) {
-      const files = Object.keys(bundle).filter(f => !f.endsWith(".map")).sort();
-      const h = crypto.createHash("sha256");
-      for (const f of files) {
-        const out = bundle[f];
-        h.update(f);
-        h.update(out.type === "chunk" ? out.code : out.source);
-      }
-      for (const f of fs.readdirSync("public").sort()) {         // manifest, icon: part of the app too
-        h.update(f);
-        h.update(fs.readFileSync(`public/${f}`));
-      }
-      const hash = h.digest("hex").slice(0, 12);
-      const precache = ["/", ...files.filter(f => f !== "index.html").map(f => `/${f}`),
-                        ...fs.readdirSync("public").sort().map(f => `/${f}`)];
-      const source = fs.readFileSync("src/sw.template.js", "utf8")
-        .replaceAll("__BUILD_HASH__", hash).replaceAll("__PRECACHE__", JSON.stringify(precache));
-      this.emitFile({ type: "asset", fileName: "sw.js", source });
+      const entry = Object.values(bundle).find(f => f.type === "chunk" && f.isEntry);
+      const hash = entry?.fileName.match(/-([\w-]{8,})\.js$/)?.[1] ?? "dev";
       this.emitFile({ type: "asset", fileName: "build.json", source: JSON.stringify({ hash }) + "\n" });
     },
   };
 }
 
+// The service worker is Workbox's (vite-plugin-pwa): it precaches this build's files with their revisions,
+// replaces the old worker as soon as a new build is there (main.js then reloads the page once), and never
+// caches the live parts — pairing, the API, the MIDI WebSocket, build.json.
+const pwa = VitePWA({
+  injectRegister: false,                  // main.js registers it (no inline script: CSP)
+  registerType: "autoUpdate",
+  manifest: false,                        // public/manifest.webmanifest is ours
+  workbox: {
+    globPatterns: ["**/*.{html,js,css,svg,png,ico,woff2,webmanifest,txt}"],
+    navigateFallback: "/index.html",
+    navigateFallbackDenylist: [/^\/api\//, /^\/pair/, /^\/ws/, /^\/build\.json/],
+    cleanupOutdatedCaches: true,
+    clientsClaim: true,
+    skipWaiting: true,
+    inlineWorkboxRuntime: true,           // one sw.js, nothing else to serve
+    sourcemap: false,
+  },
+});
+
 export default defineConfig({
-  plugins: [svelte(), serviceWorker()],
+  plugins: [svelte(), buildInfo(), pwa],
   server: {
     https,
     port: 5173,

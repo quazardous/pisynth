@@ -182,7 +182,7 @@ def test_companion_build_reads_the_hash_of_the_built_app():
     import json
     from pathlib import Path
     built = json.loads((Path(__file__).resolve().parents[1] / "web" / "static" / "build.json").read_text())
-    assert C.companion_build() == built["hash"] and len(built["hash"]) == 12
+    assert C.companion_build() == built["hash"] and len(built["hash"]) >= 8          # Vite's content hash of the entry chunk
 
 
 def test_home_slot_stops_a_running_demo_instead_of_pairing():

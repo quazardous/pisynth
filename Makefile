@@ -35,7 +35,7 @@ stats:  ## relay latency / clients / frames from the running server
 	@curl -fsS http://127.0.0.1:9811/admin/stats && echo
 
 test:  ## pytest (Python + the browser logic under Node)
-	uvx --with numpy,pillow,pyyaml pytest
+	uvx --with numpy,pillow,pyyaml,aiohttp pytest
 
 lint:  ## ruff
 	uvx ruff check ui tools tests web dev

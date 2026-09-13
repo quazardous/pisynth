@@ -145,17 +145,14 @@ def test_phone_play_command_reaches_the_synth_shell(tmp_path, fake_shell):
             h.app.synth = ("127.0.0.1", shell.sockets[0].getsockname()[1])
             h.app.demo.sink.port = h.app.synth[1]
             cookie = await h.pair()
-            _, r, w = await h.ws(cookie)
-            msg = json.dumps({"t": "play", "reset": True, "ev": [[0, 144, 60, 100], [50, 128, 60, 0]]}).encode()
-            mask = b"\x01\x02\x03\x04"
-            w.write(bytes((0x81, 0x80 | len(msg))) + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(msg)))
-            head = await asyncio.wait_for(r.readexactly(2), 5)
-            reply = json.loads(await r.readexactly(head[1]))
-            assert head[0] == 0x81 and reply["state"] == "playing"
+            _, ws = await h.ws(cookie)
+            await ws.send_json({"t": "play", "reset": True, "ev": [[0, 144, 60, 100], [50, 128, 60, 0]]})
+            reply = json.loads((await asyncio.wait_for(ws.receive(), 5)).data)
+            assert reply["state"] == "playing"
             await asyncio.sleep(0.4)
             assert [ln for _, ln in got] == ["noteon 0 60 100", "noteoff 0 60"]
             assert h.app.stats()["demo"]["sent"] == 2
-            w.close()
+            await ws.close()
         shell.close()
     run(go())
 
@@ -188,14 +185,8 @@ def test_synth_settings_are_relayed_to_the_ui_and_state_pushed(tmp_path):
         await w.drain()
         w.close()
 
-    async def ws_send(w, obj):
-        data = json.dumps(obj).encode()
-        mask = b"\x01\x02\x03\x04"
-        w.write(bytes((0x81, 0x80 | len(data))) + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(data)))
-
-    async def ws_json(r):
-        head = await asyncio.wait_for(r.readexactly(2), 5)
-        return json.loads(await r.readexactly(head[1]))
+    async def ws_json(ws):
+        return json.loads((await asyncio.wait_for(ws.receive(), 5)).data)
 
     async def go():
         ui = await asyncio.start_server(fake_ui, "127.0.0.1", 0)
@@ -204,18 +195,18 @@ def test_synth_settings_are_relayed_to_the_ui_and_state_pushed(tmp_path):
             h.app.ui._watch_task.cancel()
             h.app.ui._watch_task = None
             cookie = await h.pair()
-            _, r, w = await h.ws(cookie)
+            _, ws = await h.ws(cookie)
             await asyncio.sleep(0.05)
             h.app.ui.start_watch()
-            pushed = await ws_json(r)                                        # UI watch → phone
+            pushed = await ws_json(ws)                                       # UI watch → phone
             assert pushed == {"t": "synth", "state": {"gain": 2.5}}
-            await ws_send(w, {"t": "synth", "op": "set", "key": "gain", "value": 3.1, "req": 7})
-            reply = await ws_json(r)
+            await ws.send_json({"t": "synth", "op": "set", "key": "gain", "value": 3.1, "req": 7})
+            reply = await ws_json(ws)
             assert reply["op"] == "set" and reply["req"] == 7 and reply["ok"] and reply["state"]["gain"] == 3.1
             assert {"op": "set", "key": "gain", "value": 3.1} in seen
-            await ws_send(w, {"t": "synth", "op": "delete_everything"})           # not relayed
+            await ws.send_json({"t": "synth", "op": "delete_everything"})         # not relayed
             await asyncio.sleep(0.1)
             assert all(m["op"] in ("watch", "set") for m in seen)
-            w.close()
+            await ws.close()
         ui.close()
     run(go())

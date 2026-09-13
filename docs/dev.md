@@ -189,7 +189,7 @@ touch screen's own code path — the UI remains the only owner of the synth stat
 
 ```bash
 uvx ruff check ui tools tests                  # lint (config in pyproject.toml)
-uvx --with numpy,pillow,pyyaml pytest          # unit tests in tests/
+uvx --with numpy,pillow,pyyaml,aiohttp pytest          # unit tests in tests/
 ```
 
 Nothing to install system-wide (`uv` fetches the tools). The tests cover the logic that runs

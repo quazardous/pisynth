@@ -15,9 +15,10 @@ python3-numpy
 python3-evdev
 python3-yaml
 
-# web companion (#659): QR code on the touch screen + the service's TLS certificate
+# web companion (#659): QR code on the touch screen + the service's TLS certificate + its server (#2428)
 python3-segno
 openssl
+python3-aiohttp
 
 # control plane / deploy / radios
 netcat-openbsd

@@ -5,7 +5,7 @@ ARG GID=1000
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         openssl openssh-client alsa-utils coreutils curl \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir watchfiles segno pyyaml \
+    && pip install --no-cache-dir watchfiles segno pyyaml "aiohttp>=3.11,<4" \
     && groupadd -g "$GID" dev && useradd -m -u "$UID" -g "$GID" dev
 USER dev
 WORKDIR /repo

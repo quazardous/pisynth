@@ -46,6 +46,9 @@ All notable changes to pisynth, in plain language. Newest first.
   Navigation → Metronome, learn-by-press).
 
 ### Changed
+- **The web companion's server runs on aiohttp** — the Pi side now uses a standard, well-tested
+  web framework (Debian's `python3-aiohttp`) instead of hand-written HTTP and WebSocket code. Nothing
+  changes for the phone; notes reach it as fast as before.
 - **Gentler on the SD card** — logs are kept in memory, generated sounds live in memory too,
   settings are written safely (a power cut can't leave them empty), and the system no
   longer installs updates on its own in the background.

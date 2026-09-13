@@ -1,7 +1,7 @@
 # Dev tooling only — pisynth is deployed by rsync (deploy.sh / sync.sh), not pip-installed.
 # Run from the repo root, nothing to install into the system Python:
 #   uvx ruff check ui tools tests web
-#   uvx --with numpy,pillow,pyyaml pytest
+#   uvx --with numpy,pillow,pyyaml,aiohttp pytest
 
 [project]
 name = "pisynth"

@@ -158,7 +158,7 @@
   });
 
   // ---- infinite mode: a toggle; the song starts over lap after lap, with its own up-and-down score ----
-  let endlessBook = new EndlessScore(undefined, storeKey("pisynth.endless"));
+  let endlessBook = $state.raw(new EndlessScore(undefined, storeKey("pisynth.endless")));   // (raw: swapped per musician)
   let endless = $state(false), endlessShown = $state(0), laps = $state(0), lastJudged = 0;
   function toggleEndless() {
     endless = !endless;

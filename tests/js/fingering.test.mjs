@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
-import { fingerHand, fingering, splitHands, keyFingers, fingersKey, isBlack, handShifts, upcomingShifts } from "../../web/app/src/lib/fingering.js";
+import { fingerHand, fingering, splitHands, keyFingers, fingersKey, isBlack, handShifts, upcomingShifts, handPositions } from "../../web/app/src/lib/fingering.js";
 import { parseMidi } from "../../web/app/src/lib/midifile.js";
 import { songNotes } from "../../web/app/src/lib/highway.js";
 
@@ -96,4 +96,19 @@ test("hand moves: where the thumb has to go, shown right after the key before th
   assert.deepEqual([...move.to.keys()], [65, 67]);                // where it goes: F and G
   assert.equal(move.to.get(65).finger, 1);
   assert.deepEqual(upcomingShifts(scale, f, sh, 100, 1600, 500), []);     // D and E still to play first
+});
+
+test("the five fingers are always placed: the notes' fingers, the others on the white keys beside them", () => {
+  const scale = line("C4 D4 E4 F4 G4 A4 B4 C5"), f = fingering(scale), sh = handShifts(scale, f);
+  const at0 = handPositions(scale, f, sh, 0, 1600);              // C D E played with 1 2 3, then the move at F
+  assert.deepEqual([...at0].map(([n, x]) => [n, x.finger, x.played]), [[60, 1, true], [62, 2, true], [64, 3, true], [65, 4, false], [67, 5, false]]);
+  const after = handPositions(scale, f, sh, 1150, 1600);          // F coming: the new position F G A B C
+  assert.deepEqual([...after].map(([n, x]) => [n, x.finger]), [[65, 1], [67, 2], [69, 3], [71, 4], [72, 5]]);
+  const resting = handPositions(scale, f, sh, 4000, 2000);         // just after the end: the last position stays
+  assert.equal(resting.size, 5);
+  const lh = line("E3 D3 C3"), lf = fingerHand(lh, true), lfing = lh.map(n => ({ finger: lf.get(n.i), hand: "L" }));
+  const left = handPositions(lh, lfing, handShifts(lh, lfing), 0, 1600);
+  assert.deepEqual([...left].map(([n, x]) => x.finger).sort(), [1, 2, 3, 4, 5]);
+  assert.ok([...left].every(([n, x]) => x.hand === "L"));
+  assert.equal(handPositions(scale, f, sh, 99999, 1000).size, 0);  // long after: nothing
 });

@@ -13,7 +13,7 @@
   import { planView, FollowView, keyRect, toPct } from "./lib/viewport.js";
   import { Judge } from "./lib/judge.js";
   import { ghostKeys, ghostPulses, sameSet, GHOST_MIN_MS } from "./lib/ghost.js";
-  import { fingering, keyFingers, fingersKey, handShifts, upcomingShifts } from "./lib/fingering.js";
+  import { fingering, keyFingers, fingersKey, handShifts, upcomingShifts, handPositions } from "./lib/fingering.js";
   import { ClockSync } from "./lib/clock.js";
   import { DemoSender } from "./lib/demo.js";
   import { countInTimes, scheduleCountdown } from "./lib/click.js";
@@ -93,12 +93,14 @@
   // the hand can get ready.
   function showFingers(t, aheadMs, withMoves = false, dueMs = aheadMs) {
     const m = keyFingers(notes, fingers, t, aheadMs, maxLen);
+    const hand5 = handPositions(notes, fingers, shifts, t, 4 * beatMs());   // the five fingers of each hand, always
     const moves = withMoves ? upcomingShifts(notes, fingers, shifts, t, 3 * beatMs(), beatMs()) : [];
     const faint = f => f.start > t + dueMs;
-    const sig = `${[...m].map(([n, f]) => `${n}:${f.finger}${faint(f) ? "~" : ""}`).join(",")}|${moves.map(mv => `${fingersKey(mv.from)}>${fingersKey(mv.to)}`).join(";")}`;
+    const sig = `${fingersKey(hand5)}|${[...m].map(([n, f]) => `${n}:${f.finger}${faint(f) ? "~" : ""}`).join(",")}|${moves.map(mv => `${fingersKey(mv.from)}>${fingersKey(mv.to)}`).join(";")}`;
     if (sig === keyFingSig) return;
     keyFingSig = sig;
-    const shown = new Map([...m].map(([n, f]) => [n, { finger: f.finger, color: handColor(f.track), move: faint(f) ? "soon" : "" }]));
+    const shown = new Map([...hand5].map(([n, f]) => [n, { finger: f.finger, color: handColor(f.track), move: "rest" }]));
+    for (const [n, f] of m) shown.set(n, { finger: f.finger, color: handColor(f.track), move: faint(f) ? "soon" : "" });
     for (const mv of moves) {
       for (const [n, f] of mv.from) shown.set(n, { finger: f.finger, color: "#5aa0ff", move: "from" });
       for (const [n, f] of mv.to) shown.set(n, { finger: f.finger, color: "#4fd18b", move: "to" });

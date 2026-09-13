@@ -238,5 +238,47 @@ export function upcomingShifts(notes, fingers, shifts, t, aheadMs, spanMs) {
   return moves;
 }
 
+const WHITE_PC = [0, 2, 4, 5, 7, 9, 11];
+const whiteNote = x => 12 * Math.floor(x / 7) + WHITE_PC[((x % 7) + 7) % 7];   // white-key index → MIDI note
+
+// The five fingers of each hand at song time `t`, always (#2431): the position the hand is in — its notes
+// from now until its next move (over `spanMs` at most; if it has nothing to play, its last position).
+// Fingers those notes use sit on their keys; the others are laid on the neighbouring white keys, about one
+// white key per finger from the thumb. → Map note → {finger, hand, track, played: whether a note uses it}
+export function handPositions(notes, fingers, shifts, t, spanMs) {
+  const out = new Map();
+  let lo = 0, hi = notes.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (notes[mid].start < t - 150) lo = mid + 1; else hi = mid; }
+  for (const hand of ["R", "L"]) {
+    const group = [];
+    for (let i = lo; i < notes.length && notes[i].start <= t + spanMs; i++) {      // ahead: until the next move
+      const f = fingers[notes[i].i];
+      if (f?.hand !== hand) continue;
+      if (group.length && shifts[notes[i].i]) break;
+      group.push(notes[i]);
+    }
+    if (!group.length) {                                        // resting: the position it was last in
+      for (let i = lo - 1; i >= 0 && notes[i].start >= t - spanMs; i--) {
+        const f = fingers[notes[i].i];
+        if (f?.hand !== hand) continue;
+        group.push(notes[i]);
+        if (shifts[notes[i].i]) break;
+      }
+    }
+    if (!group.length) continue;
+    const byFinger = new Map();
+    for (const n of group) { const f = fingers[n.i].finger; if (!byFinger.has(f)) byFinger.set(f, n); }
+    const side = hand === "R" ? 1 : -1;                         // right hand: fingers go up from the thumb
+    const thumb = [...byFinger].reduce((s, [f, n]) => s + keyX(n.note) - side * (f - 1), 0) / byFinger.size;
+    const track = group[0].track;
+    for (let finger = 1; finger <= 5; finger++) {
+      const n = byFinger.get(finger);
+      const note = n ? n.note : whiteNote(Math.round(thumb + side * (finger - 1)));
+      if (!out.has(note)) out.set(note, { finger, hand, track, played: !!n });
+    }
+  }
+  return out;
+}
+
 // Stable text for a keyFingers() map, to skip re-rendering when nothing changed.
 export const fingersKey = m => [...m].map(([n, f]) => `${n}:${f.finger}`).join(",");

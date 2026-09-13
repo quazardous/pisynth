@@ -3,7 +3,9 @@
 //   notation: "en" (C D E) or "fr" (Do Ré Mi) — a French browser starts in French
 //   ghost:    ghost keys in "I play" (the perfect timing next to your playing) — on by default
 
-const KEYS = { notation: "pisynth.notation", ghost: "pisynth.ghost", arcade: "pisynth.arcade", fingers: "pisynth.fingers" };
+const KEYS = { notation: "pisynth.notation", ghost: "pisynth.ghost", arcade: "pisynth.arcade", fingers: "pisynth.fingers",
+  playMode: "pisynth.playMode" };
+export const PLAY_MODES = ["normal", "hybrid", "infinite"];
 
 function read(key) {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -20,7 +22,13 @@ function initialNotation() {
 }
 
 export const prefs = $state({ notation: initialNotation(), ghost: read(KEYS.ghost) !== "0", arcade: read(KEYS.arcade) !== "0",
-  fingers: read(KEYS.fingers) !== "0" });
+  fingers: read(KEYS.fingers) !== "0", playMode: PLAY_MODES.includes(read(KEYS.playMode)) ? read(KEYS.playMode) : "hybrid" });
+
+// playMode, how "I play" runs a song: normal (once) · hybrid (part by part, each unlocked by the one before) · infinite (loops)
+export function setPlayMode(m) {
+  prefs.playMode = PLAY_MODES.includes(m) ? m : "hybrid";
+  write(KEYS.playMode, prefs.playMode);
+}
 
 // fingers: the suggested finger on the falling notes and the keyboard (#2431) — on by default
 export function setFingers(on) {

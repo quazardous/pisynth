@@ -7,6 +7,7 @@
   import { parseRoute, routePath } from "./lib/routes.js";
   import Player from "./Player.svelte";
   import Settings from "./Settings.svelte";
+  import { currentMusician } from "./lib/musician.svelte.js";
 
   const initial = parseRoute(location.pathname);
   let mode = $state(initial.mode ?? "play");
@@ -57,7 +58,13 @@
 </script>
 
 <header>
-  <span class="title">pisynth</span>
+  {#if pairing === "paired"}
+    <button class="who" onclick={() => navigate({ panel: panel === "musicians" ? null : "musicians" })} aria-label="musician: {currentMusician().name} — change">
+      <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5z" /></svg>{currentMusician().name}
+    </button>
+  {:else}
+    <span class="title">pisynth</span>
+  {/if}
   {#if pairing === "paired"}
     <span class="status" class:on={link === "live"}>{link}</span>
     <button class="cog" onclick={() => navigate({ panel: panel ? null : "sound" })} aria-label="settings">
@@ -81,13 +88,17 @@
     {/if}
   </section>
 {:else}
-  <Player {onFrame} {onMessage} {send} {mode} onMode={m => navigate({ mode: m, panel: null })} onPanel={p => navigate({ panel: p })} />
+  <Player {onFrame} {onMessage} {send} {mode} onMode={m => navigate({ mode: m, panel: null })} />
   {#if panel}
     <Settings {panel} onPanel={p => navigate({ panel: p })} onClose={() => navigate({ panel: null })} {onFrame} {onMessage} {send} />
   {/if}
 {/if}
 
 <style>
+  /* the musician playing, in place of the title: tap to choose or rename (cog → Musicians) */
+  .who { margin: 0; padding: 5px 12px 5px 8px; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; background: #2c2c3a;
+         color: var(--fg); font-weight: 700; min-width: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who svg { width: 18px; height: 18px; fill: #c38bff; flex: 0 0 auto; }
   .cog { margin: 0 0 0 4px; padding: 6px; background: none; display: grid; place-items: center; border-radius: 50%; }
   .cog svg { width: 24px; height: 24px; fill: var(--muted); }
   .cog:active svg { fill: var(--fg); }

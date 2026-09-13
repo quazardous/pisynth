@@ -30,7 +30,7 @@ for (const f of files) {
     if (homer) {
       const r = noteRange(notes);
       assert.equal(noteTracks(notes).length, 1);
-      assert.ok(r.low >= 60 && r.high <= 67, `range ${r.low}-${r.high}`);          // stays in C–G
+      assert.ok(r.low >= 55 && r.high <= 69, `range ${r.low}-${r.high}`);          // stays within G3–A4
     } else {
       assert.ok(noteTracks(notes).length >= 2, `tracks with notes: ${noteTracks(notes)}`);
     }

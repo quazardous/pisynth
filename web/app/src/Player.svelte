@@ -19,14 +19,15 @@
   import { countInTimes, scheduleCountdown } from "./lib/click.js";
   import { ComboTracker, ParticlePool, RollingNumber } from "./lib/arcade.js";
   import { comboSting, comboBreaker, oops } from "./lib/sfx.js";
-  import { comboSplash, oopsSplash, levelUpSplash } from "./lib/comic.js";
+  import { comboSplash, oopsSplash, levelUpSplash, unlockSplash } from "./lib/comic.js";
   import { songFeatures, difficulty } from "./lib/difficulty.js";
   import { Progress, levelDifficulty } from "./lib/progress.js";
   import { detectChord, noteName, pitchName } from "./lib/theory.js";
-  import { prefs } from "./lib/prefs.svelte.js";
+  import { prefs, setPlayMode, PLAY_MODES } from "./lib/prefs.svelte.js";
   import { RecordBook, songKey } from "./lib/records.js";
   import { EndlessScore } from "./lib/endless.js";
-  import { musicians, currentMusician, storeKey } from "./lib/musician.svelte.js";
+  import { songParts, partAt, PartBook } from "./lib/parts.js";
+  import { musicians, storeKey } from "./lib/musician.svelte.js";
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
   import Keyboard from "./Keyboard.svelte";
   import Library from "./Library.svelte";
@@ -34,7 +35,7 @@
   import Comic from "./Comic.svelte";
   import Gauge from "./Gauge.svelte";
 
-  let { onFrame, onMessage, send, mode = "play", onMode = () => {}, onPanel = () => {} } = $props();
+  let { onFrame, onMessage, send, mode = "play", onMode = () => {} } = $props();
 
   const AHEAD_MS = 2600;           // song ms visible above the line: at 50 % tempo the notes fall half as fast
   const PAST_MS = 300;             // a note stays drawn this long after it ends
@@ -124,6 +125,7 @@
       if (playing) stop();
       progress = new Progress(undefined, storeKey("pisynth.progress"));
       endlessBook = new EndlessScore(undefined, storeKey("pisynth.endless"));
+      partBook = new PartBook(undefined, storeKey("pisynth.parts"));
       lv = progress.level; xpGain = null; best = null; finished = false; endlessShown = 0; laps = 0;
     });
   });
@@ -157,12 +159,50 @@
     return () => { offF(); offM(); };
   });
 
-  // ---- infinite mode: a toggle; the song starts over lap after lap, with its own up-and-down score ----
-  let endlessBook = $state.raw(new EndlessScore(undefined, storeKey("pisynth.endless")));   // (raw: swapped per musician)
-  let endless = $state(false), endlessShown = $state(0), laps = $state(0), lastJudged = 0;
-  function toggleEndless() {
-    endless = !endless;
+  // ---- play modes (⋯ or the mode button): normal · hybrid (part by part) · infinite (loops, own score) ----
+  const endless = $derived(prefs.playMode === "infinite");
+  const hybrid = $derived(prefs.playMode === "hybrid" && mode === "play");
+  const MODE_LABEL = { normal: "Normal", hybrid: "Hybrid", infinite: "Infinite" };
+  function chooseMode(m) {
+    if (playing) stop();
+    setPlayMode(m);
     endlessBook.reset(); endlessShown = 0; laps = 0; lastJudged = judge.score;
+    loop = null;                                           // (hybrid's parts drive the loop; leaving it frees it)
+    paint();
+  }
+  const cycleMode = () => chooseMode(PLAY_MODES[(PLAY_MODES.indexOf(prefs.playMode) + 1) % PLAY_MODES.length]);
+
+  let endlessBook = $state.raw(new EndlessScore(undefined, storeKey("pisynth.endless")));   // (raw: swapped per musician)
+  let endlessShown = $state(0), laps = $state(0), lastJudged = 0;
+
+  // Hybrid: a part must go by without a wrong key or a missed note to unlock the next one.
+  const parts = $derived(song ? songParts(current, notes) : []);
+  let partBook = $state.raw(new PartBook(undefined, storeKey("pisynth.parts")));
+  let partIdx = $state(0), partFails = 0, cleared = $state(0);
+  $effect(() => { song; partBook; untrack(() => { cleared = partBook.cleared(songKey(song)); partIdx = Math.min(cleared, Math.max(0, parts.length - 1)); }); });
+
+  function partDone(now) {
+    const key = songKey(song);
+    if (partFails === 0) {
+      partBook.clear(key, partIdx + 1);
+      cleared = partBook.cleared(key);
+      if (partIdx + 1 >= parts.length) { finish(); status = "Song cleared — every part unlocked!"; return; }
+      partIdx++;
+      loop = { a: parts[partIdx].a, b: parts[partIdx].b };
+      partFails = 0;
+      levelUp = { splash: unlockSplash(seed(), partIdx + 1), id: ++announceId };   // (the big bubble, reused)
+      comboSting(4);
+      return;
+    }
+    announce = { text: "TRY AGAIN", color: "#ff5a5a", breaker: true, splash: comboSplash(seed(), { breaker: true }), id: ++announceId };
+    if (prefs.arcade) comboBreaker(); else status = `${parts[partIdx].label}: again, without a wrong key or a missed note`;
+    stop(false);
+    start(parts[partIdx].a, true);
+  }
+  function restartParts() {
+    partBook.forget(songKey(song)); cleared = 0; partIdx = 0;
+    if (playing) stop();
+    position = parts[0]?.a ?? 0; paint();
   }
   function scoreEndless(kind, tempoNow) {
     endlessBook.apply(kind, kind === "wrong" || kind === "miss" ? 0 : judge.score - lastJudged, tempoNow);
@@ -172,6 +212,7 @@
 
   function show(r, now) {
     if (endless && mode === "play") scoreEndless(r.kind, tf());
+    if (hybrid && r.kind === "wrong") partFails++;
     effects.push({ ...r, at: now });
     flash = { kind: r.kind, delta: r.delta, id: ++flashId };
     stats = { score: judge.score, streak: judge.streak, accuracy: judge.accuracy() };
@@ -228,6 +269,12 @@
     if (!notes.length) return;
     countBeats = lap ? 1 : COUNT_IN;
     if (!lap) { endlessBook.reset(); endlessShown = 0; laps = 0; }
+    if (hybrid && parts.length) {                            // hybrid: play the part asked for, if it's unlocked
+      if (!lap) partIdx = Math.min(partAt(parts, at ?? (position >= current.durationMs ? 0 : position)), cleared, parts.length - 1);
+      loop = { a: parts[partIdx].a, b: parts[partIdx].b };
+      at = parts[partIdx].a;
+      partFails = 0;
+    }
     from = at ?? loop?.a ?? (position >= current.durationMs ? 0 : position);
     const now = performance.now();
     origin = from;
@@ -364,10 +411,13 @@
         for (const i of missed) { effects.push({ kind: "miss", note: notes[i].note, index: i, at: now }); if (prefs.arcade) arcade("miss", notes[i].note, now); }
         if (missed.length) stats = { score: judge.score, streak: judge.streak, accuracy: judge.accuracy() };
         if (endless) for (const _ of missed) scoreEndless("miss", tf());
+        if (hybrid) partFails += missed.length;
         countIn = t < from ? Math.min(countBeats, Math.ceil((from - t) / beatMs())) : t < from + 450 * tf() ? "GO!" : 0;
       }
-      if (loop && t >= loop.b) { if (endless) laps++; stop(false); start(loop.a, endless); return; }
-      if (t > current.durationMs + 800) {
+      if (hybrid && parts[partIdx]) {                       // hybrid: judge the part once its last notes had their chance
+        if (t >= parts[partIdx].b + judge.win("ok")) { partDone(now); return; }
+      } else if (loop && t >= loop.b) { if (endless) laps++; stop(false); start(loop.a, endless); return; }
+      if (!hybrid && t > current.durationMs + 800) {
         if (endless && mode === "play") { laps++; stop(false); start(0, true); } else finish();   // infinite: the next lap
         return;
       }
@@ -560,7 +610,6 @@
       <button class:on={mode === "play"} onclick={() => onMode("play")}>I play</button>
       <button class:on={mode === "listen"} onclick={() => onMode("listen")}>Listen</button>
     </div>
-    <button class="who" onclick={() => onPanel("musicians")} aria-label="musician: {currentMusician().name} — change">{currentMusician().name}</button>
     <span class="lv" title="{lv.into} / {lv.need} XP to the next level">Lv {lv.level}<i style:width="{Math.round((lv.into / lv.need) * 100)}%"></i>
       {#key xpGain?.id}{#if xpGain && !finished}<b class="xp-pop">+{xpGain.xp} XP</b>{/if}{/key}
     </span>
@@ -568,6 +617,12 @@
       {#if endless}
         <span class="endless" title="infinite mode · best {endlessBook.best(songKey(song))}">∞ {endlessShown}</span>
         {#if laps}<span class="acc">lap {laps + 1}</span>{/if}
+      {:else if hybrid && parts.length}
+        <span class="score" class:racing={prefs.arcade && shownScore !== stats.score}>{prefs.arcade ? shownScore : stats.score}</span>
+        <span class="part" title="{parts[partIdx]?.label} · {cleared} of {parts.length} cleared">
+          {#each parts as _, k (k)}<i class:done={k < cleared} class:here={k === partIdx}></i>{/each}
+          <b>{partIdx + 1}/{parts.length}</b>
+        </span>
       {:else}
         <span class="score" class:racing={prefs.arcade && shownScore !== stats.score}>{prefs.arcade ? shownScore : stats.score}</span>
       {/if}
@@ -642,13 +697,24 @@
     </section>
   {:else if sheet === "options" && song}
     <section class="sheet">
+        {#if mode === "play"}
+          <div class="modes" role="radiogroup" aria-label="play mode">
+            {#each PLAY_MODES as m (m)}
+              <button class:on={prefs.playMode === m} role="radio" aria-checked={prefs.playMode === m} onclick={() => chooseMode(m)}>{MODE_LABEL[m]}</button>
+            {/each}
+          </div>
+          <p class="muted">{#if prefs.playMode === "hybrid"}Part by part: play a part without a wrong key or a missed note to unlock the next. {cleared} of {parts.length} parts cleared.
+            {#if cleared}<button class="link" onclick={restartParts}>start over from part 1</button>{/if}
+          {:else if prefs.playMode === "infinite"}The song starts over by itself, with a score of its own that goes up with your hits and down with misses and wrong keys.
+          {:else}The whole song, once, then your results.{/if}</p>
+        {/if}
         <label>Tempo {tempo}% <input type="range" min="50" max="150" step="5" bind:value={tempo} onchange={retempo}></label>
-        <div class="loop">
+        {#if !hybrid}<div class="loop">
           <span>Loop</span>
           <button class="small" onclick={setA}>A = {fmt(loop?.a ?? position)}</button>
           <button class="small" onclick={setB} disabled={!loop && position === 0}>B = {loop ? fmt(loop.b) : "—"}</button>
           {#if loop}<button class="small ghost" onclick={() => (loop = null)}>clear</button>{/if}
-        </div>
+        </div>{/if}
         <p class="muted">Difficulty <Gauge value={songDiff} number /> (for your level: {levelDifficulty(lv.level).toFixed(1)}). Points and XP × the tempo.</p>
         <p class="muted">{hands.length >= 2 ? "2 hands: right hand blue, left hand green. " : ""}{mode === "play" ? "Hit each note as it reaches the yellow line." : "pisynth plays the song; the notes light up as they sound."}</p>
     </section>
@@ -663,8 +729,10 @@
         <svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" /></svg>
       {/if}
     </button>
-    <button class="infinite" class:on={endless} disabled={!song || mode !== "play"} onclick={toggleEndless}
-            aria-pressed={endless} aria-label="infinite mode: the song starts over, with its own score">∞</button>
+    <button class="modebtn {prefs.playMode}" disabled={mode !== "play"} onclick={cycleMode}
+            aria-label="play mode: {MODE_LABEL[prefs.playMode]} — tap to change" title="{MODE_LABEL[prefs.playMode]} mode">
+      {#if prefs.playMode === "infinite"}∞{:else if prefs.playMode === "hybrid"}<svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 9.9-1h-2.1A3 3 0 0 0 9 8v3h9a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 18 21H6a1.5 1.5 0 0 1-1.5-1.5v-7A1.5 1.5 0 0 1 6 11z" /></svg>{:else}1×{/if}
+    </button>
     <button class="replay" disabled={!song} onclick={rewind} aria-label={loop ? "stop and back to A" : "stop and back to the start"}>
       <svg viewBox="0 0 24 24"><path d="M12 5V1.5L7 6.5l5 5V7.5a5.5 5.5 0 1 1-5.5 5.5H4a8 8 0 1 0 8-8z" /></svg>
     </button>
@@ -724,9 +792,6 @@
   @keyframes glitch { 50% { translate: 6px -2px; } }
   .best-combo { color: var(--yellow); font-style: italic; font-weight: 700; }
   .acc { color: var(--muted); font-size: .85rem; }
-  /* the musician playing: tap to change (cog → Musicians) */
-  .who { margin: 0; padding: 3px 9px; border-radius: 999px; background: #2c2c3a; color: var(--fg); font-size: .78rem; font-weight: 700;
-         max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
   /* level (#2436): the number over a thin XP bar; a run's XP floats up from it */
   .lv { position: relative; flex: 0 0 auto; font-weight: 800; font-size: .8rem; color: #c38bff; padding-bottom: 4px; white-space: nowrap; }
   .lv::before, .lv i { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; border-radius: 2px; }
@@ -788,9 +853,20 @@
   .replay svg { width: 22px; height: 22px; fill: var(--fg); }
   .replay:disabled { opacity: .35; }
   /* ∞ toggle: the song starts over by itself, with its own score */
-  .infinite { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; color: var(--fg); font-size: 1.45rem; line-height: 1; }
-  .infinite.on { background: #c38bff; color: #121218; }
-  .infinite:disabled { opacity: .35; }
+  /* play mode button: 1× normal · 🔒 hybrid · ∞ infinite (tap to cycle; the ⋯ sheet explains them) */
+  .modebtn { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; color: var(--fg); font-size: .95rem; font-weight: 800; line-height: 1; }
+  .modebtn.infinite { background: #c38bff; color: #121218; font-size: 1.45rem; }
+  .modebtn.hybrid { background: #4fd18b; color: #121218; }
+  .modebtn svg { width: 20px; height: 20px; fill: currentColor; }
+  .modebtn:disabled { opacity: .35; }
+  .part { display: inline-flex; align-items: center; gap: 3px; }
+  .part i { width: 8px; height: 8px; border-radius: 2px; background: #3a3a48; }
+  .part i.done { background: #4fd18b; }
+  .part i.here { box-shadow: 0 0 0 2px var(--yellow); }
+  .part b { margin-left: 3px; font-size: .75rem; color: var(--muted); }
+  .modes { display: flex; gap: 4px; background: #2a2a36; border-radius: 999px; padding: 3px; margin-bottom: 6px; }
+  .modes button { flex: 1; margin: 0; padding: 7px 0; border-radius: 999px; background: none; color: var(--muted); font-size: .85rem; }
+  .modes button.on { background: var(--accent); color: #fff; }
   .endless { font-weight: 800; font-size: 1.1rem; color: #c38bff; }
   .folder { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; }
   .folder svg { width: 22px; height: 22px; fill: var(--fg); }

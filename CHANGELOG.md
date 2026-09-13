@@ -5,10 +5,19 @@ All notable changes to pisynth, in plain language. Newest first.
 ## Unreleased
 
 ### Added
+- **Play modes: normal, hybrid (the new default), infinite** — pick one in the `⋯` menu, or tap the mode
+  button next to Play to cycle. **Hybrid** plays a song part by part: a part must go by without a wrong
+  key or a missed note to unlock the next one ("UNLOCKED!"), otherwise it starts again ("TRY AGAIN").
+  Parts are a song's phrases or verses when the file marks them, else every 4 bars (8 in a long song);
+  the header shows your progress, and each musician's cleared parts are remembered.
+- **Whole children's songs** — the homer and first steps songs are now complete (all the phrases of
+  Au clair de la lune, the whole Ode to Joy theme and Jingle Bells chorus…), each cut into its parts.
+- **The musician in the top bar** — the name of who is playing replaces the pisynth title; tap it to
+  choose or rename.
 - **Several musicians** — four on each phone by default (Musician 1 … 4), each with their own level,
-  XP, records and infinite-mode bests. Rename them and choose who plays under the cog → Musicians, or
-  tap the name in the player's header. What the phone had before becomes Musician 1's.
-- **Infinite mode (∞)** — a toggle next to Play: the song starts over by itself, lap after lap (a
+  XP, records, infinite-mode bests and cleared parts. Rename them and choose who plays under the cog →
+  Musicians, or tap the name in the top bar. What the phone had before becomes Musician 1's.
+- **Infinite mode (∞)** — the song starts over by itself, lap after lap (a
   one-beat count-in between laps, the A–B loop if there is one), with a score of its own that climbs
   with the notes you hit and drops with misses and wrong keys. The best it reached is kept per song.
 - **Next song** — the results card offers "Next ›": the next song in the folder, or after the last

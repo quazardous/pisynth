@@ -45,6 +45,10 @@ export function comboSplash(seed, { color = "#ffd23f", breaker = false } = {}) {
 export const levelUpSplash = (seed, level) =>
   ({ seed, word: "LEVEL UP!", caption: `Lv ${level}`, color: "#ffd23f", scale: 1, dx: 0, dy: 0, tilt: -5 - rng(seed)() * 6, spikes: 18 });
 
+// Hybrid mode: the next part is open.
+export const unlockSplash = (seed, part) =>
+  ({ seed, word: "UNLOCKED!", caption: `Part ${part}`, color: "#4fd18b", scale: 1, dx: 0, dy: 0, tilt: 4 + rng(seed)() * 6, spikes: 16 });
+
 // A wrong key: "OOPS!" in a smaller, softer bubble, with the points it cost.
 export const oopsSplash = (seed, penalty) => {
   const r = rng(seed);

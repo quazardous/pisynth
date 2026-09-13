@@ -1,7 +1,14 @@
 // Standard MIDI File → timed events (#2416), on the phone. Pure, unit-tested under Node.
 // Formats 0/1, running status, tempo map (FF 51) applied across all tracks; SMPTE time is refused.
 // Keeps note on/off and the sustain pedal (CC64) — what demo mode plays — with the track each
-// event came from (two tracks = right hand / left hand in most piano files, #2418).
+// event came from (two tracks = right hand / left hand in most piano files, #2418), and the markers
+// (FF 06: a song's parts, for the step-by-step mode).
+
+// Meta texts are bytes: UTF-8 when valid (our own files), else Latin-1 (older files).
+function decodeText(s) {
+  const bytes = Uint8Array.from(s, c => c.charCodeAt(0));
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { return s; }
+}
 
 export function parseMidi(buffer) {
   const v = new DataView(buffer instanceof ArrayBuffer ? buffer : buffer.buffer);
@@ -28,7 +35,8 @@ export function parseMidi(buffer) {
       if (status === 0xff) {
         const type = v.getUint8(p++), len = vlq();
         if (type === 0x51 && len === 3) raw.push({ tick, order: order++, kind: "tempo", tempo: (v.getUint8(p) << 16) | (v.getUint8(p + 1) << 8) | v.getUint8(p + 2) });
-        if (type === 0x03 && !name && t <= 1) name = str(len); else p += len;
+        if (type === 0x06) raw.push({ tick, order: order++, kind: "marker", text: decodeText(str(len)) });   // parts / sections
+        else if (type === 0x03 && !name && t <= 1) name = decodeText(str(len)); else p += len;
         continue;
       }
       if (status === 0xf0 || status === 0xf7) { p += vlq(); continue; }
@@ -42,14 +50,15 @@ export function parseMidi(buffer) {
   }
   raw.sort((a, b) => a.tick - b.tick || (a.kind === "tempo" ? -1 : 0) - (b.kind === "tempo" ? -1 : 0) || a.order - b.order);
   let tempo = 500000, lastTick = 0, ms = 0, firstTempo = null;
-  const events = [];
+  const events = [], markers = [];
   for (const e of raw) {
     ms += ((e.tick - lastTick) * tempo) / division / 1000;
     lastTick = e.tick;
     if (e.kind === "tempo") { tempo = e.tempo; if (firstTempo === null || e.tick === 0) firstTempo = e.tempo; }
+    else if (e.kind === "marker") markers.push({ ms, text: e.text.trim() });
     else events.push({ ms, status: e.status, d1: e.d1, d2: e.d2, track: e.track });
   }
-  return { format, tracks: ntracks, name: name.trim(), events, durationMs: ms, bpm: Math.round(60e6 / (firstTempo ?? 500000)) };
+  return { format, tracks: ntracks, name: name.trim(), events, markers, durationMs: ms, bpm: Math.round(60e6 / (firstTempo ?? 500000)) };
 }
 
 // A short built-in demo (no file needed): C major scale up, then I–vi–IV–V with the pedal.

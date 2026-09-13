@@ -48,5 +48,5 @@ export const levelUpSplash = (seed, level) =>
 // A wrong key: "OOPS!" in a smaller, softer bubble, with the points it cost.
 export const oopsSplash = (seed, penalty) => {
   const r = rng(seed);
-  return { seed, word: "OOPS!", caption: penalty ? `−${penalty}` : "", color: "#ff6b6b", scale: 0.9 + r() * 0.2, dx: 0, dy: 0, tilt: (r() - 0.5) * 24, spikes: 9 };
+  return { seed, word: "OOPS!", caption: penalty ? `−${penalty}` : "", color: "#a86bff", scale: 0.9 + r() * 0.2, dx: 0, dy: 0, tilt: (r() - 0.5) * 24, spikes: 9 };
 };

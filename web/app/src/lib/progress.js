@@ -2,7 +2,9 @@
 // the song is times the tempo you played it at; songs easy for your level, and the same song again the same day, earn less
 // and less (logarithmically). Pure apart from the injected storage; tested under Node.
 
-export const NOTE_XP = { perfect: 1, good: 0.7, early: 0.3, late: 0.3 };
+// Per note, in step with the points (perfect 100, good 70, early/late 30, wrong key −25): a run that
+// scores nothing earns nothing.
+export const NOTE_XP = { perfect: 1, good: 0.7, early: 0.3, late: 0.3, wrong: -0.25 };
 const XP_SCALE = 2;
 const MIN_NOTES = 5;           // fewer judged notes than this earn nothing (a stop right after Play)
 
@@ -24,7 +26,7 @@ export function levelOf(xp) {
 export function runXp(counts, diff, level, play = 1, tempo = 1) {
   const judged = ["perfect", "good", "early", "late", "miss"].reduce((s, k) => s + (counts[k] || 0), 0);
   if (judged < MIN_NOTES) return { xp: 0, base: 0, easy: 1, repeat: 1 };
-  const hits = Object.entries(NOTE_XP).reduce((s, [k, v]) => s + (counts[k] || 0) * v, 0);
+  const hits = Math.max(0, Object.entries(NOTE_XP).reduce((s, [k, v]) => s + (counts[k] || 0) * v, 0));
   const base = hits * diff * tempo * XP_SCALE;
   const gap = levelDifficulty(level) - diff;
   const easy = gap > 0 ? 1 / (1 + Math.log(1 + gap)) : 1;

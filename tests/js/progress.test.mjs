@@ -40,7 +40,7 @@ test("points: linear in the notes, weighted by the tempo", () => {
 });
 
 test("XP: judged notes × difficulty, less for easy songs and repeats, never negative", () => {
-  const counts = { perfect: 10, good: 0, early: 0, late: 0, miss: 0, wrong: 3 };
+  const counts = { perfect: 10, good: 0, early: 0, late: 0, miss: 2, wrong: 0 };
   const full = runXp(counts, 5, 1, 1);
   assert.equal(full.xp, 100);                                   // 10 × 5 × 2
   assert.equal(runXp(counts, 5, 1, 1, 0.5).xp, 50);            // the tempo weighs on the XP
@@ -51,6 +51,8 @@ test("XP: judged notes × difficulty, less for easy songs and repeats, never neg
   assert.ok(repeats.every((x, k) => k === 0 || x < repeats[k - 1]), `${repeats}`);
   assert.equal(runXp({ perfect: 2, miss: 1 }, 5, 1, 1).xp, 0);   // too few notes judged
   assert.equal(runXp({ miss: 20, wrong: 40 }, 5, 1, 1).xp, 0);
+  assert.equal(runXp({ early: 10, wrong: 12 }, 5, 1, 1).xp, 0);  // 300 points − 300 of wrong keys: no XP either
+  assert.equal(runXp({ perfect: 10, wrong: 4 }, 5, 1, 1).xp, 90); // wrong keys cost XP like they cost points
 });
 
 test("levels: a growing curve, the level's difficulty rises", () => {

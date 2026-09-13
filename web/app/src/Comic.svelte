@@ -55,7 +55,8 @@
     12%  { transform: rotate(var(--tilt)) scale(calc(var(--s) * 1.15)); opacity: 1; }
     20%  { transform: translateY(0) rotate(var(--tilt)) scale(var(--s)); opacity: 1; animation-timing-function: cubic-bezier(.35,0,.75,.7); }
     65%  { transform: translateY(80%) rotate(calc(var(--tilt) + 22deg)) scale(var(--s)); opacity: 1; animation-timing-function: linear; }
-    100% { transform: translateY(170%) rotate(calc(var(--tilt) + 40deg)) scale(calc(var(--s) * .9)); opacity: 0; }
+    92%  { opacity: 1; }                                        /* still whole as it goes under the line */
+    100% { transform: translateY(190%) rotate(calc(var(--tilt) + 40deg)) scale(calc(var(--s) * .9)); opacity: 0; }
   }
   .combo { animation-name: pop-fade; }                      /* under the announcer: see-through, gone before the text */
   @keyframes pop-fade {

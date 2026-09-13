@@ -239,7 +239,7 @@
     if (sender) { if (tell) sender.stop(); else sender.playing = false; sender = null; }
     cancelClicks(); cancelClicks = () => {};
     if (simulated && mode === "play") send({ t: "sim_stop" });
-    if (runActive) { runActive = false; awardXp(); }            // stopped, finished or looped: the notes judged count
+    if (runActive) { runActive = false; if (judge.score > 0) awardXp(); else xpGain = null; }   // stopped, finished or looped: no points, no XP
     playing = false; countIn = 0; guide = new Set(); ghost = new Set();
     rolling.jump(judge.score); shownScore = judge.score;
     releaseAwake();
@@ -510,7 +510,7 @@
       {/key}
       {#key oopsAt?.id}
         {#if oopsAt && prefs.arcade && playing}
-          <div class="oops-at" style:left="{oopsAt.x}%"><Comic splash={oopsAt.splash} kind="oops" width="min(40vw, 170px)" /></div>
+          <div class="oops-layer"><div class="oops-at" style:left="{oopsAt.x}%"><Comic splash={oopsAt.splash} kind="oops" width="min(40vw, 170px)" /></div></div>
         {/if}
       {/key}
       {#key flash?.id}
@@ -616,7 +616,9 @@
               color: #fff; -webkit-text-stroke: 2px #000; paint-order: stroke fill; text-shadow: 0 4px 0 #000, 0 0 22px var(--tier-color);
               animation: slam 1.05s cubic-bezier(.2,1.6,.4,1) forwards; }
   .announce-text { position: relative; }                  /* over its splash bubble */
-  .oops-at { position: absolute; bottom: 70px; width: 0; height: 0; pointer-events: none; z-index: 2; }
+  /* the OOPS sinks under the yellow hit line: its layer stops just above the line and clips it */
+  .oops-layer { position: absolute; inset: 0 0 3px 0; overflow: hidden; pointer-events: none; z-index: 2; }
+  .oops-at { position: absolute; bottom: 70px; width: 0; height: 0; }
   .announce.breaker { font-size: clamp(1.2rem, 7vw, 2.1rem); animation: slam 1.05s cubic-bezier(.2,1.6,.4,1) forwards, glitch .12s steps(2) 4; }
   /* slams in, holds a beat, then sinks like a boat — going down faster and faster, listing, fading */
   @keyframes slam { 0% { transform: scale(3) rotate(-8deg); opacity: 0; } 18% { transform: scale(1) rotate(-3deg); opacity: 1; }

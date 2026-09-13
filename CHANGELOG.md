@@ -2,7 +2,9 @@
 
 All notable changes to pisynth, in plain language. Newest first.
 
-## 0.5.0 — unreleased
+## 0.5.0 — 2026-09-13
+
+The web companion release: your phone becomes a play-along coach.
 
 ### Added
 - **XP and levels** — playing earns XP: the notes you get right, times how hard the song is, times
@@ -27,7 +29,8 @@ All notable changes to pisynth, in plain language. Newest first.
   and the best combo on the results card. Switch them off under the cog → Display.
 - **Comic-book splashes** — each combo slams in over a spiky, halftone comic bubble in its colour
   (a little different in size, place and tilt every time), then both sink like a boat and fade;
-  a wrong key pops an "OOPS!" bubble with a small sad-trombone. Our own drawings, lettered with the
+  a wrong key pops a purple "OOPS!" bubble with a small sad-trombone, which sinks under the hit line.
+  Our own drawings, lettered with the
   Bangers font (SIL Open Font License, bundled so it works without internet).
 - **Your best on each song, kept on the phone** — a song played to the end files your best score
   (with its tempo), accuracy, longest combo and number of plays; the results card shows "NEW RECORD!"
@@ -48,29 +51,28 @@ All notable changes to pisynth, in plain language. Newest first.
   outlined key next to yours: in time, your blue key gets a yellow outline; early, blue comes
   first; late or missed, the ghost is alone. An outline also pulses in the lane at the exact hit
   moment. The ghost waits for the usual Wi-Fi delay so a perfect press really looks simultaneous.
-  On by default; switch it off in the `⋯` menu. "I play" also keeps going if the synth can't play
-  the count-in.
-- **One screen for the web companion** — Play and Demo are now the same player with an
-  "I play / Listen" toggle (the notes fall in both; tempo, loop and position are shared), the live
-  keyboard shows when no song is loaded, and Sound, Latency and About moved behind a cog. Old links
-  still work; the phone can be turned sideways.
-- **MIDI library on the Pi** — Play and Demo pick songs from folders kept on pisynth: a starter set
+  On by default; switch it off under the cog → Display.
+- **One screen for the web companion** — one player with an "I play / Listen" toggle (the notes
+  fall in both; tempo, loop and position are shared), a folder button next to Play to choose a song,
+  the live keyboard when no song is loaded, and Sound, Display, Latency and About behind a cog.
+  Works in portrait and landscape.
+- **MIDI library on the Pi** — the player picks songs from folders kept on pisynth: a starter set
   of 14 classical piano pieces by level (Public Domain, Mutopia Project), your own files from the
   repo's `midi/` folder (synced by `./deploy.sh`, subfolders kept), and files uploaded from the
   phone into any folder. Uploads survive deploys and read-only mode; only they can be deleted
   from the phone. The phone shows each piece's length and whether it has two hands.
-- **Play along (note highway)** — the web companion's Play page drops a song's notes onto the
-  keyboard, rock-game style: hit each one as it reaches the yellow line. Your timing is judged
-  from the moment you pressed the key (not when Wi-Fi delivered it): perfect, good, early, late,
-  missed, with a score, streak and accuracy. Tempo 50–150 %, A–B loop, a count-in played by
-  pisynth. Two-hand files show each hand in its own colour; songs wider than the phone slide
-  along with the music.
-- **Synth settings from the phone** — the web companion's Sound page changes the soundfont and
+- **Play along (note highway)** — "I play" drops a song's notes onto the keyboard, rock-game style:
+  hit each one as it reaches the yellow line. Your timing is judged from the moment you pressed the
+  key (not when Wi-Fi delivered it): perfect, good, early, late, missed, with a score, streak and
+  accuracy. Tempo 50–150 % (the notes fall slower or faster), A–B loop, a "3 · 2 · 1 · GO!"
+  video-game count-in played by the phone. Two-hand files show each hand in its own colour; songs
+  wider than the phone slide along with the music.
+- **Synth settings from the phone** — the companion's cog → Sound changes the soundfont and
   preset, gain, output volume and device, reverb, chorus, metronome and MIDI keyboard; the pisynth
   screen follows, and changes made on the box appear on the phone. Reverb and chorus are now real
   settings (remembered, re-applied at start), and the gain is remembered too.
-- **Demo mode** — the web companion plays a MIDI file (or a built-in sample) through pisynth's own
-  sound, in time; tap the yellow play icon on the pisynth screen to stop it.
+- **Listen mode** — the web companion plays a MIDI file (or a built-in sample) through pisynth's
+  own sound, in time, while its notes fall; tap the yellow play icon on the pisynth screen to stop it.
 - **Web companion on your phone** — tap the QR icon next to the metronome and scan it: your phone
   shows the keys you play and the chord name live, and can measure the keyboard-to-sound latency
   with its microphone. Pairing needs the code on the pisynth screen, so only someone at the

@@ -336,6 +336,7 @@
     <span class="song">{song ? song.name || "untitled" : ""}</span>
   </div>
 
+  <div class="area">                                  <!-- the notes' area; the sheet floats over it, never resizing it -->
   {#if song}
     <div class="stage" bind:clientWidth={stageW} bind:clientHeight={stageH}>
       <canvas bind:this={canvas}></canvas>
@@ -364,6 +365,7 @@
   {/if}
 
   {#if options}
+    <button class="scrim" aria-label="close" onclick={() => (options = false)}></button>
     <section class="sheet">
       <Library current={song?.path} onPick={load} />
       <button class="link" onclick={() => load(sampleSong())}>use the built-in sample</button>
@@ -380,6 +382,7 @@
       {/if}
     </section>
   {/if}
+  </div>
 
   <div class="player">
     <button class="play" onclick={() => (playing ? stop() : song ? start() : (options = true))} aria-label={playing ? "Stop" : "Play"}>
@@ -418,6 +421,7 @@
   .streak { font-weight: 700; color: #4fd18b; }
   .acc { color: var(--muted); font-size: .85rem; }
   .song { margin-left: auto; color: var(--muted); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .area { flex: 1; position: relative; min-height: 0; display: flex; flex-direction: column; }
   .stage { flex: 1; position: relative; min-height: 0; overflow: hidden; background: linear-gradient(#0d0d12, #17171f); }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .live { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; min-height: 0; }
@@ -438,7 +442,10 @@
   .error, .status-msg { position: absolute; left: 12px; right: 12px; top: 8px; }
   .error { color: #ff7a7a; }
   .status-msg { color: var(--muted); }
-  .sheet { margin: 6px 12px; padding: 12px 14px; background: var(--bar); border-radius: 12px; overflow-y: auto; max-height: 70vh; }
+  /* the song / tempo / loop sheet floats over the notes (the lanes keep their size) */
+  .scrim { position: absolute; inset: 0; z-index: 5; margin: 0; padding: 0; border-radius: 0; background: rgba(0,0,0,.35); }
+  .sheet { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 6; max-height: calc(100% - 16px); overflow-y: auto;
+           padding: 12px 14px; background: var(--bar); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.55); }
   .sheet label { display: block; margin-top: 8px; }
   .sheet input[type="range"] { width: 100%; }
   .sheet p { margin-top: 8px; }

@@ -15,7 +15,7 @@ import sys
 
 from .auth import Auth
 from .library import MidiLibrary
-from .midi_source import make_source
+from .midi_source import SimSource, make_source
 from .server import WebCompanion, cert_fingerprint, load_static, make_ssl_context
 
 
@@ -54,6 +54,8 @@ def main():
                        synth=(os.environ.get("PISYNTH_WEB_SYNTH_HOST", "127.0.0.1"),
                               int(os.environ.get("PISYNTH_WEB_SYNTH_PORT", "9800"))))
     src = make_source(app.feed, os.environ)
+    if isinstance(src, SimSource):
+        app.sim = src                                # dev stack: the simulator can play along the phone's song
     setup = f"setup http :{app.setup_port} · " if app.ca_pem and app.setup_port else "no CA · "
     print(f"[pisynth-web] https :{app.port} · admin 127.0.0.1:{app.admin_port} · {setup}"
           f"{len(app.assets)} assets in RAM · {app.auth.session_count} paired phone(s) · MIDI library {library.root} · "

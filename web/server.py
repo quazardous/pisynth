@@ -206,6 +206,7 @@ class WebCompanion:
         self.synth = synth
         self.demo = None                             # DemoPlayer, created with the loop (#2416)
         self.ui = UiLink(*ui, on_state=self._broadcast_synth_state)   # synth settings API (#2417)
+        self.sim = None                              # the dev stack's SimSource, if the MIDI is simulated (#2434)
         self._loop = None
         self._runners = []
 
@@ -380,6 +381,7 @@ class WebCompanion:
                 pass
         phone = Phone(ws)
         self.clients.add(phone)
+        phone.send_json({"t": "hello", "sim": self.sim is not None})   # the phone can ask the simulator to play along
         rate = _RateLimit(MAX_CMDS_PER_S)
         try:
             async for msg in ws:
@@ -411,6 +413,14 @@ class WebCompanion:
             reply = await self.ui.request(fwd)
             if not phone.is_closing():
                 phone.send_json({"t": "synth", "op": op, "req": msg.get("req"), **reply})
+        elif kind == "sim" and self.sim is not None:     # dev: the simulated keyboard plays this song (#2434)
+            notes, in_ms = msg.get("notes"), msg.get("in_ms", 0)
+            if (isinstance(notes, list) and len(notes) <= 5000 and isinstance(in_ms, (int, float)) and 0 <= in_ms <= 10000
+                    and all(isinstance(n, list) and len(n) == 3 and all(isinstance(x, (int, float)) for x in n)
+                            and 0 <= n[0] <= n[1] <= 3_600_000 and 0 <= n[2] <= 127 for n in notes)):
+                self.sim.play_song([(float(a), float(b), int(c)) for a, b, c in notes], float(in_ms))
+        elif kind == "sim_stop" and self.sim is not None:
+            self.sim.stop_song()
         elif kind == "stop":
             self.demo.stop()
             phone.send_json({"t": "demo", "state": "stopped"})

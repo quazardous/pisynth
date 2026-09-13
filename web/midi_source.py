@@ -198,15 +198,57 @@ SIM_PATTERNS = {
 }
 
 
+def performance(notes, skill=0.85, rng=None):
+    """A human-ish rendition of a song for the simulator to play along (dev, #2434).
+
+    notes: [(start_ms, end_ms, note)] relative to the song start. skill 0..1: at 1 nearly everything
+    is perfect; lower means more good / early / late hits, missed and wrong notes. Returns sorted
+    [(t_ms, status, d1, d2)] — pure, for tests."""
+    import random
+    rng = rng or random.Random()
+    s = min(1.0, max(0.0, float(skill)))
+    weights = {"perfect": 0.35 + 0.6 * s, "good": 0.08 + 0.25 * (1 - s), "sloppy": 0.02 + 0.2 * (1 - s),
+               "miss": 0.005 + 0.1 * (1 - s), "wrong": 0.005 + 0.05 * (1 - s)}
+    kinds, cum = list(weights), []
+    total = 0.0
+    for k in kinds:
+        total += weights[k]
+        cum.append(total)
+    ranges = {"perfect": (0, 35), "good": (55, 110), "sloppy": (130, 220), "wrong": (0, 60)}
+    out = []
+    for start, end, note in notes:
+        roll = rng.random() * total
+        kind = next(k for k, c in zip(kinds, cum) if roll <= c)
+        if kind == "miss":
+            continue
+        lo, hi = ranges[kind]
+        err = rng.uniform(lo, hi) * rng.choice((-1, 1))
+        pitch = note + rng.choice((-2, -1, 1, 2)) if kind == "wrong" else note
+        t_on = max(0.0, start + err)
+        t_off = max(t_on + 30, end + err - 20)
+        out.append((t_on, 0x90, max(0, min(127, pitch)), rng.randint(60, 110)))
+        out.append((t_off, 0x80, max(0, min(127, pitch)), 0))
+    return sorted(out, key=lambda e: (e[0], e[1] != 0x80))
+
+
 class SimSource:
     """Plays SIM_PATTERNS in a loop (scale → chords with sustain pedal → arpeggio), with
-    human-ish velocity jitter, as the same 7-byte frames. `speed` scales the tempo."""
+    human-ish velocity jitter, as the same 7-byte frames. `speed` scales the tempo.
 
-    def __init__(self, on_frame, speed=1.0, seed=None):
+    Play-along (#2434): play_song() interrupts the patterns and plays the phone's song like a human
+    player would (see performance()), so the note highway's judging, combos and effects can be
+    tried on the dev stack without a keyboard. The patterns resume once the song is over."""
+
+    def __init__(self, on_frame, speed=1.0, seed=None, skill=0.85):
         import random
         self.on_frame, self.speed = on_frame, max(0.1, float(speed))
+        self.skill = float(skill)
         self._rng = random.Random(seed)
         self._stop = threading.Event()
+        self._wake = threading.Event()             # a new song (or stop) interrupts what's playing
+        self._song = None                          # (events, t0 monotonic s) waiting to be played
+        self._held = set()
+        self._lock = threading.Lock()
         self._thread = None
 
     def start(self):
@@ -216,10 +258,32 @@ class SimSource:
 
     def stop(self):
         self._stop.set()
+        self._wake.set()
+
+    def play_song(self, notes, in_ms=0.0, skill=None):
+        """Play `notes` [(start_ms, end_ms, note)] starting `in_ms` from now."""
+        events = performance(notes, self.skill if skill is None else skill, self._rng)
+        with self._lock:
+            self._song = (events, time.monotonic() + max(0.0, in_ms) / 1000)
+        self._wake.set()
+
+    def stop_song(self):
+        with self._lock:
+            self._song = ("stop", 0)
+        self._wake.set()
 
     def _send(self, status, d1, d2):
         t_ns = time.monotonic_ns()
+        if status & 0xF0 == 0x90 and d2:
+            self._held.add(d1)
+        elif status & 0xF0 in (0x80, 0x90):
+            self._held.discard(d1)
         self.on_frame(pack(status, d1, d2, t_ns // 1_000_000), t_ns)
+
+    def _release(self):
+        for n in list(self._held):
+            self._send(0x80, n, 0)
+        self._send(0xB0, 64, 0)
 
     def steps(self):
         """The event script, as (delay_s, status, d1, d2) — pure, for tests."""
@@ -244,18 +308,36 @@ class SimSource:
 
     def _loop(self):
         while not self._stop.is_set():
+            with self._lock:
+                song, self._song = self._song, None
+            self._wake.clear()
+            if song and song[0] != "stop":
+                self._play(*song)
+                continue
             for delay, status, d1, d2 in self.steps():
-                if delay and self._stop.wait(delay / self.speed):
-                    return
+                if delay and self._wake.wait(delay / self.speed):
+                    break                              # a song arrived (or stop): leave the patterns
                 if status is not None:
                     self._send(status, d1, d2)
+            self._release()
+
+    def _play(self, events, t0):
+        for t_ms, status, d1, d2 in events:
+            left = t0 + t_ms / 1000 - time.monotonic()
+            if left > 0 and self._wake.wait(left):
+                break                                  # replaced by a newer song, stopped, or quitting
+            self._send(status, d1, d2)
+        self._release()
+        if not self._stop.is_set() and self._song is None:
+            self._wake.wait(1.5)                       # a breath before the patterns come back
 
 
 def make_source(on_frame, env):
     """Pick the MIDI source from the environment: aseqdump (default, on the Pi) | sim | pi."""
     kind = env.get("PISYNTH_WEB_MIDI_SOURCE", "aseqdump")
     if kind == "sim":
-        return SimSource(on_frame, speed=env.get("PISYNTH_WEB_SIM_SPEED", "1"))
+        return SimSource(on_frame, speed=env.get("PISYNTH_WEB_SIM_SPEED", "1"),
+                         skill=env.get("PISYNTH_WEB_SIM_SKILL", "0.85"))
     if kind == "pi":
         host = env.get("PISYNTH_HOST", "")
         if not host:

@@ -76,3 +76,35 @@ def test_subscription_check_spots_an_aseqdump_left_behind_by_a_replug():
     assert subscribed(ACONNECT_AFTER_REPLUG, 28607) is False        # → restarted by the watchdog
     assert subscribed(ACONNECT_AFTER_REPLUG, 12345) is None         # not listed (yet): leave it
     assert subscribed("", 1) is None
+
+
+def test_performance_model_follows_skill():
+    import random
+    from web.midi_source import performance
+    notes = [(i * 250.0, i * 250.0 + 200, 60 + i % 12) for i in range(400)]
+    pro = performance(notes, skill=1.0, rng=random.Random(1))
+    ons = [e for e in pro if e[1] == 0x90]
+    assert len(ons) >= 390                                        # hardly any misses
+    errs = sorted(abs(e[0] - n[0]) for e, n in zip(ons, notes) if e[2] == n[2])
+    assert errs[len(errs) // 2] < 36                              # mostly perfect timing
+    novice = performance(notes, skill=0.0, rng=random.Random(1))
+    assert len([e for e in novice if e[1] == 0x90]) < 380          # misses
+    assert pro == sorted(pro, key=lambda e: (e[0], e[1] != 0x80))  # time-ordered, offs first
+    assert all(e[0] >= 0 for e in novice)
+
+
+def test_simulator_plays_a_song_then_resumes_its_patterns():
+    import time as _t
+    from web.midi_source import FRAME, SimSource
+    got = []
+    src = SimSource(lambda frame, t: got.append((_t.monotonic(), FRAME.unpack(frame))), speed=1, seed=3, skill=1.0)
+    src.start()
+    _t.sleep(0.05)
+    t0 = _t.monotonic()
+    src.play_song([(0, 80, 72), (150, 230, 74), (300, 380, 76)], in_ms=100)
+    _t.sleep(0.8)
+    src.stop()
+    song_ons = [m for when, m in got if when >= t0 and m[0] == 0x90 and m[1] in (72, 74, 76)]
+    assert [m[1] for m in song_ons] == [72, 74, 76]
+    first_on = next(when for when, m in got if when >= t0 and m[0] == 0x90 and m[1] == 72)
+    assert 0.06 < first_on - t0 < 0.2                             # ~100 ms later, within the skill-1 error

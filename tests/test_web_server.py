@@ -78,6 +78,7 @@ class Harness:
             headers["Origin"] = origin
         try:
             ws = await self.http_session.ws_connect(self.url("/ws"), headers=headers, ssl=False, autoping=True)
+            self.hello = json.loads((await asyncio.wait_for(ws.receive(), 5)).data)   # the server greets first
             return 101, ws
         except aiohttp.WSServerHandshakeError as e:
             return e.status, None
@@ -283,4 +284,34 @@ def test_pairing_another_browser_disconnects_the_first(cert, static):
             assert msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSING)
             assert (await h.http("GET", "/api/session", {"Cookie": first}))[0] == 401
             assert (await h.http("GET", "/api/session", {"Cookie": second}))[0] == 204
+    run(go())
+
+
+def test_hello_says_whether_the_simulator_can_play_along(cert, static):
+    class FakeSim:
+        def __init__(self):
+            self.songs, self.stopped = [], 0
+
+        def play_song(self, notes, in_ms):
+            self.songs.append((notes, in_ms))
+
+        def stop_song(self):
+            self.stopped += 1
+
+    async def go():
+        async with Harness(cert, static) as h:
+            _, ws = await h.ws(await h.pair())
+            assert h.hello == {"t": "hello", "sim": False}
+            await ws.send_json({"t": "sim", "notes": [[0, 100, 60]], "in_ms": 50})     # ignored: no simulator
+            await ws.close()
+        async with Harness(cert, static) as h:
+            h.app.sim = FakeSim()
+            _, ws = await h.ws(await h.pair())
+            assert h.hello == {"t": "hello", "sim": True}
+            await ws.send_json({"t": "sim", "notes": [[0, 100, 60], [200, 300, 64]], "in_ms": 1500})
+            await ws.send_json({"t": "sim", "notes": [[0, 100, 999]], "in_ms": 0})     # invalid note: refused
+            await ws.send_json({"t": "sim_stop"})
+            await asyncio.sleep(0.2)
+            assert h.app.sim.songs == [([(0.0, 100.0, 60), (200.0, 300.0, 64)], 1500.0)] and h.app.sim.stopped == 1
+            await ws.close()
     run(go())

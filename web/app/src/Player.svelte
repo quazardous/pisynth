@@ -67,6 +67,7 @@
   let follow = null, effects = [], origin = 0, clockStart = 0, from = 0, cancelClicks = () => {};
   const CLICK_LEAD_MS = 120;         // headroom to schedule the first count-in tick
   let sender = null, leadMs = 150;
+  let simulated = false;             // pisynth-web says its keyboard is the dev simulator (#2434)
   let raf = 0, timer = 0, lastPaint = 0, flashId = 0;
 
   $effect(() => {                                   // a new song: fresh judge, back to the start
@@ -105,6 +106,7 @@
       if (held.apply(ev)) liveOn = new Set(held.sounding());
     });
     const offM = onMessage(msg => {
+      if (msg.t === "hello") { simulated = !!msg.sim; return; }
       if (msg.t !== "demo") return;
       if (msg.state === "error" && mode === "listen") { error = "pisynth: " + msg.error; stop(false); }   // nothing to hear without the synth
       if (msg.state === "playing" && msg.lead_ms) leadMs = msg.lead_ms;
@@ -177,6 +179,13 @@
       stats = { score: 0, streak: 0, accuracy: 0 };
       combo.reset(); rolling.jump(0); shownScore = 0; hitsShown = 0; announce = null; sparks.items = [];
       cancelClicks = scheduleCountdown(countInTimes(clockStart, beatReal, COUNT_IN), clockStart);   // from the phone
+      if (simulated) {                                        // dev stack: the simulated keyboard plays along (#2434)
+        const end = loop?.b ?? Infinity;
+        const part = notes.filter(n => n.start >= from && n.start < end).slice(0, 5000)
+          .map(n => [Math.round((n.start - from) / tf()), Math.round((Math.min(n.end, end) - from) / tf()), n.note]);
+        send({ t: "sim", notes: part, in_ms: Math.round(clockStart - performance.now()) });
+        status = "simulator playing along";
+      }
     }
     playing = true;
     enterPlayMode();
@@ -194,6 +203,7 @@
     position = Math.max(from, Math.min(songPos(performance.now()), current.durationMs));
     if (sender) { if (tell) sender.stop(); else sender.playing = false; sender = null; }
     cancelClicks(); cancelClicks = () => {};
+    if (simulated && mode === "play") send({ t: "sim_stop" });
     playing = false; countIn = 0; guide = new Set(); ghost = new Set();
     rolling.jump(judge.score); shownScore = judge.score;
     releaseAwake();

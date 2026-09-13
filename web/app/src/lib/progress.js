@@ -1,5 +1,5 @@
 // XP and levels (#2436), kept on the phone. A run earns XP for the notes you got right times how hard
-// the song is at your tempo; songs easy for your level, and the same song again the same day, earn less
+// the song is times the tempo you played it at; songs easy for your level, and the same song again the same day, earn less
 // and less (logarithmically). Pure apart from the injected storage; tested under Node.
 
 export const NOTE_XP = { perfect: 1, good: 0.7, early: 0.3, late: 0.3 };
@@ -19,13 +19,13 @@ export function levelOf(xp) {
   return { level, into: left, need: xpToNext(level) };
 }
 
-// One run → {xp, base, easy, repeat}. `counts` = the judge's counts, `play` = which XP-paying play of this
-// song today (1 = the first), `diff` = the song's difficulty at the tempo played.
-export function runXp(counts, diff, level, play = 1) {
+// One run → {xp, base, easy, repeat}. `counts` = the judge's counts, `diff` = the song's difficulty,
+// `play` = which XP-paying play of this song today (1 = the first), `tempo` = 1 as written, .5 … 1.5.
+export function runXp(counts, diff, level, play = 1, tempo = 1) {
   const judged = ["perfect", "good", "early", "late", "miss"].reduce((s, k) => s + (counts[k] || 0), 0);
   if (judged < MIN_NOTES) return { xp: 0, base: 0, easy: 1, repeat: 1 };
   const hits = Object.entries(NOTE_XP).reduce((s, [k, v]) => s + (counts[k] || 0) * v, 0);
-  const base = hits * diff * XP_SCALE;
+  const base = hits * diff * tempo * XP_SCALE;
   const gap = levelDifficulty(level) - diff;
   const easy = gap > 0 ? 1 / (1 + Math.log(1 + gap)) : 1;
   const repeat = 1 / (1 + Math.log(Math.max(1, play)));
@@ -47,11 +47,11 @@ export class Progress {
   get level() { return levelOf(this.xp); }
 
   // A run is over: add its XP. Returns {…runXp(), before, after, song play number, levelUp}.
-  award(song, counts, diff) {
+  award(song, counts, diff, tempo = 1) {
     const day = today(this.now());
     if (day !== this.day) { this.day = day; this.plays = {}; }
     const before = levelOf(this.xp), play = (this.plays[song] || 0) + 1;
-    const run = runXp(counts, diff, before.level, play);
+    const run = runXp(counts, diff, before.level, play, tempo);
     if (run.xp > 0) {
       this.xp += run.xp;
       this.plays[song] = play;

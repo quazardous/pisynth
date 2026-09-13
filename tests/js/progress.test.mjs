@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { parseMidi } from "../../web/app/src/lib/midifile.js";
 import { songNotes } from "../../web/app/src/lib/highway.js";
-import { songFeatures, difficulty } from "../../web/app/src/lib/difficulty.js";
+import { songFeatures, difficulty, gaugeLevel } from "../../web/app/src/lib/difficulty.js";
 import { runXp, levelOf, xpToNext, levelDifficulty, Progress } from "../../web/app/src/lib/progress.js";
 import { Judge } from "../../web/app/src/lib/judge.js";
 
@@ -26,10 +26,9 @@ test("difficulty: the starter levels line up", () => {
   assert.ok([...homer, ...first, ...beg, ...mid, ...adv].every(d => d >= 1 && d <= 10));
 });
 
-test("difficulty: the tempo moves it", () => {
-  const f = starter.find(s => s.level === "3-intermediate").f;
-  assert.ok(difficulty(f, 0.5) < difficulty(f, 1) && difficulty(f, 1) < difficulty(f, 1.5));
+test("difficulty: as written (no tempo), shown as a 5-segment gauge", () => {
   assert.equal(difficulty({ density: 0, chords: 0, hands: 0, black: 0, effort: 0 }), 1);
+  assert.deepEqual([1, 2, 2.1, 4, 5.5, 6, 8, 9.9, 10].map(d => gaugeLevel(d)), [1, 1, 2, 2, 3, 3, 4, 5, 5]);
 });
 
 test("points: linear in the notes, weighted by the tempo", () => {
@@ -44,6 +43,8 @@ test("XP: judged notes × difficulty, less for easy songs and repeats, never neg
   const counts = { perfect: 10, good: 0, early: 0, late: 0, miss: 0, wrong: 3 };
   const full = runXp(counts, 5, 1, 1);
   assert.equal(full.xp, 100);                                   // 10 × 5 × 2
+  assert.equal(runXp(counts, 5, 1, 1, 0.5).xp, 50);            // the tempo weighs on the XP
+  assert.equal(runXp(counts, 5, 1, 1, 1.5).xp, 150);
   assert.ok(runXp(counts, 5, 30, 1).xp < full.xp);             // easy for a level-30 player
   assert.equal(runXp(counts, 9, 30, 1).easy, 1);               // at or above the level: in full
   const repeats = [1, 2, 3, 4].map(k => runXp(counts, 5, 1, k).xp);

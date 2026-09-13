@@ -5,12 +5,12 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
-- **XP and levels** — playing earns XP: the notes you get right times how hard the song is at the
-  tempo you chose. Songs well below your level, and the same song again the same day, earn less and
-  less. Your level (Lv) and its XP bar sit in the header; each run shows its XP, and a new level pops
-  a "LEVEL UP!" bubble. Kept on the phone.
-- **Song difficulty** — each song gets a difficulty from 1 to 10 (◆ in the library, in the `⋯` menu at
-  the current tempo), worked out from how many notes come per second, chords, both hands, black keys
+- **XP and levels** — playing earns XP: the notes you get right, times how hard the song is, times
+  the tempo you chose (×0.5 at 50 %, ×1.5 at 150 %). Songs well below your level, and the same song
+  again the same day, earn less and less. Your level (Lv) and its XP bar sit in the header; each run
+  shows its XP, and a new level pops a "LEVEL UP!" bubble. Kept in the phone's browser.
+- **Song difficulty** — each song gets a difficulty from 1 to 10, shown as a 5-bar gauge in the library and
+  the `⋯` menu, worked out from how many notes come per second, chords, both hands, black keys
   and how awkward the fingering is.
 - **Suggested fingering** — each falling note shows which finger to use (1 = thumb … 5 = little
   finger), and the keyboard shows the finger on the keys coming up. MIDI files carry no fingering, so
@@ -29,11 +29,6 @@ All notable changes to pisynth, in plain language. Newest first.
   (a little different in size, place and tilt every time), then both sink like a boat and fade;
   a wrong key pops an "OOPS!" bubble with a small sad-trombone. Our own drawings, lettered with the
   Bangers font (SIL Open Font License, bundled so it works without internet).
-
-### Changed (play along)
-- **A wrong key now costs 25 points** (the score never goes below zero), on top of breaking the streak.
-- **Points follow the tempo** — each note is worth its points × the tempo (50 % → half, 150 % → one
-  and a half), so scores and records compare fairly whatever the speed.
 - **Your best on each song, kept on the phone** — a song played to the end files your best score
   (with its tempo), accuracy, longest combo and number of plays; the results card shows "NEW RECORD!"
   when you beat it, and the library shows your best as ★ next to each song.
@@ -96,6 +91,10 @@ All notable changes to pisynth, in plain language. Newest first.
   Navigation → Metronome, learn-by-press).
 
 ### Changed
+- **A wrong key now costs 25 points** in "I play" (the score never goes below zero), on top of
+  breaking the streak.
+- **Points follow the tempo** — each note is worth its points × the tempo (50 % → half, 150 % → one
+  and a half), so scores and records compare fairly whatever the speed.
 - **The web companion's server runs on aiohttp** — the Pi side now uses a standard, well-tested
   web framework (Debian's `python3-aiohttp`) instead of hand-written HTTP and WebSocket code. Nothing
   changes for the phone; notes reach it as fast as before.

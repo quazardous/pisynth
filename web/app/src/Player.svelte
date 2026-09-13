@@ -29,6 +29,7 @@
   import Keyboard from "./Keyboard.svelte";
   import Library from "./Library.svelte";
   import Comic from "./Comic.svelte";
+  import Gauge from "./Gauge.svelte";
 
   let { onFrame, onMessage, send, mode = "play", onMode = () => {} } = $props();
 
@@ -70,7 +71,7 @@
   const sounding = $derived([...liveOn].sort((a, b) => a - b));
   const fingers = $derived(fingering(notes));                // suggested finger per note, worked out once per song (#2431)
   const features = $derived(songFeatures(notes, fingers));
-  const diffNow = $derived(difficulty(features, tempo / 100));   // how hard at the tempo chosen (#2436)
+  const songDiff = $derived(difficulty(features));             // how hard the song is (#2436); the tempo weighs on XP
   const progress = new Progress();                              // XP and level, on this phone
   let lv = $state.raw(progress.level), xpGain = $state.raw(null), levelUp = $state.raw(null), runActive = false;
   const handColor = track => TRACK_COLORS[Math.max(0, hands.indexOf(track)) % TRACK_COLORS.length];
@@ -246,9 +247,9 @@
   }
 
   function awardXp() {
-    const r = progress.award(songKey(song), judge.counts, diffNow);
+    const r = progress.award(songKey(song), judge.counts, songDiff, tempo / 100);
     lv = r.after;
-    xpGain = r.xp > 0 ? { ...r, diff: diffNow, id: ++announceId } : null;
+    xpGain = r.xp > 0 ? { ...r, diff: songDiff, tempo, id: ++announceId } : null;
     if (r.levelUp) {
       levelUp = { splash: levelUpSplash(seed(), r.after.level), id: ++announceId };
       comboSting(7);
@@ -522,7 +523,7 @@
           {#if best?.newScore && best.previous}<p class="record">NEW RECORD!</p>{/if}
           <h2>{stats.accuracy}%</h2>
           <p><b>{judge.score}</b> points · best streak {judge.bestStreak}</p>
-          {#if xpGain}<p class="xp">+{xpGain.xp} XP <small>· ◆ {xpGain.diff.toFixed(1)}{tempo !== 100 ? ` at ${tempo} %` : ""}{xpGain.easy < 0.99 ? ` · easy for Lv ${xpGain.before.level} ×${xpGain.easy.toFixed(2)}` : ""}{xpGain.play > 1 ? ` · play ${xpGain.play} today ×${xpGain.repeat.toFixed(2)}` : ""}</small></p>{/if}
+          {#if xpGain}<p class="xp">+{xpGain.xp} XP <small>· <Gauge value={xpGain.diff} />{xpGain.tempo !== 100 ? ` · tempo ×${(xpGain.tempo / 100).toFixed(2)}` : ""}{xpGain.easy < 0.99 ? ` · easy for Lv ${xpGain.before.level} ×${xpGain.easy.toFixed(2)}` : ""}{xpGain.play > 1 ? ` · play ${xpGain.play} today ×${xpGain.repeat.toFixed(2)}` : ""}</small></p>{/if}
           {#if prefs.arcade && combo.maxHits >= 2}<p class="best-combo">max combo {combo.maxHits} hits{combo.bestTierName ? ` · ${combo.bestTierName}` : ""}</p>{/if}
           {#if best?.previous}<p class="muted">best {best.record.score} pts{best.record.tempo !== 100 ? ` at ${best.record.tempo} %` : ""} · {best.record.accuracy}% · {best.record.plays} plays</p>{/if}
           <p class="muted">perfect {judge.counts.perfect} · good {judge.counts.good} · early {judge.counts.early} · late {judge.counts.late} · missed {judge.counts.miss} · wrong {judge.counts.wrong}</p>
@@ -557,7 +558,7 @@
           <button class="small" onclick={setB} disabled={!loop && position === 0}>B = {loop ? fmt(loop.b) : "—"}</button>
           {#if loop}<button class="small ghost" onclick={() => (loop = null)}>clear</button>{/if}
         </div>
-        <p class="muted">Difficulty ◆ {diffNow.toFixed(1)} at this tempo (your level: ◆ {levelDifficulty(lv.level).toFixed(1)}). Faster earns more points and XP.</p>
+        <p class="muted">Difficulty <Gauge value={songDiff} number /> (for your level: {levelDifficulty(lv.level).toFixed(1)}). Points and XP × the tempo.</p>
         <p class="muted">{hands.length >= 2 ? "2 hands: right hand blue, left hand green. " : ""}{mode === "play" ? "Hit each note as it reaches the yellow line." : "pisynth plays the song; the notes light up as they sound."}</p>
     </section>
   {/if}

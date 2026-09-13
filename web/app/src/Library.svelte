@@ -4,6 +4,7 @@
   // the phone added. Level = folder name (starter/beginner, …).
   import { parseMidi } from "./lib/midifile.js";
   import { RecordBook } from "./lib/records.js";
+  import Gauge from "./Gauge.svelte";
   import { listLibrary, fetchFile, uploadFile, makeFolder, removeEntry, childrenOf, crumbs, displayName, folderLabel,
            songInfo, InfoCache } from "./lib/library.js";
 
@@ -109,7 +110,7 @@
           <span class="name">{displayName(f.path)}</span>
           <span class="tags">
             {#if infos[f.path]}{fmt(infos[f.path].durationMs)}{#if infos[f.path].hands >= 2} · 2 hands{/if}{/if}
-            {#if infos[f.path]?.difficulty}<span class="diff" title="difficulty, 1–10">◆ {infos[f.path].difficulty.toFixed(1)}</span>{/if}
+            {#if infos[f.path]?.difficulty}<span class="diff"><Gauge value={infos[f.path].difficulty} /></span>{/if}
             {#if records.get(f.path)}<span class="best" title="your best on this phone">★ {records.get(f.path).score}</span>{/if}
             {#if ORIGIN[f.origin]}<span class="origin">{ORIGIN[f.origin]}</span>{/if}
           </span>
@@ -151,7 +152,7 @@
   .icon.note { fill: var(--accent); }
   .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tags { font-size: .72rem; color: var(--muted); white-space: nowrap; }
-  .diff { margin-left: 4px; color: #c38bff; font-weight: 700; }
+  .diff { margin-left: 6px; }
   .best { margin-left: 4px; color: var(--yellow); font-weight: 700; }
   .origin { margin-left: 4px; padding: 1px 5px; border-radius: 4px; background: #3a3a48; }
   .del { margin: 0 6px 0 0; padding: 4px 8px; background: none; color: var(--muted); font-weight: 400; }

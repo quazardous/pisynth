@@ -3,7 +3,7 @@
 //   notation: "en" (C D E) or "fr" (Do Ré Mi) — a French browser starts in French
 //   ghost:    ghost keys in "I play" (the perfect timing next to your playing) — on by default
 
-const KEYS = { notation: "pisynth.notation", ghost: "pisynth.ghost" };
+const KEYS = { notation: "pisynth.notation", ghost: "pisynth.ghost", arcade: "pisynth.arcade" };
 
 function read(key) {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -19,7 +19,13 @@ function initialNotation() {
   return (globalThis.navigator?.language || "").toLowerCase().startsWith("fr") ? "fr" : "en";
 }
 
-export const prefs = $state({ notation: initialNotation(), ghost: read(KEYS.ghost) !== "0" });
+export const prefs = $state({ notation: initialNotation(), ghost: read(KEYS.ghost) !== "0", arcade: read(KEYS.arcade) !== "0" });
+
+// arcade: explosions, combos, announcer and their sounds in "I play" (#2434) — on by default
+export function setArcade(on) {
+  prefs.arcade = !!on;
+  write(KEYS.arcade, prefs.arcade ? "1" : "0");
+}
 
 export function setNotation(value) {
   prefs.notation = value === "fr" ? "fr" : "en";

@@ -16,6 +16,8 @@
   import { ClockSync } from "./lib/clock.js";
   import { DemoSender } from "./lib/demo.js";
   import { countInTimes, scheduleCountdown } from "./lib/click.js";
+  import { ComboTracker, ParticlePool, RollingNumber } from "./lib/arcade.js";
+  import { comboSting, comboBreaker } from "./lib/sfx.js";
   import { detectChord, noteName, pitchName } from "./lib/theory.js";
   import { prefs } from "./lib/prefs.svelte.js";
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
@@ -115,6 +117,41 @@
     effects.push({ ...r, at: now });
     flash = { kind: r.kind, delta: r.delta, id: ++flashId };
     stats = { score: judge.score, streak: judge.streak, accuracy: judge.accuracy() };
+    rolling.set(judge.score);
+    if (prefs.arcade) arcade(r.kind, r.note, now);
+  }
+
+  // ---- arcade layer (#2434): sparks, combos, announcer, racing score ----
+  const combo = new ComboTracker(), sparks = new ParticlePool(300), rolling = new RollingNumber(0);
+  let shownScore = $state(0), hitsShown = $state(0), announce = $state(null), announceId = 0, shakeUntil = 0;
+
+  function laneAt(note) {                                     // canvas px of a lane's centre on the line
+    const dpr = globalThis.devicePixelRatio || 1;
+    const v = follow ? { x0: follow.x0, span: follow.span } : view;
+    const p = toPct(keyRect(note), v);
+    return [((p.left + p.width / 2) / 100) * stageW * dpr, stageH * dpr - 3 * dpr, dpr];
+  }
+
+  function arcade(kind, note, now) {
+    const [x, y, dpr] = laneAt(note);
+    if (kind === "perfect") {
+      sparks.burst(x, y, { count: 18, color: "#ffd23f", speed: 420 * dpr, size: 3 * dpr });
+      sparks.burst(x, y, { count: 8, color: "#ffffff", speed: 560 * dpr, size: 2 * dpr, life: 380 });
+    } else if (kind === "good") sparks.burst(x, y, { count: 10, color: "#4fd18b", speed: 320 * dpr, size: 3 * dpr });
+    else if (kind === "early" || kind === "late") sparks.burst(x, y, { count: 6, color: "#ff9f5a", speed: 240 * dpr, size: 2.5 * dpr });
+    else if (kind === "wrong") sparks.burst(x, y, { count: 8, color: "#ff5a5a", speed: 200 * dpr, spread: 0.6, size: 2.5 * dpr });
+    else if (kind === "miss") sparks.burst(x, y, { count: 6, color: "#6a6a78", speed: 140 * dpr, up: false, size: 3 * dpr, life: 500 });
+    const res = combo.onResult(kind);
+    hitsShown = res.hits;
+    if (res.announce) {
+      announce = { ...res.announce, id: ++announceId };
+      comboSting(res.announce.tier);
+      if (res.announce.tier >= 1) shakeUntil = now + 140;
+    } else if (res.broke) {
+      announce = { text: "C-C-C-COMBO BREAKER", color: "#ff5a5a", breaker: true, id: ++announceId };
+      comboBreaker();
+      shakeUntil = now + 200;
+    }
   }
 
   function load(s) {
@@ -138,6 +175,7 @@
       judge.setTempo(tf());
       judge.reset(from);
       stats = { score: 0, streak: 0, accuracy: 0 };
+      combo.reset(); rolling.jump(0); shownScore = 0; hitsShown = 0; announce = null; sparks.items = [];
       cancelClicks = scheduleCountdown(countInTimes(clockStart, beatReal, COUNT_IN), clockStart);   // from the phone
     }
     playing = true;
@@ -157,6 +195,7 @@
     if (sender) { if (tell) sender.stop(); else sender.playing = false; sender = null; }
     cancelClicks(); cancelClicks = () => {};
     playing = false; countIn = 0; guide = new Set(); ghost = new Set();
+    rolling.jump(judge.score); shownScore = judge.score;
     releaseAwake();
     paint();
   }
@@ -191,12 +230,14 @@
     const t = playing ? songPos(now) : position;
     const dt = lastT === null ? 0 : now - lastT;
     lastT = now;
+    sparks.step(dt, { gravity: 900 * (globalThis.devicePixelRatio || 1) });   // arcade (#2434): sparks fly, the score runs up
+    if (Math.round(rolling.step(dt)) !== shownScore) shownScore = Math.round(rolling.value);
     if (!song) return;
 
     if (playing) {
       if (mode === "play") {
         const missed = judge.advance(t);
-        for (const i of missed) effects.push({ kind: "miss", note: notes[i].note, index: i, at: now });
+        for (const i of missed) { effects.push({ kind: "miss", note: notes[i].note, index: i, at: now }); if (prefs.arcade) arcade("miss", notes[i].note, now); }
         if (missed.length) stats = { score: judge.score, streak: judge.streak, accuracy: judge.accuracy() };
         countIn = t < from ? Math.min(COUNT_IN, Math.ceil((from - t) / beatMs())) : t < from + 450 * tf() ? "GO!" : 0;
       }
@@ -236,7 +277,12 @@
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
 
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    if (prefs.arcade && now < shakeUntil) {                     // combo milestone: a short screen punch
+      const k = (shakeUntil - now) / 200 * 4 * dpr;
+      ctx.setTransform(1, 0, 0, 1, (Math.random() - 0.5) * k, (Math.random() - 0.5) * k);
+    }
     for (let n = 21; n <= 108; n++) {                          // lanes: black keys darker, a line at each C
       const r = keyRect(n);
       if (r.x + r.w < v.x0 || r.x > v.x0 + v.span) continue;
@@ -304,6 +350,22 @@
     ctx.fillStyle = "#ffd23f";                                  // the hit line
     ctx.fillRect(0, hitY, W, 3 * dpr);
 
+    if (prefs.arcade) {                                         // arcade (#2434): shockwave rings + sparks
+      ctx.lineWidth = 2 * dpr;
+      for (const e of effects) {
+        if (e.kind !== "perfect") continue;
+        const [x, w] = xOf(keyRect(e.note)), a = 1 - (now - e.at) / 450;
+        ctx.strokeStyle = `rgba(255,255,255,${a})`;
+        ctx.beginPath(); ctx.arc(x + w / 2, hitY, w / 2 + (1 - a) * 46 * dpr, Math.PI, 2 * Math.PI); ctx.stroke();
+      }
+      for (const p of sparks.items) {
+        ctx.globalAlpha = Math.max(0, 1 - p.age / p.life);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      }
+      ctx.globalAlpha = 1;
+    }
+
     if (follow) {                                               // arrows: notes coming outside the window
       for (const n of visibleNotes(notes, t, FOLLOW_AHEAD_MS * tf(), 0, maxLen)) {
         const r = keyRect(n.note), left = r.x + r.w <= v.x0, right = r.x >= v.x0 + v.span;
@@ -331,7 +393,7 @@
       <button class:on={mode === "listen"} onclick={() => onMode("listen")}>Listen</button>
     </div>
     {#if song && mode === "play"}
-      <span class="score">{stats.score}</span>
+      <span class="score" class:racing={prefs.arcade && shownScore !== stats.score}>{prefs.arcade ? shownScore : stats.score}</span>
       {#if stats.streak > 1}<span class="streak">×{stats.streak}</span>{/if}
       <span class="acc">{stats.accuracy}%</span>
     {/if}
@@ -343,6 +405,14 @@
     <div class="stage" bind:clientWidth={stageW} bind:clientHeight={stageH}>
       <canvas bind:this={canvas}></canvas>
       {#if countIn}{#key countIn}<div class="count" class:go={countIn === "GO!"}>{countIn}</div>{/key}{/if}
+      {#if prefs.arcade && playing && hitsShown >= 2}
+        {#key hitsShown}<div class="hits"><b>{hitsShown}</b> HITS</div>{/key}
+      {/if}
+      {#key announce?.id}
+        {#if announce && prefs.arcade && playing}
+          <div class="announce" class:breaker={announce.breaker} style:--tier-color={announce.color}>{announce.text}</div>
+        {/if}
+      {/key}
       {#key flash?.id}
         {#if flash && playing}
           <div class="flash {flash.kind}">{LABEL[flash.kind]}{#if flash.delta !== undefined && flash.kind !== "perfect"} <small>{flash.delta > 0 ? "+" : ""}{Math.round(flash.delta)} ms</small>{/if}</div>
@@ -352,6 +422,7 @@
         <section class="results">
           <h2>{stats.accuracy}%</h2>
           <p><b>{judge.score}</b> points · best streak {judge.bestStreak}</p>
+          {#if prefs.arcade && combo.maxHits >= 2}<p class="best-combo">max combo {combo.maxHits} hits{combo.bestTierName ? ` · ${combo.bestTierName}` : ""}</p>{/if}
           <p class="muted">perfect {judge.counts.perfect} · good {judge.counts.good} · early {judge.counts.early} · late {judge.counts.late} · missed {judge.counts.miss} · wrong {judge.counts.wrong}</p>
           <button onclick={() => { finished = false; start(loop?.a ?? 0); }}>Play again</button>
         </section>
@@ -428,6 +499,22 @@
   .toggle button.on { background: var(--accent); color: #fff; }
   .score { font-weight: 800; font-size: 1.1rem; color: var(--yellow); }
   .streak { font-weight: 700; color: #4fd18b; }
+  /* arcade (#2434) */
+  .score { display: inline-block; min-width: 3ch; }
+  .score.racing { transform: scale(1.18); text-shadow: 0 0 10px rgba(255,210,63,.7); transition: transform .08s; }
+  .hits { position: absolute; top: 8px; right: 10px; font-style: italic; font-weight: 800; font-size: .9rem; color: #fff; pointer-events: none;
+          text-shadow: 0 2px 0 #000, 0 0 12px rgba(90,160,255,.8); animation: hitpop .25s ease-out; }
+  .hits b { font-size: 1.6rem; color: var(--yellow); }
+  @keyframes hitpop { from { transform: scale(1.5); } to { transform: scale(1); } }
+  .announce { position: absolute; left: 0; right: 0; top: 32%; text-align: center; pointer-events: none; z-index: 3;
+              font-style: italic; font-weight: 900; font-size: clamp(1.6rem, 9vw, 2.8rem); letter-spacing: 1px;
+              color: var(--tier-color); -webkit-text-stroke: 2px #000; text-shadow: 0 4px 0 #000, 0 0 22px var(--tier-color);
+              animation: slam 1.2s cubic-bezier(.2,1.6,.4,1) forwards; }
+  .announce.breaker { font-size: clamp(1.2rem, 7vw, 2.1rem); animation: slam 1.2s cubic-bezier(.2,1.6,.4,1) forwards, glitch .12s steps(2) 4; }
+  @keyframes slam { 0% { transform: scale(3) rotate(-8deg); opacity: 0; } 18% { transform: scale(1) rotate(-3deg); opacity: 1; }
+                    75% { transform: scale(1.04) rotate(-3deg); opacity: 1; } 100% { transform: scale(1.1) rotate(-3deg); opacity: 0; } }
+  @keyframes glitch { 50% { translate: 6px -2px; } }
+  .best-combo { color: var(--yellow); font-style: italic; font-weight: 700; }
   .acc { color: var(--muted); font-size: .85rem; }
   .song { margin-left: auto; color: var(--muted); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .area { flex: 1; position: relative; min-height: 0; display: flex; flex-direction: column; }

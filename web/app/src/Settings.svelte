@@ -3,7 +3,7 @@
   // the player, which keeps playing underneath — change the reverb while pisynth plays a song.
   import Sound from "./Sound.svelte";
   import Latency from "./Latency.svelte";
-  import { prefs, setNotation, setGhost } from "./lib/prefs.svelte.js";
+  import { prefs, setNotation, setGhost, setArcade } from "./lib/prefs.svelte.js";
   import { noteName } from "./lib/theory.js";
 
   let { panel, onPanel, onClose, onFrame, onMessage, send } = $props();
@@ -64,6 +64,11 @@
           <input type="checkbox" checked={prefs.ghost} onchange={e => setGhost(e.target.checked)}>
           <span>Ghost keys<br><small class="muted">In "I play", the keyboard shows the perfect timing next to your playing:
             in time, your blue key gets a yellow outline.</small></span>
+        </label>
+        <label class="choice">
+          <input type="checkbox" checked={prefs.arcade} onchange={e => setArcade(e.target.checked)}>
+          <span>Arcade effects<br><small class="muted">Explosions on your hits, combos announced with their sounds, a
+            racing score. Turn off for calmer practice.</small></span>
         </label>
       </section>
     {:else if panel === "latency"}

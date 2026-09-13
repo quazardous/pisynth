@@ -5,6 +5,11 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
+- **Arcade effects in "I play"** — hits explode into sparks (a shockwave ring on a perfect), misses
+  crumble; streaks of good and perfect hits build combos announced on screen with their own sound
+  (TRIPLE, SUPER, HYPER … ULTRA COMBO, perfects count double), a HITS counter, a short screen punch
+  on milestones, "COMBO BREAKER" when a big one is lost, the score racing up like an arcade counter,
+  and the best combo on the results card. Switch them off under the cog → Display.
 - **"First steps" level, below beginner** — seven very easy tunes in the MIDI library (Au clair de
   la lune, Frère Jacques, Ode to Joy, Mary had a little lamb, Twinkle twinkle, Jingle Bells and a
   five-finger exercise): the melody in the right hand around C–G, one left-hand note per bar, slow.

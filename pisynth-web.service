@@ -10,6 +10,8 @@ User=pi
 SupplementaryGroups=audio
 # One long-lived warm process (#659): app files, TLS context and sessions are loaded at start.
 # Normal priority on purpose: the synth's real-time audio thread always wins over the display.
+# As root ("+"), best effort ("-"): reissue the HTTPS certificate if the Pi's IP changed (#2427).
+ExecStartPre=-+/usr/local/sbin/pisynth-web-cert ensure
 ExecStart=/usr/bin/python3 -m web
 Environment=PYTHONPATH=/usr/local/lib/pisynth
 Environment=PYTHONUNBUFFERED=1

@@ -39,10 +39,11 @@ def run(coro):
 
 
 class Harness:
-    def __init__(self, cert, static, library=None):
+    def __init__(self, cert, static, library=None, ca=None):
         self.app = WebCompanion(Auth(), load_static(static), host="127.0.0.1", port=0, admin_port=0,
                                 ssl_ctx=make_ssl_context(*cert), fingerprint=cert_fingerprint(cert[0]),
-                                synth=("127.0.0.1", 1), ui=("127.0.0.1", 1), library=library)
+                                synth=("127.0.0.1", 1), ui=("127.0.0.1", 1), library=library,
+                                ca_cert=ca, setup_port=0 if ca else None, setup_host="127.0.0.1")
 
     async def __aenter__(self):
         await self.app.start()
@@ -95,6 +96,35 @@ def test_static_is_served_gzipped_with_etag_and_304(cert, static):
                 assert (await h.http("GET", route))[0] == 200, route
             assert (await h.http("GET", "/../../etc/passwd"))[0] == 404
             assert (await h.http("DELETE", "/"))[0] == 405
+    run(go())
+
+
+def test_setup_page_serves_only_the_ca_and_its_instructions(cert, static):
+    async def go():
+        async with Harness(cert, static, ca=cert[0]) as h:              # (the test cert stands in for the CA)
+            fp = cert_fingerprint(cert[0])
+            _, _, tok = await h.http("POST", "/admin/token", admin=True)
+            info = json.loads(tok)
+            assert info["setup_port"] == h.app.setup_port and info["ca_fingerprint"] == fp
+            base = f"http://127.0.0.1:{h.app.setup_port}"
+            async with h.http_session.get(base + "/") as r:
+                page = await r.text()
+                assert r.status == 200 and fp in page and f'data-port="{h.port}"' in page
+                assert "connect-src 'self' https:" in r.headers["Content-Security-Policy"]
+            async with h.http_session.get(base + "/pisynth-ca.crt") as r:
+                assert r.status == 200 and (await r.text()).startswith("-----BEGIN CERTIFICATE-----")
+                assert r.headers["Content-Type"] == "application/x-x509-ca-cert"
+            async with h.http_session.get(base + "/pisynth-ca.cer") as r:
+                der = await r.read()
+                assert r.status == 200 and der[0] == 0x30                       # DER SEQUENCE
+            async with h.http_session.get(base + "/setup.js") as r:
+                assert r.status == 200 and "no-cors" in await r.text()
+            for path in ("/api/session", "/ws", "/admin/token", "/pair"):         # nothing else on plain HTTP
+                async with h.http_session.get(base + path) as r:
+                    assert r.status == 404, path
+        async with Harness(cert, static) as h:                                   # no CA: no setup page, plain token
+            _, _, tok = await h.http("POST", "/admin/token", admin=True)
+            assert "setup_port" not in json.loads(tok) and h.app.setup_port is None
     run(go())
 
 

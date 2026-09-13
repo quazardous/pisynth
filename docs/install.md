@@ -120,9 +120,22 @@ tiles — tap one to select its default sound, tap it again to pick a preset. Pr
 ## 8. Web companion on your phone
 
 Tap the **QR icon** next to the metronome on the home screen and scan it with your phone (it must
-be on the same Wi-Fi). The first time, the browser warns about the certificate: pisynth makes its
-own, so accept it (the screen shows its fingerprint if you want to compare). Add it to your home
-screen to use it like an app.
+be on the same Wi-Fi). Add it to your home screen to use it like an app.
+
+**The first time, install pisynth's certificate** (once per phone). The connection is encrypted with
+pisynth's own small certificate authority, so no browser trusts it out of the box. The page the QR
+opens checks that for you: a phone that already trusts pisynth goes straight to the app, a new one
+gets the steps — download `pisynth-ca.crt`, compare its fingerprint with the one on the pisynth
+screen, then:
+- **Android:** Settings → Security → More security settings → Encryption & credentials → Install a
+  certificate → CA certificate.
+- **iPhone:** open the page in Safari, download, Settings → Profile Downloaded → Install, then
+  Settings → General → About → Certificate Trust Settings → turn on *pisynth local CA*.
+
+That certificate can only vouch for devices on your local network (names ending in `.local` and
+private addresses), never for an internet site. If the Pi gets a new IP address, pisynth renews its
+certificate on its own at the next start — the phone keeps trusting it. On a computer,
+`./pair.sh --ca` downloads the certificate and says how to import it.
 
 The companion is **one screen**. With no song loaded it shows the keys and chord you play, live.
 Load a song (the `⋯` button) and its notes fall onto the keyboard, with a toggle at the top:

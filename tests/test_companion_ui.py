@@ -11,9 +11,12 @@ from pisynth.ui.menu import MenuScreen
 
 
 def test_url_and_fingerprint_helpers():
-    assert C.companion_url("192.168.1.214", 8443, "tok") == "https://192.168.1.214:8443/#k=tok"
+    assert C.companion_url("192.168.50.23", 8443, "tok") == "https://192.168.50.23:8443/#k=tok"
     assert C.short_fingerprint("AA:BB:CC:DD:EE:FF:11:22") == "AA:BB:CC:DD:EE:FF…"
     assert C.short_fingerprint("AA:BB") == "AA:BB" and C.short_fingerprint("") == ""
+    plain = {"token": "tok", "port": 8443}
+    assert C.pairing_url("192.168.50.23", plain) == "https://192.168.50.23:8443/#k=tok"
+    assert C.pairing_url("192.168.50.23", {**plain, "setup_port": 8080}) == "http://192.168.50.23:8080/#k=tok"   # #2427
 
 
 @pytest.fixture
@@ -115,6 +118,21 @@ def test_qr_screen_opens_with_url_and_refreshes_before_expiry(monkeypatch):
     assert h._companion_tick(h._qr_expires - C.REFRESH_MARGIN_S + 1) is True and h.companion.minted == 2
     h.stack.pop()
     assert h._companion_tick(10**9) is False                    # not on the QR screen: nothing
+
+
+def test_qr_follows_the_pis_current_ip_and_opens_the_setup_page(monkeypatch):
+    """No address is stored anywhere: every refresh reads the Pi's IP again (DHCP can change it)."""
+    ip = {"now": "10.0.0.5"}
+    monkeypatch.setattr(C, "local_ip", lambda: ip["now"])
+    monkeypatch.setattr(C, "qr_image", lambda url, size: url)
+    client = FakeClient()
+    client.token = lambda: {"token": "t", "ttl": 120, "port": 8443, "setup_port": 8080, "ca_fingerprint": "CA:FE"}
+    h = Host(client)
+    h._open_pair_qr()
+    assert h.cur.panel["qr"] == "http://10.0.0.5:8080/#k=t" and "CA:FE" in h.cur.panel["lines"]
+    ip["now"] = "10.0.0.99"                                     # the Pi got a new address
+    h._companion_tick(h._qr_expires)
+    assert h.cur.panel["qr"] == "http://10.0.0.99:8080/#k=t"
 
 
 def test_qr_screen_toasts_when_service_is_off():

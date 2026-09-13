@@ -193,9 +193,11 @@ class Phone:
 class WebCompanion:
     def __init__(self, auth, assets, host="0.0.0.0", port=8443, admin_port=9811,
                  ssl_ctx=None, fingerprint="", admin_host="127.0.0.1", synth=("127.0.0.1", 9800),
-                 ui=("127.0.0.1", 9810), library=None):
+                 ui=("127.0.0.1", 9810), library=None, ca_cert=None, setup_port=None, setup_host="0.0.0.0"):
         self.auth, self.assets = auth, assets
         self.library = library                       # MidiLibrary (#2421), or None
+        self.ca_pem, self.ca_fingerprint = self._load_ca(ca_cert)   # pisynth's local CA (#2427), or None
+        self.setup_port, self.setup_host = setup_port, setup_host
         self.host, self.port, self.admin_port, self.admin_host = host, port, admin_port, admin_host
         self.ssl_ctx, self.fingerprint = ssl_ctx, fingerprint
         self.clients = set()                         # Phone objects of live WebSockets
@@ -221,6 +223,16 @@ class WebCompanion:
         app.router.add_get("/api/midi/{path:.+}", self.midi_file)
         app.router.add_delete("/api/midi/{path:.+}", self.midi_delete)
         app.router.add_get("/{tail:.*}", self.static)
+        return app
+
+    def setup_app(self):
+        """Plain HTTP on the LAN (#2427): the page the pairing QR opens, and the CA to install."""
+        app = web.Application(client_max_size=MAX_BODY)
+        app.on_response_prepare.append(_security_headers)
+        app.router.add_get("/", self.setup_index)
+        app.router.add_get("/setup.js", self.setup_script)
+        app.router.add_get("/pisynth-ca.crt", self.setup_ca_pem)
+        app.router.add_get("/pisynth-ca.cer", self.setup_ca_der)
         return app
 
     def admin_app(self):
@@ -415,10 +427,47 @@ class WebCompanion:
             if reset:
                 phone.send_json({"t": "demo", "state": "playing", "lead_ms": 150, "scheduled": n})
 
+    # ---- setup page (plain HTTP, LAN — #2427) ----
+    @staticmethod
+    def _load_ca(path):
+        if not path:
+            return None, ""
+        try:
+            with open(path) as f:
+                pem = f.read()
+            return pem, cert_fingerprint(path)
+        except (OSError, ValueError):
+            return None, ""
+
+    async def setup_index(self, request):
+        from .setup import CSP, setup_page
+        return web.Response(text=setup_page(self.ca_fingerprint, self.port), content_type="text/html",
+                            headers={"Content-Security-Policy": CSP, "Cache-Control": "no-cache"})
+
+    async def setup_script(self, request):
+        from .setup import SCRIPT
+        return web.Response(text=SCRIPT, content_type="text/javascript", headers={"Cache-Control": "no-cache"})
+
+    async def setup_ca_pem(self, request):
+        if not self.ca_pem:
+            return text(404, "no CA")
+        return web.Response(body=self.ca_pem.encode(), headers={"Content-Type": "application/x-x509-ca-cert",   # (no charset: iOS is picky)
+                                                       "Content-Disposition": 'attachment; filename="pisynth-ca.crt"'})
+
+    async def setup_ca_der(self, request):
+        if not self.ca_pem:
+            return text(404, "no CA")
+        return web.Response(body=ssl.PEM_cert_to_DER_cert(self.ca_pem),
+                            headers={"Content-Type": "application/x-x509-ca-cert",
+                                     "Content-Disposition": 'attachment; filename="pisynth-ca.cer"'})
+
     # ---- admin (plain HTTP, 127.0.0.1 only — the touch UI) ----
     async def admin_token(self, request):
         token, ttl = self.auth.new_token()
-        return jsonr({"token": token, "ttl": ttl, "port": self.port, "fingerprint": self.fingerprint})
+        info = {"token": token, "ttl": ttl, "port": self.port, "fingerprint": self.fingerprint}
+        if self.ca_pem and self.setup_port is not None:                  # the QR opens the setup page (#2427)
+            info.update({"setup_port": self.setup_port, "ca_fingerprint": self.ca_fingerprint})
+        return jsonr(info)
 
     async def admin_forget(self, request):
         self.auth.forget_all()
@@ -452,8 +501,11 @@ class WebCompanion:
         self._loop = asyncio.get_running_loop()
         self.demo = DemoPlayer(ShellSink(*self.synth), self._loop)
         self.ui.start_watch()
-        for app, host, attr, ssl_ctx in ((self.public_app(), self.host, "port", self.ssl_ctx),
-                                         (self.admin_app(), self.admin_host, "admin_port", None)):
+        sites = [(self.public_app(), self.host, "port", self.ssl_ctx),
+                 (self.admin_app(), self.admin_host, "admin_port", None)]
+        if self.ca_pem and self.setup_port is not None:
+            sites.append((self.setup_app(), self.setup_host, "setup_port", None))
+        for app, host, attr, ssl_ctx in sites:
             runner = web.AppRunner(app, access_log=None, handle_signals=False)
             await runner.setup()
             await web.TCPSite(runner, host, getattr(self, attr), ssl_context=ssl_ctx).start()

@@ -5,6 +5,11 @@ All notable changes to pisynth, in plain language. Newest first.
 ## 0.5.0 — unreleased
 
 ### Added
+- **No more certificate warning on the phone** — pisynth now has its own small certificate
+  authority, limited to your local network. Install it once (the page the pairing QR opens guides
+  you and skips the step on a phone that already trusts pisynth), and the companion opens like any
+  secure site, installable as an app. The certificate follows the Pi's IP address by itself.
+  `./pair.sh --ca` gets it for a computer.
 - **Ghost keys in "I play"** — the on-screen keyboard shows the perfect timing as a translucent,
   outlined key next to yours: in time, your blue key gets a yellow outline; early, blue comes
   first; late or missed, the ghost is alone. An outline also pulses in the lane at the exact hit

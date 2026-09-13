@@ -23,6 +23,8 @@ install -m 0755 "$REPO_DIR/start-piano.sh"    /usr/local/bin/start-piano.sh
 install -m 0755 "$REPO_DIR/midi-bridge.sh"    /usr/local/bin/midi-bridge.sh
 install -m 0755 "$REPO_DIR/hdmi-connected.sh" /usr/local/bin/pisynth-hdmi-connected
 install -m 0755 "$REPO_DIR/readonly.sh"       /usr/local/sbin/pisynth-readonly   # read-only root helper (#681)
+install -m 0755 "$REPO_DIR/web-cert.sh"       /usr/local/sbin/pisynth-web-cert   # companion HTTPS: local CA (#2427)
+PISYNTH_CERT_GROUP="$(id -gn "$TARGET_USER")" /usr/local/sbin/pisynth-web-cert ensure || echo "[sync] warning: pisynth-web-cert failed"
 
 # systemd units (so unit edits take effect every deploy)
 for u in piano midi-bridge pisynth-ui pisynth-web; do

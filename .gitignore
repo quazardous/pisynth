@@ -27,6 +27,9 @@ soundfonts/*.sf3
 /midi/*
 !/midi/README.md
 
+# pisynth's CA downloaded by ./pair.sh --ca (#2427)
+/pisynth-ca.crt
+
 # host-local one-shot migrations (per-device, not shipped) — run by apply.sh
 /local-migrations/
 

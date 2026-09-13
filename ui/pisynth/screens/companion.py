@@ -35,6 +35,15 @@ def companion_url(ip, port, token):
     return f"https://{ip}:{port}/#k={token}"
 
 
+def pairing_url(ip, info):
+    """What the QR opens. With pisynth's own CA (#2427): the plain-HTTP setup page, which forwards a
+    phone that already trusts the CA straight to the app and walks a new one through installing
+    it; the code stays in the #fragment. Without it: the HTTPS app directly (old behaviour)."""
+    if info.get("setup_port"):
+        return f"http://{ip}:{info['setup_port']}/#k={info['token']}"
+    return companion_url(ip, info["port"], info["token"])
+
+
 def short_fingerprint(fp, groups=6):
     parts = (fp or "").split(":")
     return ":".join(parts[:groups]) + ("…" if len(parts) > groups else "")
@@ -90,15 +99,18 @@ class CompanionMixin:
         if not info:
             return False
         ip = local_ip()
-        url = companion_url(ip, info["port"], info["token"])
+        url = pairing_url(ip, info)
         self._qr_expires = time.monotonic() + info["ttl"]
-        screen.panel = {
-            "qr": qr_image(url, self.fb.h - self.view.BAR_H - 16),
-            "lines": ["Scan to pair", "with your phone, on the", "same Wi-Fi as pisynth", "",
-                      f"https://{ip}:{info['port']}", "",
-                      "Accept the certificate once:", short_fingerprint(info.get("fingerprint", ""))],
-            "expires": self._qr_expires,
-        }
+        if info.get("setup_port"):                      # pisynth's CA (#2427): the page guides a new phone
+            lines = ["Scan to pair", "with your phone, on the", "same Wi-Fi as pisynth", "",
+                     "First time: the page shows", "how to trust pisynth.", "",
+                     "Certificate fingerprint:", short_fingerprint(info.get("ca_fingerprint", ""))]
+        else:
+            lines = ["Scan to pair", "with your phone, on the", "same Wi-Fi as pisynth", "",
+                     f"https://{ip}:{info['port']}", "",
+                     "Accept the certificate once:", short_fingerprint(info.get("fingerprint", ""))]
+        screen.panel = {"qr": qr_image(url, self.fb.h - self.view.BAR_H - 16), "lines": lines,
+                        "expires": self._qr_expires}
         return True
 
     def _companion_tick(self, now):

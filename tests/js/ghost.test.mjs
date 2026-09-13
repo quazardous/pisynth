@@ -35,3 +35,10 @@ test("typical lag: median extra delay over the fastest trip", () => {
   assert.equal(c.offset, 1000);                                                 // fastest: 0 ms extra
   assert.equal(c.typicalLag(), 8);                                              // extras 0,5,30,10,8 → 8
 });
+
+test("count-in ticks on the phone: n beats ending where the song starts", async () => {
+  const { countInTimes } = await import("../../web/app/src/lib/click.js");
+  assert.deepEqual(countInTimes(5000, 500, 4), [3000, 3500, 4000, 4500]);
+  assert.deepEqual(countInTimes(3000, 500), [1500, 2000, 2500]);                  // default 3 · 2 · 1
+  assert.deepEqual(countInTimes(1000, 250, 2), [500, 750]);
+});

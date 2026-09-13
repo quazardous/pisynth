@@ -1,7 +1,7 @@
 <script>
   // The companion's main screen (#2419): one player, two modes, same design.
   //  - "I play" (#2418): notes fall onto the keyboard, you play them, the phone judges each press
-  //    on the Pi's own timestamps (lib/clock.js + lib/judge.js). pisynth only plays a count-in.
+  //    on the Pi's own timestamps (lib/clock.js + lib/judge.js). The phone ticks the count-in itself.
   //  - "Listen" (#2416): pisynth plays the song (lib/demo.js streams it), the same notes fall and
   //    light up as the synth sounds them.
   // Tempo, A–B loop and position are shared, so you can listen to a passage then play it.
@@ -15,6 +15,7 @@
   import { ghostKeys, ghostPulses, sameSet, GHOST_MIN_MS } from "./lib/ghost.js";
   import { ClockSync } from "./lib/clock.js";
   import { DemoSender } from "./lib/demo.js";
+  import { countInTimes, scheduleCountdown } from "./lib/click.js";
   import { detectChord, noteName, pitchName } from "./lib/theory.js";
   import { prefs } from "./lib/prefs.svelte.js";
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
@@ -23,10 +24,10 @@
 
   let { onFrame, onMessage, send, mode = "play", onMode = () => {} } = $props();
 
-  const AHEAD_MS = 2600;           // real ms of music visible above the line
+  const AHEAD_MS = 2600;           // song ms visible above the line: at 50 % tempo the notes fall half as fast
   const PAST_MS = 300;             // a note stays drawn this long after it ends
   const FOLLOW_AHEAD_MS = 2000;    // the sliding window looks this far ahead
-  const COUNT_IN = 4;
+  const COUNT_IN = 3;               // "3 · 2 · 1 · GO!" (video-game count-in, played by the phone)
   const TRACK_COLORS = ["#5aa0ff", "#4fd18b", "#c38bff", "#ff9f5a"];
   const EMPTY = { events: [], durationMs: 0, name: "" };
 
@@ -61,7 +62,8 @@
   let judge = $state.raw(new Judge([]));             // (raw: its counters are read, not tracked)
   const clock = new ClockSync();
   const held = new NoteState();
-  let follow = null, effects = [], origin = 0, clockStart = 0, from = 0, clicked = false;
+  let follow = null, effects = [], origin = 0, clockStart = 0, from = 0, cancelClicks = () => {};
+  const CLICK_LEAD_MS = 120;         // headroom to schedule the first count-in tick
   let sender = null, leadMs = 150;
   let raf = 0, timer = 0, lastPaint = 0, flashId = 0;
 
@@ -102,10 +104,7 @@
     });
     const offM = onMessage(msg => {
       if (msg.t !== "demo") return;
-      if (msg.state === "error") {
-        if (mode === "listen") { error = "pisynth: " + msg.error; stop(false); }   // nothing to hear without the synth
-        else status = "no count-in click (pisynth: " + msg.error + ")";           // I play: only the count-in is lost
-      }
+      if (msg.state === "error" && mode === "listen") { error = "pisynth: " + msg.error; stop(false); }   // nothing to hear without the synth
       if (msg.state === "playing" && msg.lead_ms) leadMs = msg.lead_ms;
       if (msg.state === "stopped" && msg.by === "pisynth" && playing && mode === "listen") { stop(false); status = "stopped on pisynth"; }
     });
@@ -132,17 +131,14 @@
     if (mode === "listen") {
       sender = new DemoSender({ events: current.events, send });
       sender.start(from, tf());
-      clicked = true;
       clockStart = now + leadMs;                              // the Pi anchors the song this far ahead
     } else {
       const beatReal = beatMs() / tf();
-      clockStart = now + leadMs + COUNT_IN * beatReal;        // the song reaches `from` after the count-in
+      clockStart = now + CLICK_LEAD_MS + COUNT_IN * beatReal;  // the song reaches `from` after the count-in
       judge.setTempo(tf());
       judge.reset(from);
       stats = { score: 0, streak: 0, accuracy: 0 };
-      const ev = [];                                          // wood-block count-in, played by pisynth
-      for (let k = 0; k < COUNT_IN; k++) ev.push([k * beatReal, 0x99, k ? 76 : 77, k ? 90 : 120], [k * beatReal + 60, 0x89, k ? 76 : 77, 0]);
-      clicked = send({ t: "play", reset: true, ev }) !== false;
+      cancelClicks = scheduleCountdown(countInTimes(clockStart, beatReal, COUNT_IN), clockStart);   // from the phone
     }
     playing = true;
     enterPlayMode();
@@ -159,7 +155,7 @@
     clearInterval(timer); cancelAnimationFrame(raf);
     position = Math.max(from, Math.min(songPos(performance.now()), current.durationMs));
     if (sender) { if (tell) sender.stop(); else sender.playing = false; sender = null; }
-    else if (tell && clicked) send({ t: "stop" });
+    cancelClicks(); cancelClicks = () => {};
     playing = false; countIn = 0; guide = new Set(); ghost = new Set();
     releaseAwake();
     paint();
@@ -202,7 +198,7 @@
         const missed = judge.advance(t);
         for (const i of missed) effects.push({ kind: "miss", note: notes[i].note, index: i, at: now });
         if (missed.length) stats = { score: judge.score, streak: judge.streak, accuracy: judge.accuracy() };
-        countIn = t < from ? Math.min(COUNT_IN, Math.ceil((from - t) / beatMs())) : 0;
+        countIn = t < from ? Math.min(COUNT_IN, Math.ceil((from - t) / beatMs())) : t < from + 450 * tf() ? "GO!" : 0;
       }
       if (loop && t >= loop.b) { stop(false); start(loop.a); return; }
       if (t > current.durationMs + 800) { finish(); return; }
@@ -233,7 +229,7 @@
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
     const ctx = canvas.getContext("2d");
     const v = follow ? { x0: follow.x0, span: follow.span } : view;
-    const hitY = H - 3 * dpr, pxPerMs = hitY / (AHEAD_MS * tf());
+    const hitY = H - 3 * dpr, pxPerMs = hitY / AHEAD_MS;
     const xOf = r => { const p = toPct(r, v); return [(p.left / 100) * W, (p.width / 100) * W]; };
     const judged = mode === "play";
     const notation = prefs.notation;
@@ -250,7 +246,7 @@
     }
 
     const res = judge.result;
-    for (const n of visibleNotes(notes, t, AHEAD_MS * tf(), PAST_MS * tf(), maxLen)) {
+    for (const n of visibleNotes(notes, t, AHEAD_MS, PAST_MS, maxLen)) {
       const r = keyRect(n.note);
       let [x, w] = xOf(r);
       if (x + w < 0 || x > W) continue;
@@ -346,7 +342,7 @@
   {#if song}
     <div class="stage" bind:clientWidth={stageW} bind:clientHeight={stageH}>
       <canvas bind:this={canvas}></canvas>
-      {#if countIn}<div class="count">{countIn}</div>{/if}
+      {#if countIn}{#key countIn}<div class="count" class:go={countIn === "GO!"}>{countIn}</div>{/key}{/if}
       {#key flash?.id}
         {#if flash && playing}
           <div class="flash {flash.kind}">{LABEL[flash.kind]}{#if flash.delta !== undefined && flash.kind !== "perfect"} <small>{flash.delta > 0 ? "+" : ""}{Math.round(flash.delta)} ms</small>{/if}</div>
@@ -442,6 +438,9 @@
   .notes { font-size: clamp(1rem, 5vw, 1.6rem); color: var(--muted); letter-spacing: 1px; }
   .hint { margin-top: 14px; }
   .count { position: absolute; inset: 0; display: grid; place-items: center; font-size: 5rem; font-weight: 800; color: rgba(255,255,255,.85); pointer-events: none; }
+  .count { animation: pop .35s ease-out; }
+  .count.go { color: var(--yellow); font-size: 4.5rem; text-shadow: 0 0 24px rgba(255,210,63,.6); }
+  @keyframes pop { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .flash { position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); font-weight: 800; font-size: 1.1rem; pointer-events: none;
            animation: rise .6s ease-out forwards; text-shadow: 0 2px 6px #000; white-space: nowrap; }
   .flash small { font-weight: 500; font-size: .75rem; opacity: .8; }

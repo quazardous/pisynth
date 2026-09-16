@@ -7,7 +7,8 @@ All notable changes to pisynth, in plain language. Newest first.
 ### Added
 - **The version in the companion** — Settings → About shows "pisynth companion 0.6.0" with its build, links to
   pisynth on GitHub and to what's new in that version; the side panel's footer shows the version and a GitHub link.
-  A phone still running an older app than the one pisynth now serves is told to reload.
+  A build made after a release says so ("0.6.0 + 1 change (1d218b7)", with a link to the commit). A phone still
+  running an older app than the one pisynth now serves is told to reload.
 
 ## 0.6.0 — 2026-09-17
 

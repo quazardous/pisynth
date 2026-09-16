@@ -3,7 +3,7 @@
   // the player, which keeps playing underneath — change the reverb while pisynth plays a song.
   import Sound from "./Sound.svelte";
   import { DEMO } from "./lib/demobackend.js";
-  import { VERSION, REPO_URL, releaseUrl, versionNotice } from "./lib/version.js";
+  import { VERSION, GIT, REPO_URL, releaseUrl, versionNotice, versionLabel, commitUrl } from "./lib/version.js";
   import Metronome from "./Metronome.svelte";
   import Latency from "./Latency.svelte";
   import { prefs, setNotation, setArcade } from "./lib/prefs.svelte.js";
@@ -111,7 +111,7 @@
     {:else}
       <section class="card">
         <h1>pisynth companion {VERSION}</h1>
-        <p class="muted">Build <code>{build}</code></p>
+        <p class="muted">{#if GIT?.ahead}{versionLabel()} · <a href={commitUrl(GIT)} target="_blank" rel="noopener">commit</a> · {/if}Build <code>{build}</code></p>
         {#if notice}<p class="notice">{notice} <button class="link" onclick={() => location.reload()}>reload</button></p>{/if}
         <p class="links"><a href={REPO_URL} target="_blank" rel="noopener">pisynth on GitHub</a> ·
           <a href={releaseUrl(VERSION)} target="_blank" rel="noopener">What's new in {VERSION}</a></p>

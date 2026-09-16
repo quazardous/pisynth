@@ -4,6 +4,7 @@
 // Dev server (#2415, `make dev`): HTTPS with the dev stack's cert (the phone's mic and service
 // worker need a secure context), proxying the Pi-side API to the pisynth-web container.
 import fs from "node:fs";
+import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { VitePWA } from "vite-plugin-pwa";
@@ -19,7 +20,16 @@ const https = !process.env.PISYNTH_DEV_PLAIN && certs && fs.existsSync(`${certs}
 const api = { target: backend, secure: false, changeOrigin: false };
 // The companion's version (#2673): package.json's, baked into the app and written in build.json.
 const VERSION = JSON.parse(fs.readFileSync(new URL("./package.json", import.meta.url), "utf8")).version;
-const define = { __APP_VERSION__: JSON.stringify(VERSION) };
+// …and where the build stands from that release: "v0.6.0-3-gabc1234" → 3 changes after 0.6.0, commit abc1234.
+function gitDescribe() {
+  try {
+    const m = execSync("git describe --tags --long --match 'v*'", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
+      .trim().match(/^v(.+)-(\d+)-g([0-9a-f]+)$/);
+    return m ? { tag: m[1], ahead: Number(m[2]), commit: m[3] } : null;
+  } catch { return null; }
+}
+const GIT = gitDescribe();
+const define = { __APP_VERSION__: JSON.stringify(VERSION), __APP_GIT__: JSON.stringify(GIT) };
 
 // build.json: which build this is ({hash, version}) — shown in About and on the pisynth screen, and fetched by the
 // setup page to test the certificate. The hash is Vite's own content hash of the app's entry chunk.
@@ -30,7 +40,7 @@ function buildInfo() {
     generateBundle(_, bundle) {
       const entry = Object.values(bundle).find(f => f.type === "chunk" && f.isEntry);
       const hash = entry?.fileName.match(/-([\w-]{8,})\.js$/)?.[1] ?? "dev";
-      this.emitFile({ type: "asset", fileName: "build.json", source: JSON.stringify({ hash, version: VERSION }) + "\n" });
+      this.emitFile({ type: "asset", fileName: "build.json", source: JSON.stringify({ hash, version: VERSION, git: GIT }) + "\n" });
     },
   };
 }

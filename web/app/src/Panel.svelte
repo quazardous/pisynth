@@ -13,7 +13,7 @@
   import { loadSong } from "./lib/library.js";
   import { sampleSong } from "./lib/midifile.js";
   import { DEMO, demoState, setAutoplay } from "./lib/demobackend.js";
-  import { VERSION, REPO_URL } from "./lib/version.js";
+  import { versionLabel, REPO_URL } from "./lib/version.js";
 
   let autoplay = $state(demoState.autoplay);
 
@@ -144,7 +144,7 @@
         <button class="link" onclick={() => onPick(sampleSong())}>use the built-in sample</button>
       </details>
     </section>
-    <p class="version">pisynth {VERSION}{DEMO ? " · demo" : ""} · <a href={REPO_URL} target="_blank" rel="noopener">GitHub</a></p>
+    <p class="version">pisynth {versionLabel()}{DEMO ? " · demo" : ""} · <a href={REPO_URL} target="_blank" rel="noopener">GitHub</a></p>
   </div>
 </aside>
 

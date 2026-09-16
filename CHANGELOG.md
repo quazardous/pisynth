@@ -15,7 +15,8 @@ All notable changes to pisynth, in plain language. Newest first.
   metronome and gets it back on pisynth when they pick up the phone. The pisynth screen shows "Managed by
   the web companion" with just Start/Stop meanwhile; when the phone leaves, everything is back as before.
   **Click along with songs** (the metronome button next to Play) makes the phone click with the song, at
-  its tempo and time signature, including the quiet bar before a hybrid part starts again.
+  its tempo and time signature, including the quiet bar before a hybrid part starts again. The phone's click
+  is a real mechanical metronome's tick (CC0, BigSoundBank), tic-toc, brighter on beat 1.
 - **Find a score** — the library opens on a search through thousands of piano scores kept on pisynth: words in
   any order and without accents, categories (Classical, Folk & traditional, Sacred, Children, Studies, Dances),
   level, two hands or melody, composer, and order by popularity, ease or title; ★ favourites and recently

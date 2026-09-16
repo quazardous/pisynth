@@ -2,118 +2,77 @@
 
 All notable changes to pisynth, in plain language. Newest first.
 
-## Unreleased
+## 0.6.0 — 2026-09-17
+
+The score release: sheet music that scrolls at the metronome's tempo, thousands of free scores to find, a
+simpler screen, the metronome on the phone, and a demo you can try in the browser.
 
 ### Added
+- **Scores (sheet music)** — the library takes MusicXML scores (`.musicxml`, `.xml`, `.mxl`: the open format
+  every notation program exports), from the PC or uploaded from the phone. A score beside a MIDI file of the same
+  name is that song's score (🎼); a score on its own is a song you can play, listen to and practise like any other.
+  The children's songs of the starter set come with their exact scores, and 11 classical pieces (Für Elise, Bach's
+  C major prelude and fugue, Chopin preludes, Gymnopédie, Träumerei…) are now scores from CC0 / Public Domain
+  MuseScore editions (records kept for their old MIDI versions start over).
+- **Two modes: Score | Game** — **Score** (the default) is a calm music stand: the score on **one line that
+  scrolls under a blue play line at the metronome's tempo** (a bar of clicks to count in); slide it with a finger
+  to go back or forward. Note names under the notes (English or French), each note you play turns green (in
+  time), orange (early or late) or red (missed); the score's size (−100 % … +100 %) and the names are options.
+  **Effects & points** turns on the game's combos, points and XP there too. **Game** is the falling notes game:
+  I play / Listen, normal / hybrid / infinite, effects, points, levels. Any song or score plays in either mode;
+  the song you had last time is back when the companion opens.
+- **A simpler screen: the side panel and the mini player** — the stage and the keyboard take the whole screen,
+  landscape first. Everything else is in the **panel** that slides in from the left (☰): Score | Game, the
+  modes, the musician, the metronome, tempo and loop, the settings and **one gallery**. Closed, it leaves a small
+  **mini player** over the stage: ☰, Play / Stop, ↻, I play / Listen (Game), the metronome (Score), the song's
+  name, a progress bar that keeps its size, the points.
+- **Find a score** — the gallery searches your library and a catalogue of **5,422 piano scores** kept on
+  pisynth: words in any order and without accents, categories (Classical, Folk & traditional, Sacred, Children,
+  Studies, Dances), level, two hands or melody, composer, order by popularity, ease or title; ★ favourites and
+  recently played per musician. Only music really out of copyright: public domain or CC0 MuseScore scores
+  (through the PDMX dataset, CC-BY-4.0) by composers who died before 1956, or traditional tunes — songs often
+  uploaded as "traditional" whose composer is still in copyright (Katyusha…) are left out. Built on the PC by
+  `tools/score_catalog.py`, copied to the Pi by the deploy.
+- **The metronome on the phone** — while the companion is connected it manages pisynth's metronome (Score mode):
+  start/stop, a big tempo with −/+, tap tempo, Largo…Presto, beats per bar, volume, lights on the beats. The
+  click is played by **pisynth** (the phone is a remote) or by **this phone** — a real mechanical metronome's
+  tick (CC0), tic-toc, brighter on beat 1 — and pisynth then only counts the beats. Each musician keeps their own
+  metronome. The pisynth screen shows "Managed by the web companion" with just Start/Stop meanwhile.
 - **This device's sound** — Settings → Sound → **Use this device's sound** (off by default): a piano in the browser
-  plays the keys you play and the songs in Listen (headphones on the phone, or the synth off). The mini player
-  has an **I play / Listen** button (hand on keys / headphones). With no pisynth answering, the companion starts
-  as the demo, with the device's keys and sound on.
-- **A demo of the web companion on GitHub Pages** — https://quazardous.github.io/pisynth/ : the companion
-  running in the browser with no Pi. Play with a MIDI keyboard plugged into the computer, the computer keys or
-  the keys on screen (a small browser piano sounds them, and Listen), or tick **Let the demo play** to watch the
-  game. The starter songs and 300 catalogue scores come along, searchable. Built and published by a GitHub
-  Action on every push to main.
-- **The metronome on the phone** — in the piano view (a score, or playing freely; not in the game view,
-  which switches it off), while the companion is connected it manages pisynth's metronome: a
-  Metronome page (the button in the top bar) with start/stop, a big tempo with −/+, a slider, tap tempo
-  and the Largo…Presto markings, beats per bar, click volume and lights on the beats. On the phone it
-  sounds like a mechanical metronome, tic-toc, brighter on beat 1. Choose who plays
-  the click: **pisynth** (through the synth, the phone is a remote) or **this phone** (pisynth then only
-  counts the beats, and Start/Stop on its screen starts the phone's click). Each musician keeps their own
-  metronome and gets it back on pisynth when they pick up the phone. The pisynth screen shows "Managed by
-  the web companion" with just Start/Stop meanwhile; when the phone leaves, everything is back as before.
-  **Click along with songs** (the metronome button next to Play) makes the phone click with the song, at
-  its tempo and time signature, including the quiet bar before a hybrid part starts again. The phone's click
-  is a real mechanical metronome's tick (CC0, BigSoundBank), tic-toc, brighter on beat 1.
-- **Find a score** — the library opens on a search through thousands of piano scores kept on pisynth: words in
-  any order and without accents, categories (Classical, Folk & traditional, Sacred, Children, Studies, Dances),
-  level, two hands or melody, composer, and order by popularity, ease or title; ★ favourites and recently
-  played per musician. Only music really out of copyright is kept: public domain or CC0 MuseScore scores
-  (through the PDMX dataset) by composers who died before 1956, or traditional tunes. Built on the PC by
-  `tools/score_catalog.py` and copied to the Pi by the deploy. Songs often uploaded as "traditional" whose
-  composer is still in copyright (Katyusha…) are left out.
-- **Classical pieces with their score** — 11 pieces of the starter set (Für Elise, the Bach C major prelude
-  and fugue, Chopin preludes, Gymnopédie, Träumerei…) are now scores, from MuseScore editions released as
-  CC0 or Public Domain (found through the PDMX dataset): they show in the piano view and play like before, at
-  a steady tempo. Handel's Sonatina HWV 585 gets its score beside its MIDI file. Records kept for the old
-  MIDI versions of these pieces start over.
-- **A simpler screen: the side panel and the mini player** — the stage and the keyboard take the whole screen
-  (landscape first). Everything else is in the **panel** that slides in from the left (☰): Score | Game, I play /
-  Listen, normal / hybrid / infinite, the musician, the metronome, tempo and loop, the settings, and **one gallery**
-  — a single search over your library and the score catalogue. Any song or score plays in any mode. Closed, the
-  panel leaves a small **mini player** floating over the stage: ☰, Play / Stop, ↻, the song's name, a progress
-  bar that keeps its size, the metronome in Score mode, the points when there are points. Score mode plays
-  calmly by default; **Effects & points** in the panel turns on the combos, explosions, points and XP there too.
-  Also in the panel for the score: **note names** on or off, and the **score size** (−100 % to +100 %: half to
-  double). At the end of the song the blue play line goes away.
-- **Two modes: Score | Game** — (now in the side panel). **Score** (the default) is a calm music
-  stand: the song you had last time is back, its score on **one line that scrolls under a play line at the
-  metronome's tempo** (a bar of clicks to count in); slide it with a finger to go back or forward. As you play,
-  each note turns green (in time), orange (early or late) or red (missed). Its top bar: the score library,
-  the metronome, the cog — no musician, XP, game modes or arcade. **Game** is the falling notes game: musician,
-  level, I play / Listen, normal / hybrid / infinite, the song library, the cog. A song without a score shows
-  its falling notes in both. The link status in the top bar is now a dot (green: live).
-- **Scores (sheet music)** — the library takes MusicXML scores (`.musicxml`, `.xml`, `.mxl`: the open
-  format every notation program exports), from the PC or uploaded from the phone. A score beside a MIDI
-  file of the same name is that song's sheet music (🎼); a score on its own is a song you can play,
-  listen to and practise like any other. The 🎼 button next to Play shows the score instead of the
-  falling notes — note names in English or French, as chosen under the cog → Display, and a cursor
-  following the music. The children's songs of the starter set now come with their exact scores.
-- **Hand moves shown on the keyboard** — when your hand has to move to a new position, right after the
-  key before the move, the keyboard shows both at once: where the hand is (fingers in blue) and where it
-  goes (fingers in green), with a green arrow from one to the other. The falling note where the move
-  starts wears a green arrow and a green finger disc.
-- **All five fingers, always** — the keyboard always shows where each hand's five fingers sit: the
-  fingers the coming notes use on their keys, the others on the white keys beside them, very faint.
-  The next few beats' fingers are half see-through, so your hand can get ready; they turn solid when
-  the note is due.
-- **Help options per musician** — finger numbers, hand moves, ghost keys and shaking notes can each be
-  switched on or off under the cog → Display ("Help for …"), and each musician keeps their own choice.
-- **Play modes: normal, hybrid (the new default), infinite** — pick one in the `⋯` menu, or tap the mode
-  button next to Play to cycle. **Hybrid** plays a song part by part: a part must go by without a wrong
-  key or a missed note to unlock the next one ("UNLOCKED!"), otherwise it starts again ("TRY AGAIN").
-  Parts are a song's phrases or verses when the file marks them, else every 4 bars (8 in a long song);
-  the header shows your progress, and each musician's cleared parts are remembered. A part is judged as
-  soon as its last note is, so the next one follows on seamlessly. On a clean part, a countdown of the
-  strikes left shakes and heats up under the HITS counter like something about to go off; once missed,
-  the part's mistakes show there in purple. A missed part keeps its purple count up a moment, then goes
-  back with a quick "bzz bzz": a bar to put your hand back, a discreet cue, and its first notes fall
-  from the top of the screen.
-- **Whole children's songs** — the homer and first steps songs are now complete (all the phrases of
-  Au clair de la lune, the whole Ode to Joy theme and Jingle Bells chorus…), each cut into its parts.
-- **The musician in the top bar** — a dropdown with who is playing replaces the pisynth title, in that
-  musician's colour (each has one; tap its dot under the cog → Musicians to change it).
-- **Several musicians** — four on each phone by default (Musician 1 … 4), each with their own level,
-  XP, records, infinite-mode bests, cleared parts and help options. Pick who plays from the top bar;
-  rename them under the cog → Musicians. What the phone had before becomes Musician 1's.
-- **Infinite mode (∞)** — the song starts over by itself, lap after lap (a
-  one-beat count-in between laps, the A–B loop if there is one), with a score of its own that climbs
-  with the notes you hit and drops with misses and wrong keys. The best it reached is kept per song.
-- **Next song** — the results card offers "Next ›": the next song in the folder, or after the last
-  one, the first song of the next folder (homer → first steps → …), read from the library on the Pi.
-- **Back to the start** — a ↻ button next to Play, always there: it stops the song and goes back to the
-  beginning (to A with a loop) with a clean score; press Play when ready. In hybrid mode it goes back to
-  the start of the current part, and a double tap back to the first part.
-- **No certificate needed to start** — the pairing page now offers "Open pisynth anyway": accept the
-  browser's warning once and the companion works without installing pisynth's certificate (installing
-  it stays recommended: no warning, installable as an app).
-- **Notes shake as they land** — in "I play", a note starts trembling a beat before the yellow line,
-  harder and harder, and its edge lights up: you feel the moment coming.
+  plays the keys you play and the songs in Listen (headphones on the phone, or the synth off).
+- **A demo on GitHub Pages** — https://quazardous.github.io/pisynth/ : the companion in the browser with no Pi.
+  Play with a MIDI keyboard plugged into the computer, the computer keys or the keys on screen, or tick **Let the
+  demo play**. The starter songs and 300 catalogue scores come along. With no pisynth answering, the companion
+  starts as this demo by itself. Published by a GitHub Action on every push to main.
+- **Play modes: normal, hybrid (the new default), infinite** — **Hybrid** plays a song part by part: a part must
+  go by without a wrong key or a missed note to unlock the next ("UNLOCKED!"), otherwise it starts again after a
+  quick "bzz bzz" and a bar to put your hand back. Parts are the song's phrases when the file marks them, else
+  every 4 or 8 bars; cleared parts are remembered. A countdown of the strikes left shakes and heats up like
+  something about to go off; once missed, the part's mistakes show in purple. **Infinite** starts the song over
+  lap after lap, with a score of its own that climbs with your hits and drops with misses.
+- **Several musicians** — four per phone by default, each with a colour, their own level, XP, records, cleared
+  parts, help options and metronome. Pick who plays in the panel; rename them under Settings → Musicians.
+- **Fingers and hand moves** — the keyboard always shows where each hand's five fingers sit (the next beats' ones
+  faint, the due ones solid, the thumb ringed in orange); when the hand has to move, both positions at once, blue
+  where it is and green where it goes, with a green arrow. Finger numbers, hand moves, ghost keys and shaking
+  notes are options per musician.
+- **Notes shake as they land**, a beat before the yellow line, harder and harder.
+- **Whole children's songs** — the homer and first steps songs are now complete, each cut into its parts.
+- **Next song** — the results card offers "Next ›": the next song in the folder, or the next level's first.
+- **Back to the start** — ↻ stops the song and goes back to the beginning (or A, or the current part in hybrid;
+  a double tap: the first part) with a clean score.
+- **No certificate needed to start** — the pairing page offers "Open pisynth anyway": accept the browser's
+  warning once (installing pisynth's certificate stays recommended).
 
 ### Changed
-- **The companion's offline cache is Workbox's** — the service worker (which keeps the app on the phone
-  and updates it with each new version) is now generated by the build with the standard
-  vite-plugin-pwa / Workbox, instead of our own template.
-- **Smaller, livelier comic splashes** — 20 % smaller, higher up in the lanes, in a new place every time.
-- **Fairer, more forgiving timing** — the perfect / good / early-late windows are now a share of the
-  beat: a slow song, or a song slowed down with the tempo slider, gives you more time. They are also
-  wider overall: a perfect is now at least ±100 ms (was ±50), a good ±200 ms (was ±120).
-- **Sideways layout** — with the phone turned sideways, the top bar, score and player controls sit in a
-  side column, and the falling notes and keyboard get the whole height.
+- **Fairer, more forgiving timing** — the perfect / good / early-late windows are a share of the beat (a slow or
+  slowed-down song gives more time), and wider overall: perfect at least ±100 ms (was ±50), good ±200 ms (was ±120).
+- **Smaller, livelier comic splashes** — 20 % smaller, higher up, in a new place every time.
+- **The companion's offline cache is Workbox's** (vite-plugin-pwa), generated by the build.
 
 ### Fixed
 - The results card no longer shows a stray horizontal scrollbar while "NEW RECORD!" pops in.
+- The musician dropdown's focus ring no longer sticks out on the right.
 
 ## 0.5.0 — 2026-09-13
 

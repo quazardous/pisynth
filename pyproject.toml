@@ -5,7 +5,7 @@
 
 [project]
 name = "pisynth"
-version = "0.5.0"
+version = "0.6.0"
 requires-python = ">=3.11"          # the Pi runs Debian 13's Python 3.13
 
 [tool.ruff]

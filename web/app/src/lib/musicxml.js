@@ -171,6 +171,30 @@ export function scoreSong(xmlText, { name = "" } = {}) {
 // song note finds its notehead on the score, whichever repeat it was played in.
 export const markKey = (whole, midi) => `${Math.round(whole * 96)}:${midi}`;
 
+// The song time (ms) at which the score reaches `whole` (the first time: before any repeat).
+export function scoreMsAt(timeline, whole) {
+  if (!timeline?.length) return 0;
+  for (const t of timeline) {
+    if (whole >= t.whole - 1e-9 && whole < t.whole + t.lenWhole - 1e-9) return t.ms + ((whole - t.whole) / (t.lenWhole || 1)) * (t.endMs - t.ms);
+  }
+  const last = timeline[timeline.length - 1];
+  return whole < timeline[0].whole ? timeline[0].ms : last.endMs;
+}
+
+// A horizontal score's measures [{whole, len, x, width}] (x in pixels, sorted): where a position is drawn, and back.
+export function xAtWhole(measures, whole) {
+  if (!measures?.length) return 0;
+  let m = measures[0];
+  for (const c of measures) { if (c.whole <= whole + 1e-9) m = c; else break; }
+  return m.x + Math.max(0, Math.min(1, (whole - m.whole) / (m.len || 1))) * m.width;
+}
+export function wholeAtX(measures, x) {
+  if (!measures?.length) return 0;
+  let m = measures[0];
+  for (const c of measures) { if (c.x <= x) m = c; else break; }
+  return m.whole + Math.max(0, Math.min(1, (x - m.x) / (m.width || 1))) * m.len;
+}
+
 // The score position (whole notes from its start) at song time `ms`, by the timeline.
 export function scorePosition(timeline, ms) {
   if (!timeline?.length) return 0;

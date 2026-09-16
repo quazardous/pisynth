@@ -154,7 +154,7 @@ MIDI keyboard — the pisynth screen follows), **Metronome**, **Display** (note 
 French Do Ré Mi), **Latency** (measures the key-to-sound delay
 with the phone's microphone) and **About** (version, unpair this browser).
 
-**Metronome.** In the piano view (a score, or playing freely — the game view has none), while the phone
+**Metronome.** In Score mode (the Game mode has none), while the phone
 is connected, it manages pisynth's metronome (the metronome button in
 the top bar, or the cog → Metronome): start/stop, tempo (−/+, slider, **Tap**, Largo…Presto), beats per
 bar, click volume, and lights on the beats. The click is played **by pisynth** (the phone is a remote) or
@@ -171,12 +171,16 @@ folders). It starts with a small **starter** set of classical piano pieces by le
 
 **Scores.** The library also holds sheet music in **MusicXML** (`.musicxml`, `.xml` or compressed
 `.mxl`, the open format every notation program exports). A score with the same name as a MIDI file is
-that song's score (🎼 in the library); a score on its own is a song you can play too. A song that has
-one opens in the **piano view**: its score, with the note names (English or French, as under the cog →
-Display) and a cursor that follows the music; in "I play" each note turns green (in time), orange (early
-or late) or red (missed). The 🎼 button next to Play switches to the **game view** (falling notes, arcade
-effects) and back. The companion reopens the song you had last time. The children's
-songs of the starter set come with their scores.
+that song's score (🎼 in the library); a score on its own is a song you can play too.
+
+**Score | Game.** The switch at the top chooses the mode. **Score** (the default) is a music stand: its top
+bar holds the score library, the metronome and the cog. The score is drawn on one line, with the note names
+(English or French, as under the cog → Display); Play counts a bar in, then the score scrolls under the blue
+play line at the **metronome's tempo** (change it in the metronome, or `⋯`); slide it with a finger to go
+back or forward. Each note you play turns green (in time), orange (early or late) or red (missed). **Game**
+is the falling notes game: musician, level and XP, I play / Listen, normal / hybrid / infinite, the song
+library, the cog. The companion reopens the song you had last time. The children's songs of the starter set
+come with their scores.
 
 **Find a score.** The library opens on **Find a score**: thousands of piano scores kept on pisynth, public
 domain or CC0, by composers who died before 1956 or traditional. Type words in any order, without accents

@@ -27,11 +27,13 @@ All notable changes to pisynth, in plain language. Newest first.
   CC0 or Public Domain (found through the PDMX dataset): they show in the piano view and play like before, at
   a steady tempo. Handel's Sonatina HWV 585 gets its score beside its MIDI file. Records kept for the old
   MIDI versions of these pieces start over.
-- **Piano view and game view** — the companion now opens like a music stand: the song you had last time is
-  back, shown as its score (**piano view**, the default), calm — no explosions or combo bubbles. As you play
-  in "I play", each note on the score turns green (in time), orange (early or late) or red (missed). The
-  🎼 button switches to the **game view** (falling notes, arcade effects) and back; the choice is kept. A
-  song without a score shows its falling notes in both.
+- **Two modes: Score | Game** — the switch at the top of the companion. **Score** (the default) is a calm music
+  stand: the song you had last time is back, its score on **one line that scrolls under a play line at the
+  metronome's tempo** (a bar of clicks to count in); slide it with a finger to go back or forward. As you play,
+  each note turns green (in time), orange (early or late) or red (missed). Its top bar: the score library,
+  the metronome, the cog — no musician, XP, game modes or arcade. **Game** is the falling notes game: musician,
+  level, I play / Listen, normal / hybrid / infinite, the song library, the cog. A song without a score shows
+  its falling notes in both. The link status in the top bar is now a dot (green: live).
 - **Scores (sheet music)** — the library takes MusicXML scores (`.musicxml`, `.xml`, `.mxl`: the open
   format every notation program exports), from the PC or uploaded from the phone. A score beside a MIDI
   file of the same name is that song's sheet music (🎼); a score on its own is a song you can play,

@@ -112,3 +112,20 @@ test("a played note finds its written note on the score (markKey), in every repe
   assert.deepEqual(keys.slice(0, 3), ["0:60", "24:64", "36:67"]);         // in 96ths of a whole: a quarter, then an eighth
   assert.deepEqual(keys.slice(3), keys.slice(0, 3));                       // the repeat lands on the same notes
 });
+
+test("score mode: song time ↔ score position ↔ pixels on the one-line score", async () => {
+  const { scoreMsAt, xAtWhole, wholeAtX } = await import("../../web/app/src/lib/musicxml.js");
+  // bars of 1 whole = 2000 ms; bar 1 played twice (a repeat), then bar 2
+  const timeline = [{ ms: 0, endMs: 2000, whole: 0, lenWhole: 1 }, { ms: 2000, endMs: 4000, whole: 0, lenWhole: 1 },
+                    { ms: 4000, endMs: 6000, whole: 1, lenWhole: 1 }];
+  assert.equal(scoreMsAt(timeline, 0.5), 1000);                        // the first time through
+  assert.equal(scoreMsAt(timeline, 1.25), 4500);
+  assert.equal(scoreMsAt(timeline, 9), 6000);                          // past the end
+  assert.equal(scoreMsAt([], 1), 0);
+  const measures = [{ whole: 0, len: 1, x: 0, width: 300 }, { whole: 1, len: 0.75, x: 300, width: 150 }];
+  assert.equal(xAtWhole(measures, 0.5), 150);
+  assert.equal(xAtWhole(measures, 1.375), 375);
+  assert.equal(wholeAtX(measures, 375), 1.375);
+  assert.equal(wholeAtX(measures, 9999), 1.75);                        // clamped to the last bar's end
+  assert.equal(xAtWhole([], 1), 0);
+});

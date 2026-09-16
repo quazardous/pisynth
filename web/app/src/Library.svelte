@@ -9,7 +9,7 @@
   import { listLibrary, loadSong, uploadFile, makeFolder, removeEntry, childrenOf, crumbs, displayName, folderLabel,
            InfoCache } from "./lib/library.js";
 
-  let { onPick, current = "" } = $props();
+  let { onPick, current = "", scoresOnly = false } = $props();   // scoresOnly: Score mode lists the songs with a score
 
   const DIR_KEY = "pisynth.libraryDir", TAB_KEY = "pisynth.libraryTab";
   let tab = $state((() => { try { return localStorage.getItem(TAB_KEY) === "folders" ? "folders" : "find"; } catch { return "find"; } })());
@@ -21,7 +21,7 @@
   let naming = $state(false);
   let folderName = $state("");
   let confirmDelete = $state("");
-  let fileInput;
+  let fileInput = $state(null);
   const cache = new InfoCache();
   const records = new RecordBook(undefined, storeKey("pisynth.records"));  // this musician's best per song (re-read each time the sheet opens)
   let infos = $state({});          // path → info, for what's shown
@@ -29,7 +29,10 @@
   function readDir() { try { return localStorage.getItem(DIR_KEY) || ""; } catch { return ""; } }
   function setDir(d) { dir = d; confirmDelete = ""; try { localStorage.setItem(DIR_KEY, d); } catch { /* private mode */ } }
 
-  const view = $derived(childrenOf(entries, dir));
+  const view = $derived.by(() => {
+    const v = childrenOf(entries, dir);
+    return scoresOnly ? { ...v, files: v.files.filter(f => f.score || /\.(musicxml|xml|mxl)$/i.test(f.path)) } : v;
+  });
 
   async function refresh() {
     error = "";

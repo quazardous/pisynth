@@ -9,7 +9,7 @@
   import Settings from "./Settings.svelte";
   import { musicians, selectMusician } from "./lib/musician.svelte.js";
   import { metroLive, attachMetronome, metronomeLink, toggleMetronome } from "./lib/metronome.svelte.js";
-  import { prefs } from "./lib/prefs.svelte.js";
+  import { prefs, setView } from "./lib/prefs.svelte.js";
 
   const initial = parseRoute(location.pathname);
   let mode = $state(initial.mode ?? "play");
@@ -71,17 +71,26 @@
 
 <header>
   {#if pairing === "paired"}
+    <!-- the main switch (#2657): Score (a calm music stand) or Game (the falling notes game) -->
+    <div class="modeswitch" role="tablist" aria-label="mode">
+      <button role="tab" class:on={prefs.view === "piano"} aria-selected={prefs.view === "piano"} onclick={() => { setView("piano"); if (panel) navigate({ panel: null }); }}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z" /></svg><span>Score</span></button>
+      <button role="tab" class:on={prefs.view === "game"} aria-selected={prefs.view === "game"} onclick={() => { setView("game"); if (panel) navigate({ panel: null }); }}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h10a5 5 0 0 1 0 10c-1.5 0-2.3-.8-3-1.5h-4c-.7.7-1.5 1.5-3 1.5A5 5 0 0 1 7 6zm-.5 3v1.5H5V12h1.5v1.5H8V12h1.5v-1.5H8V9zm9 .5a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm2 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2z" /></svg><span>Game</span></button>
+    </div>
+  {/if}
+  {#if pairing === "paired" && prefs.view === "game"}
     <label class="who" style:--mc={musicians.list.find(m => m.id === musicians.current)?.color}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5z" /></svg>
       <select value={musicians.current} onchange={e => selectMusician(e.target.value)} aria-label="who is playing">
         {#each musicians.list as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
       </select>
     </label>
-  {:else}
+  {:else if pairing !== "paired"}
     <span class="title">pisynth</span>
   {/if}
   {#if pairing === "paired"}
-    <span class="status" class:on={link === "live"}>{link}</span>
+    <span class="status dot" class:on={link === "live"} title={link} aria-label="pisynth link: {link}"></span>
     {#if prefs.view === "piano"}
     <button class="metrobtn" class:running={metroLive.running} class:beat={metroLive.beat > 0} class:one={metroLive.beat === 1}
             onclick={() => navigate({ panel: panel === "metronome" ? null : "metronome" })} aria-label="metronome">
@@ -109,7 +118,7 @@
     {/if}
   </section>
 {:else}
-  <Player {onFrame} {onMessage} {send} {mode} onMode={m => navigate({ mode: m, panel: null })} />
+  <Player {onFrame} {onMessage} {send} mode={prefs.view === "piano" ? "play" : mode} onMode={m => navigate({ mode: m, panel: null })} />
   {#if panel}
     <Settings {panel} onPanel={p => navigate({ panel: p })} onClose={() => navigate({ panel: null })} {onFrame} {onMessage} {send} />
   {/if}
@@ -129,6 +138,14 @@
                 padding: 0 32px 0 34px; border: 0; border-radius: 19px; background: transparent; color: #fff; font: inherit; font-weight: 700;
                 line-height: 34px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; cursor: pointer; }
   .who option { color: #121218; background: #fff; }
+  .modeswitch { display: flex; flex: 0 0 auto; background: #17171f; border-radius: 999px; padding: 3px; gap: 2px; }
+  .modeswitch button { margin: 0; display: flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: 999px; background: none;
+                       color: var(--muted); font-size: .85rem; font-weight: 700; }
+  .modeswitch svg { width: 17px; height: 17px; fill: currentColor; }
+  .modeswitch button.on { background: var(--accent); color: #fff; }
+  @media (max-width: 420px), (orientation: landscape) { .modeswitch span { display: none; } .modeswitch button { padding: 7px 10px; } }
+  .status.dot { flex: 0 0 auto; width: 10px; height: 10px; padding: 0; margin-left: auto; font-size: 0; background: var(--muted); }
+  .status.dot.on { background: #0c0; }
   .metrobtn { margin: 0 0 0 4px; padding: 6px; background: none; display: grid; place-items: center; border-radius: 50%; }
   .metrobtn svg { width: 24px; height: 24px; fill: var(--muted); }
   .metrobtn.running svg { fill: var(--accent); }

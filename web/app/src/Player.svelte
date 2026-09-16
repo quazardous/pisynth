@@ -36,8 +36,8 @@
   import Comic from "./Comic.svelte";
   import Gauge from "./Gauge.svelte";
   import Score from "./Score.svelte";
-  import { scorePosition, markKey } from "./lib/musicxml.js";
-  import { metro, setClickInPlayer } from "./lib/metronome.svelte.js";
+  import { scorePosition, scoreMsAt, markKey } from "./lib/musicxml.js";
+  import { metro, metroLive, setClickInPlayer, setBpm, setBeats, toggleMetronome } from "./lib/metronome.svelte.js";
   import { isCatalogPath, catalogId, loadCatalogSong } from "./lib/catalog.js";
   import { songBeat } from "./lib/metronome.js";
   import { startClicker } from "./lib/metroclick.js";
@@ -184,8 +184,8 @@
   });
 
   // ---- play modes (⋯ or the mode button): normal · hybrid (part by part) · infinite (loops, own score) ----
-  const endless = $derived(prefs.playMode === "infinite");
-  const hybrid = $derived(prefs.playMode === "hybrid" && mode === "play");
+  const endless = $derived(prefs.playMode === "infinite" && prefs.view !== "piano");      // game modes: Game mode only
+  const hybrid = $derived(prefs.playMode === "hybrid" && mode === "play" && prefs.view !== "piano");
   const MODE_LABEL = { normal: "Normal", hybrid: "Hybrid", infinite: "Infinite" };
   function chooseMode(m) {
     if (playing) stop();
@@ -302,7 +302,10 @@
 
   // The score view (#2657): a song with a score can show it instead of the falling notes; the cursor follows.
   // Piano view (the default, #2657): the score on the stand; game view: the falling notes and the arcade.
-  const scoreView = $derived(prefs.view === "piano" && !!song?.scoreXml);
+  // Score mode (the Score | Game switch at the top): a calm music stand — the score scrolls on one line at the metronome's
+  // tempo, a finger slides it; no XP, game modes or arcade. Game mode: the falling notes game.
+  const scoreMode = $derived(prefs.view === "piano");
+  const scoreView = $derived(scoreMode && !!song?.scoreXml);
   const fx = () => prefs.arcade && !scoreView;                 // explosions, combos, oops: the game view's
   let scorePos = $state(0);
   // The judged notes coloured on the score: markKey(position, pitch) → "good" | "off" | "miss".
@@ -330,6 +333,22 @@
     setLastSong(s);
     clearMarks();
     scorePos = 0;
+    if (scoreMode && s?.bpm) { setBpm(s.bpm); setBeats(s.beatsPerBar || 4); }   // the metronome takes the score's tempo
+  }
+
+  // Score mode: the song goes at the metronome's tempo — change it there, the score follows.
+  $effect(() => {
+    if (!scoreMode || !current.bpm) return;
+    const t = (metro.bpm / current.bpm) * 100;
+    untrack(() => { if (Math.abs(t - tempo) > 0.01) { tempo = t; retempo(); } });
+  });
+
+  // Score mode: a finger slides the score — the song stops there; Play goes on from that point.
+  function seekWhole(whole) {
+    if (!song?.timeline) return;
+    if (playing) stop();
+    position = Math.max(0, Math.min(scoreMsAt(song.timeline, whole), current.durationMs));
+    finished = false;
   }
 
   // The song open last time comes back when the companion starts (#2657).
@@ -348,7 +367,8 @@
   // `quiet`: hybrid starting a part again — a whole bar to put the hand back, no count-in, a discreet cue.
   function start(at = null, lap = false, quiet = false) {
     if (!notes.length) return;
-    countBeats = quiet ? 4 : lap ? 1 : COUNT_IN;
+    countBeats = quiet ? 4 : lap ? 1 : scoreMode ? (current.beatsPerBar || 4) : COUNT_IN;   // score mode: a bar to count in
+    if (scoreMode && metroLive.running) toggleMetronome();   // the score's own click takes over from the free metronome
     quietLead = quiet; finishAtEnd = false; bomb = 0; retryAt = 0;
     if (!lap) { endlessBook.reset(); endlessShown = 0; laps = 0; }
     clearMarks();
@@ -370,18 +390,19 @@
       const beatReal = beatMs() / tf();
       // The song reaches `from` after the count-in — and never before its first notes have fallen the whole
       // height of the lanes, so they come in from the top (a restart doesn't find them already at the line).
-      const leadSong = Math.max(countBeats * beatMs(), AHEAD_MS);
+      const leadSong = scoreView ? countBeats * beatMs() : Math.max(countBeats * beatMs(), AHEAD_MS);
       clockStart = now + CLICK_LEAD_MS + leadSong / tf();
       judge.setTempo(tf());
       judge.reset(from);
-      runActive = true;                                       // this run will earn XP when it ends (#2436)
+      runActive = !scoreMode;                                 // this run will earn XP when it ends (#2436) — a game thing
       lastJudged = 0;
       stats = { score: 0, streak: 0, accuracy: 0 };
       combo.reset(); rolling.jump(0); shownScore = 0; hitsShown = 0; announce = null; oopsAt = null; sparks.items = [];
       if (quiet) {                                            // the cue as the part starts again
         const id = setTimeout(restartCue, Math.max(0, clockStart - performance.now() - 60));
         cancelClicks = () => clearTimeout(id);
-      } else cancelClicks = scheduleCountdown(countInTimes(clockStart, beatReal, countBeats), clockStart);   // from the phone
+      } else if (scoreMode && metro.inPlayer) cancelClicks = () => {};   // score mode: the metronome counts the bar in
+      else cancelClicks = scheduleCountdown(countInTimes(clockStart, beatReal, countBeats), clockStart);   // from the phone
       if (simulated) {                                        // dev stack: the simulated keyboard plays along (#2434)
         const end = hybrid ? Infinity : loop?.b ?? Infinity;       // (hybrid goes on past the part when it's unlocked)
         const part = notes.filter(n => n.start >= from && n.start < end).slice(0, 5000)
@@ -407,7 +428,7 @@
   function startSongClick() {
     songClick?.stop(); songClick = null;
     if (!playing || !metro.inPlayer || prefs.view !== "piano") return;
-    const grid = { beatMs: beatMs(), beatsPerBar: current.beatsPerBar || 4, fromMs: quietLead ? from - countBeats * beatMs() : from,
+    const grid = { beatMs: beatMs(), beatsPerBar: current.beatsPerBar || 4, fromMs: quietLead || scoreMode ? from - countBeats * beatMs() : from,
                    toMs: current.durationMs, toSong: songPos, toLocal: s => clockStart + (s - origin) / tf() };
     songClick = startClicker({ nextBeat: t => songBeat(grid, t), vol: () => metro.vol });
   }
@@ -735,6 +756,10 @@
 
 <main>
   <div class="hud">
+    {#if scoreMode}
+      {#if song && playing}<span class="acc">{stats.accuracy}%</span>{/if}
+      {#if song?.bpm}<span class="bpm" title="the metronome's tempo">♩ = {metro.bpm}</span>{/if}
+    {:else}
     <div class="toggle" role="group" aria-label="mode">
       <button class:on={mode === "play"} onclick={() => onMode("play")}>I play</button>
       <button class:on={mode === "listen"} onclick={() => onMode("listen")}>Listen</button>
@@ -742,7 +767,8 @@
     <span class="lv" title="{lv.into} / {lv.need} XP to the next level">Lv {lv.level}<i style:width="{Math.round((lv.into / lv.need) * 100)}%"></i>
       {#key xpGain?.id}{#if xpGain && !finished}<b class="xp-pop">+{xpGain.xp} XP</b>{/if}{/key}
     </span>
-    {#if song && mode === "play"}
+    {/if}
+    {#if song && mode === "play" && !scoreMode}
       {#if endless}
         <span class="endless" title="infinite mode · best {endlessBook.best(songKey(song))}">∞ {endlessShown}</span>
         {#if laps}<span class="acc">lap {laps + 1}</span>{/if}
@@ -765,7 +791,7 @@
   {#if song}
     <div class="stage" bind:clientWidth={stageW} bind:clientHeight={stageH}>
       {#if scoreView && song.scoreXml}
-        <Score xml={song.scoreXml} position={scorePos} notation={prefs.notation} {marks} />
+        <Score xml={song.scoreXml} position={scorePos} notation={prefs.notation} {marks} horizontal onSeek={seekWhole} />
       {:else}
         <canvas bind:this={canvas}></canvas>
       {/if}
@@ -836,12 +862,12 @@
   {/if}
   {#if sheet === "library"}
     <section class="sheet">
-      <Library current={song?.path} onPick={load} />
+      <Library current={song?.path} onPick={load} scoresOnly={scoreMode} />
       <button class="link" onclick={() => load(sampleSong())}>use the built-in sample</button>
     </section>
   {:else if sheet === "options" && song}
     <section class="sheet">
-        {#if mode === "play"}
+        {#if mode === "play" && !scoreMode}
           <div class="modes" role="radiogroup" aria-label="play mode">
             {#each PLAY_MODES as m (m)}
               <button class:on={prefs.playMode === m} role="radio" aria-checked={prefs.playMode === m} onclick={() => chooseMode(m)}>{MODE_LABEL[m]}</button>
@@ -852,14 +878,19 @@
           {:else if prefs.playMode === "infinite"}The song starts over by itself, with a score of its own that goes up with your hits and down with misses and wrong keys.
           {:else}The whole song, once, then your results.{/if}</p>
         {/if}
-        <label>Tempo {tempo}% <input type="range" min="50" max="150" step="5" bind:value={tempo} onchange={retempo}></label>
+        {#if scoreMode}
+          <label>Tempo {metro.bpm} BPM <small class="muted">(the score: {current.bpm})</small>
+            <input type="range" min="40" max="240" step="1" value={metro.bpm} oninput={e => setBpm(+e.target.value)}></label>
+        {:else}
+          <label>Tempo {tempo}% <input type="range" min="50" max="150" step="5" bind:value={tempo} onchange={retempo}></label>
+        {/if}
         {#if !hybrid}<div class="loop">
           <span>Loop</span>
           <button class="small" onclick={setA}>A = {fmt(loop?.a ?? position)}</button>
           <button class="small" onclick={setB} disabled={!loop && position === 0}>B = {loop ? fmt(loop.b) : "—"}</button>
           {#if loop}<button class="small ghost" onclick={() => (loop = null)}>clear</button>{/if}
         </div>{/if}
-        <p class="muted">Difficulty <Gauge value={songDiff} number /> (for your level: {levelDifficulty(lv.level).toFixed(1)}). Points and XP × the tempo.</p>
+        {#if !scoreMode}<p class="muted">Difficulty <Gauge value={songDiff} number /> (for your level: {levelDifficulty(lv.level).toFixed(1)}). Points and XP × the tempo.</p>{/if}
         <p class="muted">{hands.length >= 2 ? "2 hands: right hand blue, left hand green. " : ""}{mode === "play" ? "Hit each note as it reaches the yellow line." : "pisynth plays the song; the notes light up as they sound."}</p>
     </section>
   {/if}
@@ -873,10 +904,12 @@
         <svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" /></svg>
       {/if}
     </button>
+    {#if !scoreMode}
     <button class="modebtn {prefs.playMode}" disabled={mode !== "play"} onclick={cycleMode}
             aria-label="play mode: {MODE_LABEL[prefs.playMode]} — tap to change" title="{MODE_LABEL[prefs.playMode]} mode">
       {#if prefs.playMode === "infinite"}∞{:else if prefs.playMode === "hybrid"}<svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 9.9-1h-2.1A3 3 0 0 0 9 8v3h9a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 18 21H6a1.5 1.5 0 0 1-1.5-1.5v-7A1.5 1.5 0 0 1 6 11z" /></svg>{:else}1×{/if}
     </button>
+    {/if}
     <button class="replay" disabled={!song} onclick={rewind}
             aria-label={hybrid ? "stop and back to this part's start (tap twice: the first part)" : loop ? "stop and back to A" : "stop and back to the start"}
             title={hybrid ? "Back to this part · tap twice: back to part 1" : ""}>
@@ -887,10 +920,6 @@
             aria-pressed={metro.inPlayer} aria-label={metro.inPlayer ? "stop clicking along" : "click along with the song"}>
       <svg viewBox="0 0 24 24"><path d="M9.2 2h5.6l4.4 18.5A1.2 1.2 0 0 1 18 22H6a1.2 1.2 0 0 1-1.2-1.5zM7.4 16h9.2l-.9-3.8-3.2 3.2-1.3-1.3 3.9-3.9L13.2 4h-2.4z" /></svg>
     </button>
-    {/if}
-    {#if song?.scoreXml}
-      <button class="scorebtn" class:on={scoreView} onclick={() => { setView(scoreView ? "game" : "piano"); paint(); }}
-              aria-pressed={scoreView} aria-label={scoreView ? "show the falling notes" : "show the score"}>🎼</button>
     {/if}
     <button class="folder" class:open={sheet === "library"} class:attention={!song} onclick={() => toggleSheet("library")} aria-label="choose a song">
       <svg viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h5l2 2h8A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" /></svg>
@@ -971,6 +1000,7 @@
   @keyframes glitch { 50% { translate: 6px -2px; } }
   .best-combo { color: var(--yellow); font-style: italic; font-weight: 700; }
   .acc { color: var(--muted); font-size: .85rem; }
+  .bpm { color: var(--fg); font-size: .85rem; font-weight: 700; }
   /* level (#2436): the number over a thin XP bar; a run's XP floats up from it */
   .lv { position: relative; flex: 0 0 auto; font-weight: 800; font-size: .8rem; color: #c38bff; padding-bottom: 4px; white-space: nowrap; }
   .lv::before, .lv i { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; border-radius: 2px; }

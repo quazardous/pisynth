@@ -5,6 +5,8 @@ All notable changes to pisynth, in plain language. Newest first.
 ## Unreleased
 
 ### Added
+- **Octaves on the keyboard** — each C of the on-screen keyboard names its octave at the very bottom (C4 is middle
+  C; Do3 in French).
 - **The version in the companion** — Settings → About shows "pisynth companion 0.6.0" with its build, links to
   pisynth on GitHub and to what's new in that version; the side panel's footer shows the version and a GitHub link.
   A build made after a release says so ("0.6.0 + 1 change (1d218b7)", with a link to the commit). A phone still

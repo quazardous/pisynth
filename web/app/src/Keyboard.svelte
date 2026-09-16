@@ -3,6 +3,8 @@
   // highway uses (#2418), so a `view` ({x0, span} in white keys) can slide smoothly.
   import { keysInView, rangeView, toPct } from "./lib/viewport.js";
   import { DEMO, demoState } from "./lib/demobackend.js";
+  import { noteName } from "./lib/theory.js";
+  import { prefs } from "./lib/prefs.svelte.js";
   // on = your keys (blue) · demo = keys to light yellow · ghost = the perfect timing (#2429), drawn
   // as a translucent, outlined key that can overlap yours · fingers = Map note → {finger, color}: the
   // suggested finger, a numbered badge on the key (#2431)
@@ -30,6 +32,7 @@
     <div class="key" class:black={k.black} class:white={!k.black} class:on={on.has(k.n)} class:demo={demo.has(k.n) && !on.has(k.n)} class:ghost={ghost.has(k.n)}
          style:left="{k.left}%" style:width="{k.width}%"
          onpointerdown={e => press(e, k.n)} onpointerup={release} onpointerleave={release} onpointercancel={release} role="presentation">
+      {#if !k.black && k.n % 12 === 0}<span class="octave">{noteName(k.n, prefs.notation)}</span>{/if}   <!-- each C names its octave (#2673) -->
       {#if fingers?.has(k.n)}<span class="finger {fingers.get(k.n).move}" class:thumb={fingers.get(k.n).finger === 1} style:--hand={fingers.get(k.n).color}>{fingers.get(k.n).finger}</span>{/if}
     </div>
   {/each}
@@ -54,7 +57,10 @@
   .white.on.ghost { background: var(--keyon); box-shadow: inset 0 0 0 3px var(--yellow); }
   .black.on.ghost { background: var(--accent); box-shadow: inset 0 0 0 3px var(--yellow); }
   /* finger (#2431): a numbered disc in the hand's colour, low on the key where the finger lands */
-  .finger { position: absolute; left: 50%; bottom: 6%; translate: -50% 0; width: min(22px, 86%); aspect-ratio: 1; border-radius: 50%;
+  /* the octave, at the very bottom of each C: C4 is middle C (Do3 in French) */
+  .octave { position: absolute; left: 0; right: 0; bottom: 2px; text-align: center; pointer-events: none;
+            font: 700 clamp(8px, 1.6vw, 10px)/1 system-ui, sans-serif; color: #7a7a88; }
+  .finger { position: absolute; left: 50%; bottom: max(6%, 14px); translate: -50% 0; width: min(22px, 86%); aspect-ratio: 1; border-radius: 50%;
             display: grid; place-items: center; font: 800 clamp(10px, 2.6vw, 14px)/1 system-ui, sans-serif; color: #fff;
             background: var(--hand); box-shadow: 0 0 0 2px rgba(0,0,0,.55); pointer-events: none; }
   .black .finger { bottom: 8%; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }

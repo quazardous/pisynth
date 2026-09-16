@@ -16,6 +16,11 @@ All notable changes to pisynth, in plain language. Newest first.
   the web companion" with just Start/Stop meanwhile; when the phone leaves, everything is back as before.
   **Click along with songs** (the metronome button next to Play) makes the phone click with the song, at
   its tempo and time signature, including the quiet bar before a hybrid part starts again.
+- **Classical pieces with their score** — 11 pieces of the starter set (Für Elise, the Bach C major prelude
+  and fugue, Chopin preludes, Gymnopédie, Träumerei…) are now scores, from MuseScore editions released as
+  CC0 or Public Domain (found through the PDMX dataset): they show in the piano view and play like before, at
+  a steady tempo. Handel's Sonatina HWV 585 gets its score beside its MIDI file. Records kept for the old
+  MIDI versions of these pieces start over.
 - **Piano view and game view** — the companion now opens like a music stand: the song you had last time is
   back, shown as its score (**piano view**, the default), calm — no explosions or combo bubbles. As you play
   in "I play", each note on the score turns green (in time), orange (early or late) or red (missed). The

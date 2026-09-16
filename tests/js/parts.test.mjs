@@ -30,7 +30,7 @@ test("parts: the starter songs' markers, named, back to back, covering every not
 });
 
 test("parts: any other file is cut every 4 bars (8 in a long song), tiny tails glued on", () => {
-  const { song, notes } = load("2-beginner/Bach-Minuet-A-minor-BWV-Anh-120.mid");
+  const { song, notes } = load("2-beginner/Handel-Sonatina-Aylesford.mid");
   assert.equal(song.markers.length, 0);
   const parts = songParts(song, notes);
   assert.ok(parts.length >= 3, `${parts.length} parts`);

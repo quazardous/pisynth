@@ -3,17 +3,22 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { parseMidi } from "../../web/app/src/lib/midifile.js";
+import { scoreSong } from "../../web/app/src/lib/musicxml.js";
+import { readMxl } from "../../web/app/src/lib/mxl.js";
 import { songNotes } from "../../web/app/src/lib/highway.js";
 import { songFeatures, difficulty, gaugeLevel } from "../../web/app/src/lib/difficulty.js";
 import { runXp, levelOf, xpToNext, levelDifficulty, Progress } from "../../web/app/src/lib/progress.js";
 import { Judge } from "../../web/app/src/lib/judge.js";
 
 const ROOT = new URL("../../library/midi/", import.meta.url).pathname;
-const starter = readdirSync(ROOT, { recursive: true }).filter(f => /\.midi?$/i.test(f)).map(f => {
-  const s = parseMidi(new Uint8Array(readFileSync(ROOT + f)).buffer);
+const files = readdirSync(ROOT, { recursive: true });
+const songFiles = files.filter(f => /\.midi?$/i.test(f) || (f.endsWith(".mxl") && !files.includes(f.replace(/\.mxl$/, ".mid"))));
+const starter = await Promise.all(songFiles.map(async f => {       // the MIDI files and the scores played on their own (#2657)
+  const bytes = new Uint8Array(readFileSync(ROOT + f)).buffer;
+  const s = f.endsWith(".mxl") ? scoreSong(await readMxl(bytes)) : parseMidi(bytes);
   const notes = songNotes(s.events, s.durationMs).map((n, i) => ({ ...n, i }));
   return { level: f.split("/")[0], f: songFeatures(notes) };
-});
+}));
 const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
 const byLevel = level => starter.filter(s => s.level === level).map(s => difficulty(s.f));
 

@@ -3,7 +3,10 @@
 import { audioContext } from "./click.js";
 
 let bus = null;
-const voices = new Map();                        // note → {gain, oscs}
+const voices = new Map();                        // note → {gain, oscs}: the last one struck
+const all = new Set();                           // every voice not yet silenced (some scheduled ahead)
+
+export const context = () => audioContext();
 
 function output(ac) {
   if (bus) return bus;
@@ -37,7 +40,10 @@ export function noteOn(note, velocity = 90, at = null) {
     o.start(t); o.stop(t + decay + 0.05);
     return o;
   });
-  voices.set(note, { g, oscs, t });
+  const vo = { g, oscs, t };
+  voices.set(note, vo);
+  all.add(vo);
+  oscs[0].onended = () => all.delete(vo);
 }
 
 // Release `note` at audio time `at` (a short fade).
@@ -51,4 +57,15 @@ export function noteOff(note, at = null) {
   voices.delete(note);
 }
 
-export function allOff() { for (const n of [...voices.keys()]) noteOff(n); }
+// Silence everything now, the notes scheduled ahead too.
+export function allOff() {
+  const ac = audioContext();
+  if (!ac) return;
+  for (const vo of all) {
+    vo.g.gain.cancelScheduledValues(ac.currentTime);
+    vo.g.gain.setTargetAtTime(0.0001, ac.currentTime, 0.03);
+    for (const o of vo.oscs) { try { o.stop(ac.currentTime + 0.2); } catch { /* stopped */ } }
+  }
+  all.clear();
+  voices.clear();
+}

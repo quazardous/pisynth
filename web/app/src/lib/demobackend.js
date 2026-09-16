@@ -50,6 +50,7 @@ export function simEvents(notes, inMs, { skill = 0.9, random = Math.random } = {
 }
 
 // ---- in the browser ----
+import { deviceListen } from "./devicelisten.js";
 export const demoState = { autoplay: false, listeners: new Set() };
 
 export function installDemo() {
@@ -134,7 +135,7 @@ export function openDemoSocket({ onFrame, onState, onMessage = () => {} }) {
   demoState.listeners.add(hello);
   setTimeout(() => { onState("live"); hello(); }, 0);
 
-  let listenAt = 0;
+  const listen = deviceListen(onMessage);
   return {
     send(obj) {
       if (closed || !obj) return false;
@@ -145,18 +146,9 @@ export function openDemoSocket({ onFrame, onState, onMessage = () => {} }) {
       } else if (obj.t === "sim_stop") {
         clearTimers();
         piano.then(p => p.allOff());
-      } else if (obj.t === "play") {                               // Listen: the song through the piano
-        piano.then(p => {
-          if (obj.reset) { listenAt = performance.now() + 150; onMessage({ t: "demo", state: "playing", lead_ms: 150 }); }
-          for (const [ms, status, d1, d2] of obj.ev || []) {
-            const kind = status & 0xf0;
-            later(listenAt + ms - performance.now(), () => (kind === 0x90 && d2 > 0 ? p.noteOn(d1, d2) : kind === 0x80 || kind === 0x90 ? p.noteOff(d1) : null));
-          }
-        });
-      } else if (obj.t === "stop") {
-        clearTimers();
-        piano.then(p => p.allOff());
-        onMessage({ t: "demo", state: "stopped" });
+      } else if (obj.t === "play" || obj.t === "stop") {           // Listen: the song through the browser's piano
+        if (obj.t === "stop") clearTimers();
+        listen(obj);
       } else if (obj.t === "synth") {                              // no synth settings: the metronome clicks on the phone
         setTimeout(() => onMessage({ t: "synth", op: obj.op, req: obj.req, ok: false, error: "no pisynth in the demo" }), 0);
       }

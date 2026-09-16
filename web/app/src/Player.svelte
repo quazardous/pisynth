@@ -33,6 +33,9 @@
   import Keyboard from "./Keyboard.svelte";
   import Panel from "./Panel.svelte";
   import { DEMO } from "./lib/demobackend.js";
+  import { deviceListen } from "./lib/devicelisten.js";
+  import { audioContext } from "./lib/click.js";
+  let deviceSend = null;                             // Listen on this device (#2670), made on first use
   import { listLibrary, loadSong, nextSongEntry, displayName } from "./lib/library.js";
   import Comic from "./Comic.svelte";
   import Gauge from "./Gauge.svelte";
@@ -387,7 +390,10 @@
     origin = from;
     effects = []; finished = false; flash = null; error = ""; status = "";
     if (mode === "listen") {
-      sender = new DemoSender({ events: current.events, send });
+      // pisynth's synth plays it, or this device's piano (#2670) — the same batches either way
+      const onDevice = prefs.listenOn === "device" && !DEMO;
+      if (onDevice) { deviceSend ??= deviceListen(msg => { if (msg.state === "playing") leadMs = msg.lead_ms; }); audioContext(); }
+      sender = new DemoSender({ events: current.events, send: onDevice ? deviceSend : send });
       sender.start(from, tf());
       clockStart = now + leadMs;                              // the Pi anchors the song this far ahead
     } else {
@@ -851,6 +857,17 @@
               aria-label={hybrid ? "stop and back to this part's start (tap twice: the first part)" : loop ? "stop and back to A" : "stop and back to the start"}>
         <svg viewBox="0 0 24 24"><path d="M12 5V1.5L7 6.5l5 5V7.5a5.5 5.5 0 1 1-5.5 5.5H4a8 8 0 1 0 8-8z" /></svg>
       </button>
+      {#if !scoreMode}
+        <!-- I play / Listen (#2670) -->
+        <button class="listenbtn" class:listen={mode === "listen"} onclick={() => { if (playing) stop(); onMode(mode === "listen" ? "play" : "listen"); }}
+                aria-label={mode === "listen" ? "Listen — tap to play yourself" : "I play — tap to listen"} title={mode === "listen" ? "Listen" : "I play"}>
+          {#if mode === "listen"}
+            <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H5v-1a7 7 0 0 1 14 0v1h-1a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-7a9 9 0 0 0-9-9z" /></svg>
+          {:else}
+            <svg viewBox="0 0 24 24"><path d="M3 13h18v8H3zm2 2v4h2v-4zm4 0v4h2v-4zm4 0v4h2v-4zm4 0v4h2v-4zM12.5 2c.8 0 1.5.7 1.5 1.5V8l2.6-.9c.9-.3 1.8.3 1.9 1.2l.2 1.7a2 2 0 0 1-.8 1.8L16 12h-5.5L8.3 9.8a1.2 1.2 0 0 1 1.6-1.8L11 9V3.5c0-.8.7-1.5 1.5-1.5z" /></svg>
+          {/if}
+        </button>
+      {/if}
       {#if scoreMode}
         <button class="metrobtn" class:on={metro.inPlayer} onclick={() => setClickInPlayer(!metro.inPlayer)}
                 aria-pressed={metro.inPlayer} aria-label={metro.inPlayer ? "metronome off" : "metronome on"}>
@@ -1040,6 +1057,9 @@
   .mini button { margin: 0; padding: 0; display: grid; place-items: center; flex: 0 0 auto; }
   .menu { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; color: var(--fg); }
   .menu svg { width: 22px; height: 22px; }
+  .listenbtn { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; color: var(--fg); }
+  .listenbtn svg { width: 21px; height: 21px; fill: currentColor; }
+  .listenbtn.listen { background: #4fd18b; color: #121218; }
   .menu.attention { box-shadow: 0 0 0 2px var(--yellow); }
   .mini .metrobtn { flex-direction: column; gap: 0; }
   .mini .metrobtn small { font-size: .55rem; line-height: 1; font-weight: 700; }

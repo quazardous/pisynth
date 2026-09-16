@@ -3,7 +3,7 @@
 //   notation: "en" (C D E) or "fr" (Do Ré Mi) — a French browser starts in French
 
 const KEYS = { notation: "pisynth.notation", arcade: "pisynth.arcade", playMode: "pisynth.playMode", view: "pisynth.view",
-  lastSong: "pisynth.lastSong", scoreFx: "pisynth.scoreFx", scoreNames: "pisynth.scoreNames", scoreZoom: "pisynth.scoreZoom" };
+  lastSong: "pisynth.lastSong", listenOn: "pisynth.listenOn", scoreFx: "pisynth.scoreFx", scoreNames: "pisynth.scoreNames", scoreZoom: "pisynth.scoreZoom" };
 export const PLAY_MODES = ["normal", "hybrid", "infinite"];
 
 function read(key) {
@@ -36,6 +36,13 @@ export function setScoreNames(on) {
 export function setScoreZoom(z) {
   prefs.scoreZoom = clampZoom(z);
   write(KEYS.scoreZoom, String(prefs.scoreZoom));
+}
+
+// listenOn (#2670): who plays the song in Listen — "pisynth" (its synth, the default) or "device" (this browser's piano).
+Object.assign(prefs, { listenOn: read(KEYS.listenOn) === "device" ? "device" : "pisynth" });
+export function setListenOn(v) {
+  prefs.listenOn = v === "device" ? "device" : "pisynth";
+  write(KEYS.listenOn, prefs.listenOn);
 }
 
 // scoreFx (#2667): Score mode plays calmly by default; on, it has the game's effects and points (and XP) too.

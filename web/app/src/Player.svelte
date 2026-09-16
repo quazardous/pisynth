@@ -412,6 +412,7 @@
         const id = setTimeout(restartCue, Math.max(0, clockStart - performance.now() - 60));
         cancelClicks = () => clearTimeout(id);
       } else if (scoreMode && metro.inPlayer) cancelClicks = () => {};   // score mode: the metronome counts the bar in
+      else if (DEMO && simulated) cancelClicks = () => {};            // the demo playing for you (#2669): no "3 2 1 GO!" sound
       else cancelClicks = scheduleCountdown(countInTimes(clockStart, beatReal, countBeats), clockStart);   // from the phone
       if (simulated) {                                        // dev stack: the simulated keyboard plays along (#2434)
         const end = hybrid ? Infinity : loop?.b ?? Infinity;       // (hybrid goes on past the part when it's unlocked)

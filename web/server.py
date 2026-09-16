@@ -28,6 +28,7 @@ from aiohttp import WSMsgType, web
 
 from .auth import Auth
 from .demo import DemoPlayer, ShellSink, validate_events
+from .catalog import SORTS
 from .library import MAX_UPLOAD, LibraryError, content_type
 from .uilink import UiLink
 
@@ -194,9 +195,10 @@ class Phone:
 class WebCompanion:
     def __init__(self, auth, assets, host="0.0.0.0", port=8443, admin_port=9811,
                  ssl_ctx=None, fingerprint="", admin_host="127.0.0.1", synth=("127.0.0.1", 9800),
-                 ui=("127.0.0.1", 9810), library=None, ca_cert=None, setup_port=None, setup_host="0.0.0.0"):
+                 ui=("127.0.0.1", 9810), library=None, ca_cert=None, setup_port=None, setup_host="0.0.0.0", catalog=None):
         self.auth, self.assets = auth, assets
         self.library = library                       # MidiLibrary (#2421), or None
+        self.catalog = catalog                       # ScoreCatalog (#2657), or None
         self.ca_pem, self.ca_fingerprint = self._load_ca(ca_cert)   # pisynth's local CA (#2427), or None
         self.setup_port, self.setup_host = setup_port, setup_host
         self.host, self.port, self.admin_port, self.admin_host = host, port, admin_port, admin_host
@@ -219,6 +221,8 @@ class WebCompanion:
         app.router.add_post("/pair", self.pair)
         app.router.add_get("/api/session", self.session)
         app.router.add_post("/api/unpair", self.unpair)
+        app.router.add_get("/api/catalog", self.catalog_search)
+        app.router.add_get("/api/catalog/{id:\\d+}.mxl", self.catalog_file)
         app.router.add_get("/api/midi", self.midi_tree)
         app.router.add_post("/api/midi", self.midi_upload)
         app.router.add_post("/api/midi-folders", self.midi_mkdir)
@@ -329,6 +333,35 @@ class WebCompanion:
     @staticmethod
     def _sub(request):
         return unquote(request.raw_path.split("?", 1)[0][len("/api/midi/"):])   # %2F stays a slash, then checked
+
+    @paired
+    async def catalog_search(self, request):
+        if self.catalog is None:
+            return jsonr({"total": 0, "items": [], "facets": {}, "size": 0})
+        q = request.query
+
+        def num(key):
+            try:
+                return int(q.get(key, 0))
+            except ValueError:
+                return 0
+        sort = q.get("sort", "popular")
+        try:
+            r = await asyncio.to_thread(self.catalog.search, q.get("q", "")[:200], q.get("category", ""), q.get("composer", ""),
+                                        q.get("period", ""), num("level"), num("hands"), sort if sort in SORTS else "popular",
+                                        num("offset"), num("limit") or 40, q.get("all") == "1")
+        except (OSError, ValueError):
+            return jsonr({"error": "the score catalogue can't be read"}, 500)
+        return jsonr(r)
+
+    @paired
+    async def catalog_file(self, request):
+        path = self.catalog and await asyncio.to_thread(self.catalog.file, int(request.match_info["id"]))
+        if not path:
+            return text(404, "no such score")
+        body = await asyncio.to_thread(lambda: open(path, "rb").read())
+        return web.Response(body=body, headers={"Content-Type": "application/vnd.recordare.musicxml",
+                                                "Cache-Control": "private, max-age=86400"})
 
     @paired
     async def midi_tree(self, request):

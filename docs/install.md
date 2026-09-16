@@ -178,6 +178,21 @@ or late) or red (missed). The 🎼 button next to Play switches to the **game vi
 effects) and back. The companion reopens the song you had last time. The children's
 songs of the starter set come with their scores.
 
+**Find a score.** The library opens on **Find a score**: thousands of piano scores kept on pisynth, public
+domain or CC0, by composers who died before 1956 or traditional. Type words in any order, without accents
+("chop noct", "fur elise", "tchaikovski"); narrow by category (Classical, Folk & traditional, Sacred,
+Children, Studies, Dances), level, two hands or melody, composer; order by popularity, ease or title. ★ keeps
+a favourite, the clock shows what you played last; both per musician. The catalogue isn't in git: build it
+on the PC once, then deploy (it lands in `~/pisynth/scores` on the Pi):
+
+```
+python3 tools/score_catalog.py select PDMX.csv        # PDMX.csv from https://zenodo.org/records/14648209
+curl -L 'https://zenodo.org/records/14648209/files/mxl.tar.gz?download=1' \
+  | tar -xz -C /tmp/pdmx --wildcards --files-from <(sed 's|^|*|' scores/members.txt)
+python3 tools/score_catalog.py build /tmp/pdmx
+./deploy.sh
+```
+
 To add your own songs or scores:
 - **from your computer:** put `.mid` / `.musicxml` / `.mxl` files in the repo's `midi/` folder
   (subfolders are kept) and run `./deploy.sh`; delete one there and deploy again to remove it;

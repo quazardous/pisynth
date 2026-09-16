@@ -111,6 +111,8 @@
         <p class="muted">Build <code>{build}</code></p>
         <p>This browser is paired with pisynth. Only one browser can be paired at a time; pairing another one
           (QR icon on the pisynth screen) disconnects this one.</p>
+        <p class="muted">Scores to find: public domain and CC0 scores shared by MuseScore users, found through the PDMX
+          dataset (Long et al., 2024, CC-BY-4.0). Each score shows its composer, licence and source.</p>
         <button class="danger" onclick={unpair}>{confirmUnpair ? "Tap again to unpair" : "Unpair this browser"}</button>
         {#if unpairError}<p class="error">Couldn't unpair: {unpairError}</p>{/if}
       </section>

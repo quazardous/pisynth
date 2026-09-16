@@ -36,7 +36,7 @@ export function lastSong() {
   try { const s = JSON.parse(read(KEYS.lastSong) || "null"); return typeof s?.path === "string" ? s : null; } catch { return null; }
 }
 export function setLastSong(song) {
-  if (song?.path) write(KEYS.lastSong, JSON.stringify({ path: song.path, score: song.scorePath ?? null }));
+  if (song?.path) write(KEYS.lastSong, JSON.stringify({ path: song.path, score: song.scorePath ?? null, catalog: song.catalog ?? null }));
 }
 
 // playMode, how "I play" runs a song: normal (once) · hybrid (part by part, each unlocked by the one before) · infinite (loops)

@@ -39,11 +39,11 @@ def run(coro):
 
 
 class Harness:
-    def __init__(self, cert, static, library=None, ca=None):
+    def __init__(self, cert, static, library=None, ca=None, catalog=None):
         self.app = WebCompanion(Auth(), load_static(static), host="127.0.0.1", port=0, admin_port=0,
                                 ssl_ctx=make_ssl_context(*cert), fingerprint=cert_fingerprint(cert[0]),
                                 synth=("127.0.0.1", 1), ui=("127.0.0.1", 1), library=library,
-                                ca_cert=ca, setup_port=0 if ca else None, setup_host="127.0.0.1")
+                                ca_cert=ca, setup_port=0 if ca else None, setup_host="127.0.0.1", catalog=catalog)
 
     async def __aenter__(self):
         await self.app.start()
@@ -158,6 +158,27 @@ def test_the_paired_browser_can_unpair_itself(cert, static):
             code, hd, _ = await h.http("POST", "/api/unpair", c)
             assert code == 204 and "Max-Age=0" in hd["set-cookie"]
             assert (await h.http("GET", "/api/session", c))[0] == 401
+    run(go())
+
+
+def test_score_catalogue_routes(cert, static, tmp_path):
+    """#2657: search the catalogue and fetch a score, paired phones only."""
+    from tests.test_score_catalog import make_catalog
+    cat = make_catalog(tmp_path)
+
+    async def go():
+        async with Harness(cert, static, catalog=cat) as h:
+            assert (await h.http("GET", "/api/catalog"))[0] == 401
+            c = {"Cookie": await h.pair()}
+            code, _, body = await h.http("GET", "/api/catalog?q=chop&sort=nonsense&limit=abc", c)
+            r = json.loads(body)
+            assert code == 200 and r["total"] == 1 and r["items"][0]["composer"] == "Chopin"
+            r = json.loads((await h.http("GET", "/api/catalog?all=1&category=folk&hands=1", c))[2])
+            assert [s["id"] for s in r["items"]] == [3]
+            code, hd, body = await h.http("GET", "/api/catalog/2.mxl", c)
+            assert code == 200 and body == b"PK" and hd["content-type"] == "application/vnd.recordare.musicxml"
+            assert (await h.http("GET", "/api/catalog/42.mxl", c))[0] == 404
+            assert (await h.http("GET", "/api/catalog/2.mxl"))[0] == 401
     run(go())
 
 

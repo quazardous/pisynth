@@ -23,6 +23,9 @@ __pycache__/
 soundfonts/*.sf2
 soundfonts/*.sf3
 
+# the score catalogue built by tools/score_catalog.py (#2657): thousands of files, copied to the Pi by deploy.sh
+/scores/
+
 # your own MIDI files (#2421): anything in midi/ (subfolders too), except its README
 /midi/*
 !/midi/README.md

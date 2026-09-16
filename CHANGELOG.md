@@ -16,6 +16,12 @@ All notable changes to pisynth, in plain language. Newest first.
   the web companion" with just Start/Stop meanwhile; when the phone leaves, everything is back as before.
   **Click along with songs** (the metronome button next to Play) makes the phone click with the song, at
   its tempo and time signature, including the quiet bar before a hybrid part starts again.
+- **Find a score** — the library opens on a search through thousands of piano scores kept on pisynth: words in
+  any order and without accents, categories (Classical, Folk & traditional, Sacred, Children, Studies, Dances),
+  level, two hands or melody, composer, and order by popularity, ease or title; ★ favourites and recently
+  played per musician. Only music really out of copyright is kept: public domain or CC0 MuseScore scores
+  (through the PDMX dataset) by composers who died before 1956, or traditional tunes. Built on the PC by
+  `tools/score_catalog.py` and copied to the Pi by the deploy.
 - **Classical pieces with their score** — 11 pieces of the starter set (Für Elise, the Bach C major prelude
   and fugue, Chopin preludes, Gymnopédie, Träumerei…) are now scores, from MuseScore editions released as
   CC0 or Public Domain (found through the PDMX dataset): they show in the piano view and play like before, at

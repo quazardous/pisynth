@@ -5,12 +5,15 @@
   import { RecordBook } from "./lib/records.js";
   import { storeKey } from "./lib/musician.svelte.js";
   import Gauge from "./Gauge.svelte";
+  import Catalog from "./Catalog.svelte";
   import { listLibrary, loadSong, uploadFile, makeFolder, removeEntry, childrenOf, crumbs, displayName, folderLabel,
            InfoCache } from "./lib/library.js";
 
   let { onPick, current = "" } = $props();
 
-  const DIR_KEY = "pisynth.libraryDir";
+  const DIR_KEY = "pisynth.libraryDir", TAB_KEY = "pisynth.libraryTab";
+  let tab = $state((() => { try { return localStorage.getItem(TAB_KEY) === "folders" ? "folders" : "find"; } catch { return "find"; } })());
+  function setTab(t) { tab = t; try { localStorage.setItem(TAB_KEY, t); } catch { /* private mode */ } }
   let entries = $state([]);
   let dir = $state(readDir());
   let busy = $state("");          // what is going on, or ""
@@ -84,6 +87,13 @@
 </script>
 
 <div class="library">
+  <div class="tabs" role="tablist">
+    <button role="tab" class:on={tab === "find"} aria-selected={tab === "find"} onclick={() => setTab("find")}>Find a score</button>
+    <button role="tab" class:on={tab === "folders"} aria-selected={tab === "folders"} onclick={() => setTab("folders")}>Folders</button>
+  </div>
+  {#if tab === "find"}
+    <Catalog {onPick} {current} />
+  {:else}
   <nav class="crumbs">
     <button class="crumb" class:here={!dir} onclick={() => setDir("")}>Library</button>
     {#each crumbs(dir) as c (c.path)}
@@ -133,10 +143,14 @@
       <button class="small ghost" onclick={() => (naming = true)}>New folder</button>
     {/if}
   </div>
+  {/if}
 </div>
 
 <style>
   .library { margin-top: 2px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+  .tabs button { margin: 0; padding: 5px 12px; border-radius: 999px; background: none; color: var(--muted); font-size: .85rem; font-weight: 600; }
+  .tabs button.on { background: #2c2c3a; color: var(--fg); }
   .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: .85rem; }
   .crumb { margin: 0; padding: 4px 6px; background: none; color: var(--accent); font-weight: 500; border-radius: 6px; }
   .crumb.here { color: var(--fg); font-weight: 700; }

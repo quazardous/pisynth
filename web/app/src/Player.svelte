@@ -38,6 +38,7 @@
   import Score from "./Score.svelte";
   import { scorePosition, markKey } from "./lib/musicxml.js";
   import { metro, setClickInPlayer } from "./lib/metronome.svelte.js";
+  import { isCatalogPath, catalogId, loadCatalogSong } from "./lib/catalog.js";
   import { songBeat } from "./lib/metronome.js";
   import { startClicker } from "./lib/metroclick.js";
 
@@ -336,7 +337,9 @@
     const last = lastSong();
     if (!last) return;
     try {
-      const { song: s } = await loadSong({ path: last.path, score: last.score ? { path: last.score } : null });
+      const s = isCatalogPath(last.path)
+        ? await loadCatalogSong(last.catalog ?? { id: catalogId(last.path) })
+        : (await loadSong({ path: last.path, score: last.score ? { path: last.score } : null })).song;
       if (!song) load(s);
     } catch { /* no longer in the library */ }
   })();
@@ -755,7 +758,7 @@
       {#if stats.streak > 1}<span class="streak">×{stats.streak}</span>{/if}
       <span class="acc">{stats.accuracy}%</span>
     {/if}
-    <span class="song">{song ? song.name || "untitled" : ""}</span>
+    <span class="song" title={song?.credit ?? ""}>{song ? song.name || "untitled" : ""}{#if song?.credit}<small class="credit">{song.credit}</small>{/if}</span>
   </div>
 
   <div class="area">                                  <!-- the notes' area; the sheet floats over it, never resizing it -->
@@ -981,6 +984,7 @@
   .results .xp { color: #c38bff; font-weight: 800; }
   .results .xp small { font-weight: 500; color: var(--muted); }
   .song { margin-left: auto; color: var(--muted); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .song .credit { margin-left: 6px; font-size: .68rem; opacity: .75; }     /* a catalogue score's composer, licence, source */
   .area { flex: 1; position: relative; min-height: 0; display: flex; flex-direction: column; }
   .stage { flex: 1; position: relative; min-height: 0; overflow: hidden; background: linear-gradient(#0d0d12, #17171f); }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }

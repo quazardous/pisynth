@@ -14,6 +14,7 @@ import os
 import sys
 
 from .auth import Auth
+from .catalog import ScoreCatalog
 from .library import MidiLibrary
 from .midi_source import SimSource, make_source
 from .server import WebCompanion, cert_fingerprint, load_static, make_ssl_context
@@ -45,6 +46,7 @@ def main():
                           on_changed=_persist_hook())
     app = WebCompanion(Auth(sessions, on_saved=_persist_hook()), load_static(),   # all warm before listening
                        library=library,
+                       catalog=ScoreCatalog(os.path.join(repo, "scores")),   # the score catalogue (#2657)
                        ca_cert=os.environ.get("PISYNTH_WEB_CA", "/etc/pisynth/web/ca.pem"),
                        setup_port=int(setup_port) if setup_port else None,
                        port=int(os.environ.get("PISYNTH_WEB_PORT", "8443")),

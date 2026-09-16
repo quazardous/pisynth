@@ -40,7 +40,7 @@ const pwa = VitePWA({
   registerType: "autoUpdate",
   manifest: false,                        // public/manifest.webmanifest is ours
   workbox: {
-    globPatterns: ["**/*.{html,js,css,svg,png,ico,woff2,webmanifest,txt}"],
+    globPatterns: ["**/*.{html,js,css,svg,png,ico,woff2,webmanifest,txt,wav}"],
     navigateFallback: "/index.html",
     navigateFallbackDenylist: [/^\/api\//, /^\/pair/, /^\/ws/, /^\/build\.json/],
     cleanupOutdatedCaches: true,

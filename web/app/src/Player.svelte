@@ -403,12 +403,12 @@
   let songClick = null;
   function startSongClick() {
     songClick?.stop(); songClick = null;
-    if (!playing || !metro.inPlayer) return;
+    if (!playing || !metro.inPlayer || prefs.view !== "piano") return;
     const grid = { beatMs: beatMs(), beatsPerBar: current.beatsPerBar || 4, fromMs: quietLead ? from - countBeats * beatMs() : from,
                    toMs: current.durationMs, toSong: songPos, toLocal: s => clockStart + (s - origin) / tf() };
     songClick = startClicker({ nextBeat: t => songBeat(grid, t), vol: () => metro.vol });
   }
-  $effect(() => { metro.inPlayer; untrack(() => (playing ? startSongClick() : null)); });
+  $effect(() => { metro.inPlayer; prefs.view; untrack(() => (playing ? startSongClick() : null)); });
 
   function stop(tell = true) {
     if (!playing) return;
@@ -879,10 +879,12 @@
             title={hybrid ? "Back to this part · tap twice: back to part 1" : ""}>
       <svg viewBox="0 0 24 24"><path d="M12 5V1.5L7 6.5l5 5V7.5a5.5 5.5 0 1 1-5.5 5.5H4a8 8 0 1 0 8-8z" /></svg>
     </button>
+    {#if prefs.view === "piano"}
     <button class="metrobtn" class:on={metro.inPlayer} onclick={() => setClickInPlayer(!metro.inPlayer)}
             aria-pressed={metro.inPlayer} aria-label={metro.inPlayer ? "stop clicking along" : "click along with the song"}>
       <svg viewBox="0 0 24 24"><path d="M9.2 2h5.6l4.4 18.5A1.2 1.2 0 0 1 18 22H6a1.2 1.2 0 0 1-1.2-1.5zM7.4 16h9.2l-.9-3.8-3.2 3.2-1.3-1.3 3.9-3.9L13.2 4h-2.4z" /></svg>
     </button>
+    {/if}
     {#if song?.scoreXml}
       <button class="scorebtn" class:on={scoreView} onclick={() => { setView(scoreView ? "game" : "piano"); paint(); }}
               aria-pressed={scoreView} aria-label={scoreView ? "show the falling notes" : "show the score"}>🎼</button>

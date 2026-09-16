@@ -154,7 +154,8 @@ MIDI keyboard — the pisynth screen follows), **Metronome**, **Display** (note 
 French Do Ré Mi), **Latency** (measures the key-to-sound delay
 with the phone's microphone) and **About** (version, unpair this browser).
 
-**Metronome.** While the phone is connected, it manages pisynth's metronome (the metronome button in
+**Metronome.** In the piano view (a score, or playing freely — the game view has none), while the phone
+is connected, it manages pisynth's metronome (the metronome button in
 the top bar, or the cog → Metronome): start/stop, tempo (−/+, slider, **Tap**, Largo…Presto), beats per
 bar, click volume, and lights on the beats. The click is played **by pisynth** (the phone is a remote) or
 **by the phone** (headphones, say — pisynth then only counts the beats). Each musician keeps their own

@@ -50,7 +50,7 @@
     <span class="title">Settings</span>
   </div>
   <div class="tabs">
-    {#each TABS as [id, label] (id)}
+    {#each TABS.filter(([id]) => id !== "metronome" || prefs.view === "piano") as [id, label] (id)}
       <button class:on={panel === id} onclick={() => onPanel(id)}>{label}</button>
     {/each}
   </div>

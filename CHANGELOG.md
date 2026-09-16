@@ -5,9 +5,11 @@ All notable changes to pisynth, in plain language. Newest first.
 ## Unreleased
 
 ### Added
-- **The metronome on the phone** — while the companion is connected it manages pisynth's metronome: a
+- **The metronome on the phone** — in the piano view (a score, or playing freely; not in the game view,
+  which switches it off), while the companion is connected it manages pisynth's metronome: a
   Metronome page (the button in the top bar) with start/stop, a big tempo with −/+, a slider, tap tempo
-  and the Largo…Presto markings, beats per bar, click volume and lights on the beats. Choose who plays
+  and the Largo…Presto markings, beats per bar, click volume and lights on the beats. On the phone it
+  sounds like a mechanical metronome, tic-toc, brighter on beat 1. Choose who plays
   the click: **pisynth** (through the synth, the phone is a remote) or **this phone** (pisynth then only
   counts the beats, and Start/Stop on its screen starts the phone's click). Each musician keeps their own
   metronome and gets it back on pisynth when they pick up the phone. The pisynth screen shows "Managed by

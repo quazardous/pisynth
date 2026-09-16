@@ -1,11 +1,35 @@
-// The metronome click played by the phone (#2658): a short wooden tick, higher on beat 1, scheduled a
-// little ahead on the audio clock so it stays steady whatever the page is doing. Also drives the beat
-// lights, sound or not (pisynth playing the click: the phone only shows the beats).
+// The metronome click played by the phone (#2658): a mechanical metronome's tick (metronome-tick.wav),
+// "tic" and "toc" in turn and brighter on beat 1 — a short synthesized tick when the sample isn't there —
+// scheduled a little ahead on the audio clock so it stays steady whatever the page is doing. Also drives
+// the beat lights, sound or not (pisynth playing the click: the phone only shows the beats).
 import { audioContext } from "./click.js";
 
 const LOOKAHEAD_MS = 160, PERIOD_MS = 40;
 
-function tick(ac, at, accent, vol) {
+let sample = null, loading = null;
+function loadSample(ac) {
+  loading ??= fetch("/metronome-tick.wav")
+    .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`${r.status}`))))
+    .then(b => ac.decodeAudioData(b))
+    .then(buf => (sample = buf))
+    .catch(() => {});                                            // no sample: the synthesized tick stays
+}
+
+// Beat n of the bar: beat 1 bright, then tic, toc, tic… (the same tick a little higher or lower).
+export const tickRate = n => (n === 1 ? 1.25 : n % 2 === 0 ? 0.86 : 1);
+
+function tick(ac, at, n, vol) {
+  loadSample(ac);
+  const accent = n === 1;
+  if (sample) {
+    const src = ac.createBufferSource(), g = ac.createGain();
+    src.buffer = sample;
+    src.playbackRate.value = tickRate(n);
+    g.gain.value = (vol / 100) * (accent ? 1 : 0.75);
+    src.connect(g).connect(ac.destination);
+    src.start(at);
+    return src;
+  }
   const peak = Math.max(0.0001, (vol / 100) * (accent ? 0.9 : 0.6));
   const osc = ac.createOscillator(), g = ac.createGain();
   osc.type = "triangle";
@@ -38,7 +62,7 @@ export function startClicker({ nextBeat, sound = () => true, vol = () => 80, onB
       if (b.at < now - 30) continue;                              // too late for this one (a paused tab)
       if (ac?.state === "running") {
         const when = Math.max(ac.currentTime, (b.at - performance.now()) / 1000 + ac.currentTime - (ac.outputLatency || 0));
-        const node = tick(ac, when, b.n === 1, vol());
+        const node = tick(ac, when, b.n, vol());
         nodes.add(node);
         node.onended = () => nodes.delete(node);
       }

@@ -2,6 +2,13 @@
 
 All notable changes to pisynth, in plain language. Newest first.
 
+## Unreleased
+
+### Added
+- **The version in the companion** — Settings → About shows "pisynth companion 0.6.0" with its build, links to
+  pisynth on GitHub and to what's new in that version; the side panel's footer shows the version and a GitHub link.
+  A phone still running an older app than the one pisynth now serves is told to reload.
+
 ## 0.6.0 — 2026-09-17
 
 The score release: sheet music that scrolls at the metronome's tempo, thousands of free scores to find, a

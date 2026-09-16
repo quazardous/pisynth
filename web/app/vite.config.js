@@ -17,8 +17,11 @@ const https = !process.env.PISYNTH_DEV_PLAIN && certs && fs.existsSync(`${certs}
   ? { cert: fs.readFileSync(`${certs}/cert.pem`), key: fs.readFileSync(`${certs}/key.pem`) }
   : undefined;
 const api = { target: backend, secure: false, changeOrigin: false };
+// The companion's version (#2673): package.json's, baked into the app and written in build.json.
+const VERSION = JSON.parse(fs.readFileSync(new URL("./package.json", import.meta.url), "utf8")).version;
+const define = { __APP_VERSION__: JSON.stringify(VERSION) };
 
-// build.json: which build this is ({hash}) — shown in About and on the pisynth screen, and fetched by the
+// build.json: which build this is ({hash, version}) — shown in About and on the pisynth screen, and fetched by the
 // setup page to test the certificate. The hash is Vite's own content hash of the app's entry chunk.
 function buildInfo() {
   return {
@@ -27,7 +30,7 @@ function buildInfo() {
     generateBundle(_, bundle) {
       const entry = Object.values(bundle).find(f => f.type === "chunk" && f.isEntry);
       const hash = entry?.fileName.match(/-([\w-]{8,})\.js$/)?.[1] ?? "dev";
-      this.emitFile({ type: "asset", fileName: "build.json", source: JSON.stringify({ hash }) + "\n" });
+      this.emitFile({ type: "asset", fileName: "build.json", source: JSON.stringify({ hash, version: VERSION }) + "\n" });
     },
   };
 }
@@ -84,9 +87,11 @@ function demoData() {
 
 export default defineConfig(({ mode }) => mode === "demo" ? {
   base: "/pisynth/",
+  define,
   plugins: [svelte(), buildInfo(), demoData()],
   build: { outDir: "../../dist-demo", emptyOutDir: true, target: "es2020", assetsInlineLimit: 0, chunkSizeWarningLimit: 1500 },
 } : {
+  define,
   plugins: [svelte(), buildInfo(), pwa],
   server: {
     https,

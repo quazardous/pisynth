@@ -3,6 +3,7 @@
   // the player, which keeps playing underneath — change the reverb while pisynth plays a song.
   import Sound from "./Sound.svelte";
   import { DEMO } from "./lib/demobackend.js";
+  import { VERSION, REPO_URL, releaseUrl, versionNotice } from "./lib/version.js";
   import Metronome from "./Metronome.svelte";
   import Latency from "./Latency.svelte";
   import { prefs, setNotation, setArcade } from "./lib/prefs.svelte.js";
@@ -22,7 +23,7 @@
   // the demo (#2669) has no pisynth: no synth settings, no latency to measure
   const TABS = [...(DEMO ? [] : [["sound", "Sound"]]), ["metronome", "Metronome"], ["display", "Display"], ["musicians", "Musicians"], ...(DEMO ? [] : [["latency", "Latency"]]), ["about", "About"]];
 
-  let build = $state("…");
+  let build = $state("…"), notice = $state(null);
   let confirmUnpair = $state(false);
   let unpairError = $state("");
 
@@ -30,7 +31,7 @@
     if (panel !== "about") return;
     fetch("/build.json", { cache: "no-store" })
       .then(r => (r.ok ? r.json() : { hash: "dev" }))
-      .then(b => (build = b.hash || "dev"))
+      .then(b => { build = b.hash || "dev"; notice = versionNotice(VERSION, b); })
       .catch(() => (build = "dev"));
   });
 
@@ -109,8 +110,11 @@
       <Latency {onFrame} />
     {:else}
       <section class="card">
-        <h1>pisynth companion</h1>
+        <h1>pisynth companion {VERSION}</h1>
         <p class="muted">Build <code>{build}</code></p>
+        {#if notice}<p class="notice">{notice} <button class="link" onclick={() => location.reload()}>reload</button></p>{/if}
+        <p class="links"><a href={REPO_URL} target="_blank" rel="noopener">pisynth on GitHub</a> ·
+          <a href={releaseUrl(VERSION)} target="_blank" rel="noopener">What's new in {VERSION}</a></p>
         <p>This browser is paired with pisynth. Only one browser can be paired at a time; pairing another one
           (QR icon on the pisynth screen) disconnects this one.</p>
         <p class="muted">Scores to find: public domain and CC0 scores shared by MuseScore users, found through the PDMX
@@ -150,5 +154,8 @@
            background: #17171f; color: var(--fg); -webkit-user-select: text; user-select: text; }
   .mlevel { color: #c38bff; font-weight: 800; font-size: .85rem; }
   .error { color: #ff7a7a; margin-top: 8px; }
+  .links a { color: var(--accent); }
+  .notice { color: var(--yellow); }
+  .link { margin: 0; padding: 0; background: none; color: var(--accent); font-weight: 600; }
   code { font-size: .85em; }
 </style>

@@ -23,7 +23,7 @@
   import { songFeatures, difficulty } from "./lib/difficulty.js";
   import { Progress, levelDifficulty } from "./lib/progress.js";
   import { detectChord, noteName, pitchName } from "./lib/theory.js";
-  import { prefs, setPlayMode, PLAY_MODES } from "./lib/prefs.svelte.js";
+  import { prefs, setPlayMode, PLAY_MODES, setView, lastSong, setLastSong } from "./lib/prefs.svelte.js";
   import { aids } from "./lib/aids.svelte.js";
   import { RecordBook, songKey } from "./lib/records.js";
   import { EndlessScore } from "./lib/endless.js";
@@ -36,7 +36,7 @@
   import Comic from "./Comic.svelte";
   import Gauge from "./Gauge.svelte";
   import Score from "./Score.svelte";
-  import { scorePosition } from "./lib/musicxml.js";
+  import { scorePosition, markKey } from "./lib/musicxml.js";
   import { metro, setClickInPlayer } from "./lib/metronome.svelte.js";
   import { songBeat } from "./lib/metronome.js";
   import { startClicker } from "./lib/metroclick.js";
@@ -227,7 +227,7 @@
     }
     // Missed: the purple count stays up a moment (so a going back never comes without it), then back we go.
     announce = { text: "TRY AGAIN", color: "#ff5a5a", breaker: true, splash: comboSplash(seed(), { breaker: true }), pos: splashPos(), id: ++announceId };
-    if (!prefs.arcade) status = `${parts[partIdx].label}: again, without a wrong key or a missed note`;
+    if (!fx()) status = `${parts[partIdx].label}: again, without a wrong key or a missed note`;
     retryAt = performance.now() + RETRY_PAUSE_MS;
   }
   function retryPart() {
@@ -254,7 +254,8 @@
     flash = { kind: r.kind, delta: r.delta, id: ++flashId };
     stats = { score: judge.score, streak: judge.streak, accuracy: judge.accuracy() };
     rolling.set(judge.score);
-    if (prefs.arcade) arcade(r.kind, r.note, now, r.penalty);
+    if (fx()) arcade(r.kind, r.note, now, r.penalty);
+    updateMarks(now);
   }
 
   // ---- arcade layer (#2434): sparks, combos, announcer, racing score ----
@@ -299,14 +300,46 @@
   }
 
   // The score view (#2657): a song with a score can show it instead of the falling notes; the cursor follows.
-  let scoreView = $state(false), scorePos = $state(0);
+  // Piano view (the default, #2657): the score on the stand; game view: the falling notes and the arcade.
+  const scoreView = $derived(prefs.view === "piano" && !!song?.scoreXml);
+  const fx = () => prefs.arcade && !scoreView;                 // explosions, combos, oops: the game view's
+  let scorePos = $state(0);
+  // The judged notes coloured on the score: markKey(position, pitch) → "good" | "off" | "miss".
+  let marks = $state.raw(new Map()), marksSeen = -1, marksAt = 0;
+  function updateMarks(now, force = false) {
+    if (!scoreView || !song?.timeline || mode !== "play") return;
+    if (!force && now - marksAt < 150) return;
+    marksAt = now;
+    let judged = 0;
+    for (const r of judge.result) if (r && r !== "skip") judged++;
+    if (judged === marksSeen && !force) return;
+    marksSeen = judged;
+    const m = new Map();
+    judge.result.forEach((r, i) => {
+      if (!r || r === "skip" || !notes[i]) return;
+      m.set(markKey(scorePosition(song.timeline, notes[i].start), notes[i].note), r === "miss" ? "miss" : r === "perfect" || r === "good" ? "good" : "off");
+    });
+    marks = m;
+  }
+  function clearMarks() { marks = new Map(); marksSeen = -1; }
 
   function load(s) {
     stop();
     song = s; error = ""; status = ""; sheet = null;
-    if (!s?.scoreXml) scoreView = false;
+    setLastSong(s);
+    clearMarks();
     scorePos = 0;
   }
+
+  // The song open last time comes back when the companion starts (#2657).
+  (async () => {
+    const last = lastSong();
+    if (!last) return;
+    try {
+      const { song: s } = await loadSong({ path: last.path, score: last.score ? { path: last.score } : null });
+      if (!song) load(s);
+    } catch { /* no longer in the library */ }
+  })();
 
   // `lap`: infinite mode starting the song over by itself — a one-beat count-in, the infinite score goes on.
   // `quiet`: hybrid starting a part again — a whole bar to put the hand back, no count-in, a discreet cue.
@@ -315,6 +348,7 @@
     countBeats = quiet ? 4 : lap ? 1 : COUNT_IN;
     quietLead = quiet; finishAtEnd = false; bomb = 0; retryAt = 0;
     if (!lap) { endlessBook.reset(); endlessShown = 0; laps = 0; }
+    clearMarks();
     if (hybrid && parts.length) {                            // hybrid: play the part asked for, if it's unlocked
       if (!lap) partIdx = Math.min(partAt(parts, at ?? (position >= current.durationMs ? 0 : position)), cleared, parts.length - 1);
       loop = { a: parts[partIdx].a, b: parts[partIdx].b };
@@ -379,6 +413,7 @@
   function stop(tell = true) {
     if (!playing) return;
     songClick?.stop(); songClick = null;
+    updateMarks(performance.now(), true);
     clearInterval(timer); cancelAnimationFrame(raf);
     position = Math.max(from, Math.min(songPos(performance.now()), current.durationMs));
     if (sender) { if (tell) sender.stop(); else sender.playing = false; sender = null; }
@@ -440,6 +475,7 @@
     lastRewind = now;
     stop();
     finished = false; sheet = null; flash = null; announce = null; oopsAt = null;
+    clearMarks();
     if (hybrid && double && parts.length) { partIdx = 0; loop = { a: parts[0].a, b: parts[0].b }; }
     position = loop?.a ?? 0;
     judge.reset(position);
@@ -483,8 +519,9 @@
     if (playing) {
       if (mode === "play") {
         const missed = judge.advance(t);
-        for (const i of missed) { effects.push({ kind: "miss", note: notes[i].note, index: i, at: now }); if (prefs.arcade) arcade("miss", notes[i].note, now); }
+        for (const i of missed) { effects.push({ kind: "miss", note: notes[i].note, index: i, at: now }); if (fx()) arcade("miss", notes[i].note, now); }
         if (missed.length) stats = { score: judge.score, streak: judge.streak, accuracy: judge.accuracy() };
+        updateMarks(now);
         if (endless) for (const _ of missed) scoreEndless("miss", tf());
         if (hybrid) partFails += missed.length;
         countIn = quietLead ? 0 : t < from ? Math.min(countBeats, Math.ceil((from - t) / beatMs())) : t < from + 450 * tf() ? "GO!" : 0;
@@ -498,7 +535,7 @@
           if (st.missed) partFails = Math.max(partFails, 1);
           if (st.done) { partDone(); return; }
           const left = partFails === 0 && st.remaining <= BOMB_FROM ? st.remaining : 0;
-          if (left !== bomb) { if (left && prefs.arcade) fuseTick(left); bomb = left; }
+          if (left !== bomb) { if (left && fx()) fuseTick(left); bomb = left; }
         }
       } else if (loop && t >= loop.b) { if (endless) laps++; stop(false); start(loop.a, endless); return; }
       if (!hybrid && t > current.durationMs + 800) {
@@ -542,7 +579,7 @@
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    if (prefs.arcade && now < shakeUntil) {                     // combo milestone: a short screen punch
+    if (fx() && now < shakeUntil) {                     // combo milestone: a short screen punch
       const k = (shakeUntil - now) / 200 * 4 * dpr;
       ctx.setTransform(1, 0, 0, 1, (Math.random() - 0.5) * k, (Math.random() - 0.5) * k);
     }
@@ -657,7 +694,7 @@
     ctx.fillStyle = "#ffd23f";                                  // the hit line
     ctx.fillRect(0, hitY, W, 3 * dpr);
 
-    if (prefs.arcade) {                                         // arcade (#2434): shockwave rings + sparks
+    if (fx()) {                                         // arcade (#2434): shockwave rings + sparks
       ctx.lineWidth = 2 * dpr;
       for (const e of effects) {
         if (e.kind !== "perfect") continue;
@@ -707,13 +744,13 @@
         <span class="endless" title="infinite mode · best {endlessBook.best(songKey(song))}">∞ {endlessShown}</span>
         {#if laps}<span class="acc">lap {laps + 1}</span>{/if}
       {:else if hybrid && parts.length}
-        <span class="score" class:racing={prefs.arcade && shownScore !== stats.score}>{prefs.arcade ? shownScore : stats.score}</span>
+        <span class="score" class:racing={fx() && shownScore !== stats.score}>{fx() ? shownScore : stats.score}</span>
         <span class="part" title="{parts[partIdx]?.label} · {cleared} of {parts.length} cleared">
           {#each parts as _, k (k)}<i class:done={k < cleared} class:here={k === partIdx}></i>{/each}
           <b>{partIdx + 1}/{parts.length}</b>
         </span>
       {:else}
-        <span class="score" class:racing={prefs.arcade && shownScore !== stats.score}>{prefs.arcade ? shownScore : stats.score}</span>
+        <span class="score" class:racing={fx() && shownScore !== stats.score}>{fx() ? shownScore : stats.score}</span>
       {/if}
       {#if stats.streak > 1}<span class="streak">×{stats.streak}</span>{/if}
       <span class="acc">{stats.accuracy}%</span>
@@ -725,12 +762,12 @@
   {#if song}
     <div class="stage" bind:clientWidth={stageW} bind:clientHeight={stageH}>
       {#if scoreView && song.scoreXml}
-        <Score xml={song.scoreXml} position={scorePos} notation={prefs.notation} />
+        <Score xml={song.scoreXml} position={scorePos} notation={prefs.notation} {marks} />
       {:else}
         <canvas bind:this={canvas}></canvas>
       {/if}
       {#if countIn}{#key countIn}<div class="count" class:go={countIn === "GO!"}>{countIn}</div>{/key}{/if}
-      {#if prefs.arcade && playing && hitsShown >= 2}
+      {#if fx() && playing && hitsShown >= 2}
         {#key hitsShown}<div class="hits"><b>{hitsShown}</b> HITS</div>{/key}
       {/if}
       {#if hybrid && playing && bomb}
@@ -744,7 +781,7 @@
       {/if}
       {#if quietLead && playing}<div class="again-cue">↺ {parts[partIdx]?.label}</div>{/if}
       {#key announce?.id}
-        {#if announce && prefs.arcade && playing}
+        {#if announce && fx() && playing}
           <div class="announce" class:breaker={announce.breaker} style:--tier-color={announce.color}
                style:top="{announce.pos?.y ?? 14}%" style:left="{announce.pos?.x ?? 0}%" style:right="{-(announce.pos?.x ?? 0)}%">
             <Comic splash={announce.splash} text={false} width={announce.breaker ? "min(77vw, 352px)" : "min(67vw, 320px)"} />
@@ -756,12 +793,12 @@
         {#if levelUp}<div class="levelup-at"><Comic splash={levelUp.splash} kind="levelup" width="min(70vw, 336px)" /></div>{/if}
       {/key}
       {#key oopsAt?.id}
-        {#if oopsAt && prefs.arcade && playing}
+        {#if oopsAt && fx() && playing}
           <div class="oops-layer"><div class="oops-at" style:left="{oopsAt.x}%"><Comic splash={oopsAt.splash} kind="oops" width="min(32vw, 136px)" /></div></div>
         {/if}
       {/key}
       {#key flash?.id}
-        {#if flash && playing && !(prefs.arcade && flash.kind === "wrong")}
+        {#if flash && playing && !(fx() && flash.kind === "wrong")}
           <div class="flash {flash.kind}">{LABEL[flash.kind]}{#if flash.delta !== undefined && flash.kind !== "perfect"} <small>{flash.delta > 0 ? "+" : ""}{Math.round(flash.delta)} ms</small>{/if}</div>
         {/if}
       {/key}
@@ -771,7 +808,7 @@
           <h2>{stats.accuracy}%</h2>
           <p><b>{judge.score}</b> points · best streak {judge.bestStreak}</p>
           {#if xpGain}<p class="xp">+{xpGain.xp} XP <small>· <Gauge value={xpGain.diff} />{xpGain.tempo !== 100 ? ` · tempo ×${(xpGain.tempo / 100).toFixed(2)}` : ""}{xpGain.easy < 0.99 ? ` · easy for Lv ${xpGain.before.level} ×${xpGain.easy.toFixed(2)}` : ""}{xpGain.play > 1 ? ` · play ${xpGain.play} today ×${xpGain.repeat.toFixed(2)}` : ""}</small></p>{/if}
-          {#if prefs.arcade && combo.maxHits >= 2}<p class="best-combo">max combo {combo.maxHits} hits{combo.bestTierName ? ` · ${combo.bestTierName}` : ""}</p>{/if}
+          {#if fx() && combo.maxHits >= 2}<p class="best-combo">max combo {combo.maxHits} hits{combo.bestTierName ? ` · ${combo.bestTierName}` : ""}</p>{/if}
           {#if best?.previous}<p class="muted">best {best.record.score} pts{best.record.tempo !== 100 ? ` at ${best.record.tempo} %` : ""} · {best.record.accuracy}% · {best.record.plays} plays</p>{/if}
           <p class="muted">perfect {judge.counts.perfect} · good {judge.counts.good} · early {judge.counts.early} · late {judge.counts.late} · missed {judge.counts.miss} · wrong {judge.counts.wrong}</p>
           <div class="again">
@@ -847,7 +884,7 @@
       <svg viewBox="0 0 24 24"><path d="M9.2 2h5.6l4.4 18.5A1.2 1.2 0 0 1 18 22H6a1.2 1.2 0 0 1-1.2-1.5zM7.4 16h9.2l-.9-3.8-3.2 3.2-1.3-1.3 3.9-3.9L13.2 4h-2.4z" /></svg>
     </button>
     {#if song?.scoreXml}
-      <button class="scorebtn" class:on={scoreView} onclick={() => { scoreView = !scoreView; paint(); }}
+      <button class="scorebtn" class:on={scoreView} onclick={() => { setView(scoreView ? "game" : "piano"); paint(); }}
               aria-pressed={scoreView} aria-label={scoreView ? "show the falling notes" : "show the score"}>🎼</button>
     {/if}
     <button class="folder" class:open={sheet === "library"} class:attention={!song} onclick={() => toggleSheet("library")} aria-label="choose a song">

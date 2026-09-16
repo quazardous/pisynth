@@ -14,6 +14,11 @@ All notable changes to pisynth, in plain language. Newest first.
   the web companion" with just Start/Stop meanwhile; when the phone leaves, everything is back as before.
   **Click along with songs** (the metronome button next to Play) makes the phone click with the song, at
   its tempo and time signature, including the quiet bar before a hybrid part starts again.
+- **Piano view and game view** — the companion now opens like a music stand: the song you had last time is
+  back, shown as its score (**piano view**, the default), calm — no explosions or combo bubbles. As you play
+  in "I play", each note on the score turns green (in time), orange (early or late) or red (missed). The
+  🎼 button switches to the **game view** (falling notes, arcade effects) and back; the choice is kept. A
+  song without a score shows its falling notes in both.
 - **Scores (sheet music)** — the library takes MusicXML scores (`.musicxml`, `.xml`, `.mxl`: the open
   format every notation program exports), from the PC or uploaded from the phone. A score beside a MIDI
   file of the same name is that song's sheet music (🎼); a score on its own is a song you can play,

@@ -2,7 +2,8 @@
 // cog → Display. (The playing aids — fingers, ghost keys… — are per musician: lib/aids.svelte.js.)
 //   notation: "en" (C D E) or "fr" (Do Ré Mi) — a French browser starts in French
 
-const KEYS = { notation: "pisynth.notation", arcade: "pisynth.arcade", playMode: "pisynth.playMode" };
+const KEYS = { notation: "pisynth.notation", arcade: "pisynth.arcade", playMode: "pisynth.playMode", view: "pisynth.view",
+  lastSong: "pisynth.lastSong" };
 export const PLAY_MODES = ["normal", "hybrid", "infinite"];
 
 function read(key) {
@@ -20,7 +21,23 @@ function initialNotation() {
 }
 
 export const prefs = $state({ notation: initialNotation(), arcade: read(KEYS.arcade) !== "0",
-  playMode: PLAY_MODES.includes(read(KEYS.playMode)) ? read(KEYS.playMode) : "hybrid" });
+  playMode: PLAY_MODES.includes(read(KEYS.playMode)) ? read(KEYS.playMode) : "hybrid",
+  view: read(KEYS.view) === "game" ? "game" : "piano" });
+
+// view (#2657): "piano" (the default) shows the song's score, calm, like a music stand; "game" the falling
+// notes with the arcade effects. A song without a score shows its falling notes either way.
+export function setView(v) {
+  prefs.view = v === "game" ? "game" : "piano";
+  write(KEYS.view, prefs.view);
+}
+
+// The song open last time, opened again when the companion starts: {path, score} (library paths).
+export function lastSong() {
+  try { const s = JSON.parse(read(KEYS.lastSong) || "null"); return typeof s?.path === "string" ? s : null; } catch { return null; }
+}
+export function setLastSong(song) {
+  if (song?.path) write(KEYS.lastSong, JSON.stringify({ path: song.path, score: song.scorePath ?? null }));
+}
 
 // playMode, how "I play" runs a song: normal (once) · hybrid (part by part, each unlocked by the one before) · infinite (loops)
 export function setPlayMode(m) {

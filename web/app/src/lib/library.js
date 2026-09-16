@@ -119,6 +119,7 @@ export async function loadSong(entry, cache = new InfoCache()) {
       try {
         const xml = await fetchScore(entry.score.path);
         song.scoreXml = xml;
+        song.scorePath = entry.score.path;
         song.timeline = scoreSong(xml).timeline;                // where the cursor goes, from the score's own bars
       } catch { /* a broken score doesn't stop the MIDI file */ }
     }

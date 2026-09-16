@@ -170,9 +170,11 @@ folders). It starts with a small **starter** set of classical piano pieces by le
 
 **Scores.** The library also holds sheet music in **MusicXML** (`.musicxml`, `.xml` or compressed
 `.mxl`, the open format every notation program exports). A score with the same name as a MIDI file is
-that song's score (🎼 in the library); a score on its own is a song you can play too. With a song that
-has one, the 🎼 button next to Play shows the score instead of the falling notes, with the note names
-(English or French, as under the cog → Display) and a cursor that follows the music. The children's
+that song's score (🎼 in the library); a score on its own is a song you can play too. A song that has
+one opens in the **piano view**: its score, with the note names (English or French, as under the cog →
+Display) and a cursor that follows the music; in "I play" each note turns green (in time), orange (early
+or late) or red (missed). The 🎼 button next to Play switches to the **game view** (falling notes, arcade
+effects) and back. The companion reopens the song you had last time. The children's
 songs of the starter set come with their scores.
 
 To add your own songs or scores:

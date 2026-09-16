@@ -167,6 +167,10 @@ export function scoreSong(xmlText, { name = "" } = {}) {
   };
 }
 
+// A written note's key: its position in the score (whole notes, to a 96th) and its MIDI pitch — how a judged
+// song note finds its notehead on the score, whichever repeat it was played in.
+export const markKey = (whole, midi) => `${Math.round(whole * 96)}:${midi}`;
+
 // The score position (whole notes from its start) at song time `ms`, by the timeline.
 export function scorePosition(timeline, ms) {
   if (!timeline?.length) return 0;

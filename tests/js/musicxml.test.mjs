@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { parseXml, child, kids, textOf } from "../../web/app/src/lib/xml.js";
-import { scoreSong, scorePosition, playOrder } from "../../web/app/src/lib/musicxml.js";
+import { scoreSong, scorePosition, playOrder, markKey } from "../../web/app/src/lib/musicxml.js";
 import { readMxl, zipEntries } from "../../web/app/src/lib/mxl.js";
 import { parseMidi } from "../../web/app/src/lib/midifile.js";
 import { songNotes } from "../../web/app/src/lib/highway.js";
@@ -100,4 +100,15 @@ test("our starter scores play exactly like their MIDI files", () => {
     assert.equal(s.bpm, m.bpm, f);
     assert.deepEqual(s.markers.map(k => k.text), m.markers.map(k => k.text.replace(/^Part \d+ · /, "")), f);
   }
+});
+
+test("a played note finds its written note on the score (markKey), in every repeat", () => {
+  const xml = score(`<measure number="1"><attributes><divisions>2</divisions><time><beats>2</beats><beat-type>4</beat-type></time></attributes>
+    <barline location="left"><repeat direction="forward"/></barline>${n("C", 4, 2)}${n("E", 4, 1)}${n("G", 4, 1)}
+    <barline location="right"><repeat direction="backward"/></barline></measure>`);
+  const s = scoreSong(xml), notes = songNotes(s.events, s.durationMs);
+  assert.equal(notes.length, 6);
+  const keys = notes.map(x => markKey(scorePosition(s.timeline, x.start), x.note));
+  assert.deepEqual(keys.slice(0, 3), ["0:60", "24:64", "36:67"]);         // in 96ths of a whole: a quarter, then an eighth
+  assert.deepEqual(keys.slice(3), keys.slice(0, 3));                       // the repeat lands on the same notes
 });

@@ -35,6 +35,8 @@
   import { listLibrary, loadSong, nextSongEntry, displayName } from "./lib/library.js";
   import Comic from "./Comic.svelte";
   import Gauge from "./Gauge.svelte";
+  import Score from "./Score.svelte";
+  import { scorePosition } from "./lib/musicxml.js";
 
   let { onFrame, onMessage, send, mode = "play", onMode = () => {} } = $props();
 
@@ -293,9 +295,14 @@
     }
   }
 
+  // The score view (#2657): a song with a score can show it instead of the falling notes; the cursor follows.
+  let scoreView = $state(false), scorePos = $state(0);
+
   function load(s) {
     stop();
     song = s; error = ""; status = ""; sheet = null;
+    if (!s?.scoreXml) scoreView = false;
+    scorePos = 0;
   }
 
   // `lap`: infinite mode starting the song over by itself — a one-beat count-in, the infinite score goes on.
@@ -451,6 +458,10 @@
     sparks.step(dt, { gravity: 900 * (globalThis.devicePixelRatio || 1) });   // arcade (#2434): sparks fly, the score runs up
     if (Math.round(rolling.step(dt)) !== shownScore) shownScore = Math.round(rolling.value);
     if (!song) return;
+    if (scoreView && song.timeline) {                          // the score's cursor, where the song is
+      const p = scorePosition(song.timeline, Math.max(0, t));
+      if (Math.abs(p - scorePos) > 1 / 128) scorePos = p;
+    }
 
     if (playing) {
       if (mode === "play") {
@@ -696,7 +707,11 @@
   <div class="area">                                  <!-- the notes' area; the sheet floats over it, never resizing it -->
   {#if song}
     <div class="stage" bind:clientWidth={stageW} bind:clientHeight={stageH}>
-      <canvas bind:this={canvas}></canvas>
+      {#if scoreView && song.scoreXml}
+        <Score xml={song.scoreXml} position={scorePos} notation={prefs.notation} />
+      {:else}
+        <canvas bind:this={canvas}></canvas>
+      {/if}
       {#if countIn}{#key countIn}<div class="count" class:go={countIn === "GO!"}>{countIn}</div>{/key}{/if}
       {#if prefs.arcade && playing && hitsShown >= 2}
         {#key hitsShown}<div class="hits"><b>{hitsShown}</b> HITS</div>{/key}
@@ -749,7 +764,7 @@
         </section>
       {/if}
       {#if error}<p class="error">{error}</p>{:else if status}<p class="status-msg">{status}</p>
-      {:else if !playing && !finished && !sheet}<p class="status-msg warmup">Tap your keys to find your place{aids.fingers ? " — the numbers are your fingers" : ""}, then Play</p>{/if}
+      {:else if !playing && !finished && !sheet && !scoreView}<p class="status-msg warmup">Tap your keys to find your place{aids.fingers ? " — the numbers are your fingers" : ""}, then Play</p>{/if}
     </div>
   {:else}
     <div class="live">
@@ -810,6 +825,10 @@
             title={hybrid ? "Back to this part · tap twice: back to part 1" : ""}>
       <svg viewBox="0 0 24 24"><path d="M12 5V1.5L7 6.5l5 5V7.5a5.5 5.5 0 1 1-5.5 5.5H4a8 8 0 1 0 8-8z" /></svg>
     </button>
+    {#if song?.scoreXml}
+      <button class="scorebtn" class:on={scoreView} onclick={() => { scoreView = !scoreView; paint(); }}
+              aria-pressed={scoreView} aria-label={scoreView ? "show the falling notes" : "show the score"}>🎼</button>
+    {/if}
     <button class="folder" class:open={sheet === "library"} class:attention={!song} onclick={() => toggleSheet("library")} aria-label="choose a song">
       <svg viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h5l2 2h8A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" /></svg>
     </button>
@@ -949,6 +968,8 @@
   .replay { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; }   /* always there: stop, back to the start (or A) */
   .replay svg { width: 22px; height: 22px; fill: var(--fg); }
   .replay:disabled { opacity: .35; }
+  .scorebtn { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; font-size: 1.2rem; line-height: 1; }
+  .scorebtn.on { background: #fbfaf5; box-shadow: 0 0 0 2px var(--yellow); }
   /* ∞ toggle: the song starts over by itself, with its own score */
   /* play mode button: 1× normal · 🔒 hybrid · ∞ infinite (tap to cycle; the ⋯ sheet explains them) */
   .modebtn { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; color: var(--fg); font-size: .95rem; font-weight: 800; line-height: 1; }

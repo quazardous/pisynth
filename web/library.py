@@ -1,4 +1,6 @@
-"""The MIDI library on the Pi (#2421): one folder tree, `~/midi`, filled from three places.
+"""The MIDI library on the Pi (#2421): one folder tree, `~/midi`, filled from three places. It holds MIDI
+files and scores (MusicXML: `.musicxml`, `.xml`, compressed `.mxl`, #2657) — a score beside a MIDI file of
+the same name is that song's sheet music; a score alone is a song of its own.
 
 - `starter/…` — the Public Domain set shipped in the repo (library/midi), and
 - anything in the repo's `midi/` folder — both LINKED in by sync.sh on every deploy;
@@ -10,9 +12,10 @@ of the repo folders sync.sh links from — never anywhere else, whatever links o
 """
 import os
 
-MAX_UPLOAD = 1024 * 1024                        # plenty for a MIDI file
-MAX_READ = 4 * 1024 * 1024                      # a PC file too big to be a sane MIDI file isn't served
+MAX_UPLOAD = 8 * 1024 * 1024                    # a MIDI file is small; a long score in plain MusicXML is not
+MAX_READ = 16 * 1024 * 1024                     # a PC file too big to be a sane MIDI file or score isn't served
 MIDI_EXT = (".mid", ".midi")
+SCORE_EXT = (".musicxml", ".xml", ".mxl")
 FOLDER_MARK = ".pisynth-folder"                 # a folder made from the phone: kept by deploys, deletable
 MAX_SEGMENT = 120
 
@@ -39,6 +42,37 @@ def split_path(path):
 
 def is_midi_name(name):
     return name.lower().endswith(MIDI_EXT)
+
+
+def is_score_name(name):
+    return name.lower().endswith(SCORE_EXT)
+
+
+def is_library_name(name):
+    return is_midi_name(name) or is_score_name(name)
+
+
+def file_kind(name):
+    return "score" if is_score_name(name) else "midi"
+
+
+def looks_like(name, data):
+    """Does the content match the name? MIDI starts with MThd, .mxl is a zip, MusicXML is XML with a score."""
+    if is_midi_name(name):
+        return data[:4] == b"MThd"
+    if name.lower().endswith(".mxl"):
+        return data[:4] == b"PK\x03\x04"
+    head = data[:4096].lstrip(b"\xef\xbb\xbf \t\r\n")
+    return head.startswith(b"<") and (b"<score-partwise" in data[:65536] or b"<score-timewise" in data[:65536])
+
+
+def content_type(name):
+    n = name.lower()
+    if n.endswith(".mxl"):
+        return "application/vnd.recordare.musicxml"
+    if n.endswith(SCORE_EXT):
+        return "application/vnd.recordare.musicxml+xml"
+    return "audio/midi"
 
 
 class MidiLibrary:
@@ -93,10 +127,10 @@ class MidiLibrary:
                     out.append({"path": r, "kind": "dir", "origin": "phone" if marked else "sync",
                                 "deletable": marked and self._only_mark(p)})
                     walk(r)
-                elif is_midi_name(name) and os.path.isfile(p):   # (a dangling link is not a file)
+                elif is_library_name(name) and os.path.isfile(p):   # (a dangling link is not a file)
                     o = self.origin(p)
-                    out.append({"path": r, "kind": "file", "size": os.path.getsize(p), "origin": o,
-                                "deletable": o == "phone"})
+                    out.append({"path": r, "kind": "file", "type": file_kind(name), "size": os.path.getsize(p),
+                                "origin": o, "deletable": o == "phone"})
         walk("")
         return out
 
@@ -109,8 +143,8 @@ class MidiLibrary:
 
     def read(self, path):
         parts = split_path(path)
-        if not parts or not is_midi_name(parts[-1]):
-            raise LibraryError(404, "not a MIDI file")
+        if not parts or not is_library_name(parts[-1]):
+            raise LibraryError(404, "not a MIDI file or a score")
         p = self._path(parts)
         if not os.path.isfile(p):
             raise LibraryError(404, "not found")
@@ -137,12 +171,12 @@ class MidiLibrary:
         """Store an uploaded file in `folder` (created if needed). Returns its library path; a
         name already taken gets ' (2)', ' (3)'… before the extension."""
         if len(data) > MAX_UPLOAD:
-            raise LibraryError(413, "file too large (1 MB max)")
-        if data[:4] != b"MThd":
-            raise LibraryError(400, "not a MIDI file")
+            raise LibraryError(413, "file too large (8 MB max)")
         name = clean_segment(name or "")
-        if not is_midi_name(name):
-            raise LibraryError(400, "the name must end in .mid or .midi")
+        if not is_library_name(name):
+            raise LibraryError(400, "the name must end in .mid, .midi, .musicxml, .xml or .mxl")
+        if not looks_like(name, data):
+            raise LibraryError(400, "not a MIDI file" if is_midi_name(name) else "not a MusicXML score")
         parts = split_path(folder)
         os.makedirs(self.root, exist_ok=True)
         d = self._ensure_dir(parts)
@@ -192,7 +226,7 @@ class MidiLibrary:
                 raise LibraryError(409, "the folder isn't empty")
             os.remove(os.path.join(p, FOLDER_MARK))
             os.rmdir(p)
-        elif os.path.isfile(p) and is_midi_name(parts[-1]):
+        elif os.path.isfile(p) and is_library_name(parts[-1]):
             os.remove(p)
         else:
             raise LibraryError(404, "not found")

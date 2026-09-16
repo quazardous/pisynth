@@ -52,3 +52,13 @@ export function detectChord(notes, notation = "en") {
   }
   return "";
 }
+
+// A note as a score spells it (#2657): its letter (C…B as 0 2 4 5 7 9 11) and its accidental in half tones,
+// named in English or French — "F♯" / "Fa♯", "B♭" / "Si♭" — so a G♭ stays a G♭.
+const LETTERS = { 0: ["C", "Do"], 2: ["D", "Ré"], 4: ["E", "Mi"], 5: ["F", "Fa"], 7: ["G", "Sol"], 9: ["A", "La"], 11: ["B", "Si"] };
+const ACCIDENTALS = { "-2": "𝄫", "-1": "♭", 0: "", 1: "♯", 2: "𝄪" };
+export function spelledName(letter, alter = 0, notation = "en") {
+  const l = LETTERS[letter];
+  if (!l) return "";
+  return l[notation === "fr" ? 1 : 0] + (ACCIDENTALS[Math.round(alter)] ?? "");
+}

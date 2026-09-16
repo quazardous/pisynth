@@ -157,9 +157,18 @@ with the phone's microphone) and **About** (version, unpair this browser).
 **MIDI library.** Songs come from a library kept on the Pi (the `⋯` button, then browse the
 folders). It starts with a small **starter** set of classical piano pieces by level
 (Public Domain, from the [Mutopia Project](https://www.mutopiaproject.org/), see
-`library/midi/SOURCES.md`). To add your own:
-- **from your computer:** put `.mid` files in the repo's `midi/` folder (subfolders are kept) and run
-  `./deploy.sh`; delete one there and deploy again to remove it;
+`library/midi/SOURCES.md`).
+
+**Scores.** The library also holds sheet music in **MusicXML** (`.musicxml`, `.xml` or compressed
+`.mxl`, the open format every notation program exports). A score with the same name as a MIDI file is
+that song's score (🎼 in the library); a score on its own is a song you can play too. With a song that
+has one, the 🎼 button next to Play shows the score instead of the falling notes, with the note names
+(English or French, as under the cog → Display) and a cursor that follows the music. The children's
+songs of the starter set come with their scores.
+
+To add your own songs or scores:
+- **from your computer:** put `.mid` / `.musicxml` / `.mxl` files in the repo's `midi/` folder
+  (subfolders are kept) and run `./deploy.sh`; delete one there and deploy again to remove it;
 - **from the phone:** open a folder in the library and tap **Add here** (or **New folder** first).
   Uploaded files stay on the Pi through deploys, and only they can be deleted from the phone.
 

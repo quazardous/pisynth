@@ -65,5 +65,6 @@ export default defineConfig({
     target: "es2020",
     modulePreload: { polyfill: false },   // no inline script: the server's CSP is default-src 'self'
     assetsInlineLimit: 0,                 // no data: URIs for scripts/styles either
+    chunkSizeWarningLimit: 1500,          // the score renderer (#2657) is one big chunk, loaded only when a score is shown
   },
 });

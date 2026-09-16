@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# midi-sync.sh REPO LIBRARY — (re)build the MIDI library's links (#2421). Run by sync.sh on every
-# deploy (and by the dev stack), as the owner of LIBRARY.
+# midi-sync.sh REPO LIBRARY — (re)build the MIDI library's links: MIDI files and MusicXML scores
+# (#2421, #2657). Run by sync.sh on every deploy (and by the dev stack), as the owner of LIBRARY.
 #
 #   REPO/library/midi/…  → LIBRARY/starter/…   the shipped Public Domain set
 #   REPO/midi/…          → LIBRARY/…           your own files (gitignored), subfolders kept
@@ -28,7 +28,7 @@ link_tree() {   # SRC DEST: link every MIDI file under SRC to the same relative 
             ln -sfn "$f" "$target"
             n=$((n + 1))
         fi
-    done < <(find "$src" -type f \( -iname '*.mid' -o -iname '*.midi' \) -not -path '*/.*' -print0)
+    done < <(find "$src" -type f \( -iname '*.mid' -o -iname '*.midi' -o -iname '*.musicxml' -o -iname '*.xml' -o -iname '*.mxl' \) -not -path '*/.*' -print0)
     echo "$n"
 }
 

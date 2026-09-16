@@ -28,7 +28,7 @@ from aiohttp import WSMsgType, web
 
 from .auth import Auth
 from .demo import DemoPlayer, ShellSink, validate_events
-from .library import MAX_UPLOAD, LibraryError
+from .library import MAX_UPLOAD, LibraryError, content_type
 from .uilink import UiLink
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -332,7 +332,7 @@ class WebCompanion:
         r = await self._library_call(lambda p: self.library.read(p), self._sub(request))
         if isinstance(r, web.Response):
             return r
-        return web.Response(body=r, headers={"Content-Type": "audio/midi", "Cache-Control": "no-cache"})
+        return web.Response(body=r, headers={"Content-Type": content_type(self._sub(request)), "Cache-Control": "no-cache"})
 
     @paired
     async def midi_upload(self, request):

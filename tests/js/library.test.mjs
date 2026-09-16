@@ -66,3 +66,13 @@ test("next song: the next file in the folder, then the first of the next folder 
   assert.equal(nextSongEntry(entries, "mine.mid"), null);
   assert.equal(nextSongEntry(entries, "gone.mid"), null);
 });
+
+test("songs: a MIDI file and a score of the same name are one song; a score alone is a song (#2657)", async () => {
+  const { songsOf, isScorePath, stemOf } = await import("../../web/app/src/lib/library.js");
+  const f = (path, type) => ({ path, kind: "file", type });
+  const songs = songsOf([f("a/Ode.mid"), f("a/Ode.musicxml"), f("a/Solo.mxl"), f("a/Just.mid")]);
+  assert.deepEqual(songs.map(s => [s.path, s.score?.path ?? null]), [["a/Ode.mid", "a/Ode.musicxml"], ["a/Solo.mxl", "a/Solo.mxl"], ["a/Just.mid", null]]);
+  assert.ok(isScorePath("x.XML") && isScorePath("x.mxl") && !isScorePath("x.mid"));
+  assert.equal(stemOf("a/b.musicxml"), "a/b");
+  assert.equal(displayName("a/0-homer/3-Au-clair.musicxml"), "3 Au clair");
+});

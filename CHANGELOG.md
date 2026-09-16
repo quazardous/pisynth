@@ -5,6 +5,12 @@ All notable changes to pisynth, in plain language. Newest first.
 ## Unreleased
 
 ### Added
+- **Scores (sheet music)** — the library takes MusicXML scores (`.musicxml`, `.xml`, `.mxl`: the open
+  format every notation program exports), from the PC or uploaded from the phone. A score beside a MIDI
+  file of the same name is that song's sheet music (🎼); a score on its own is a song you can play,
+  listen to and practise like any other. The 🎼 button next to Play shows the score instead of the
+  falling notes — note names in English or French, as chosen under the cog → Display, and a cursor
+  following the music. The children's songs of the starter set now come with their exact scores.
 - **Hand moves shown on the keyboard** — when your hand has to move to a new position, right after the
   key before the move, the keyboard shows both at once: where the hand is (fingers in blue) and where it
   goes (fingers in green), with a green arrow from one to the other. The falling note where the move

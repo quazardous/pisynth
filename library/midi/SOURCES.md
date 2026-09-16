@@ -58,6 +58,9 @@ These arrangements are released under **CC0**.
 | `1-first-steps/Twinkle-twinkle-little-star.mid` | Ah vous dirai-je maman / Twinkle twinkle little star |
 | `1-first-steps/Jingle-bells.mid` | Jingle Bells chorus — J. L. Pierpont (1857) |
 
+The homer and first steps songs also come with their **score** (`.musicxml` beside each `.mid`), written by
+the same generator from the same notes, released under the same **CC0**.
+
 Level folders are numbered so they list in order; the companion shows them without the number.
 
 To add your own files, don't put them here: drop them in the repo's `midi/` folder (gitignored,

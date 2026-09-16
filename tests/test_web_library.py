@@ -35,6 +35,7 @@ def test_tree_lists_folders_and_files_with_their_origin(lib):
     assert t["jazz/blues.mid"]["origin"] == "pc" and not t["jazz/blues.mid"]["deletable"]
     assert t["starter/beginner/minuet.mid"]["origin"] == "starter"
     assert t["jazz"] == {"path": "jazz", "kind": "dir", "origin": "sync", "deletable": False}
+    assert t["jazz/blues.mid"]["type"] == "midi"
     assert library.read("jazz/blues.mid") == MIDI
 
 
@@ -55,6 +56,8 @@ def test_upload_goes_into_a_new_folder_and_never_overwrites(lib):
     ("", "x.mid", b"RIFF....", 400),                     # not MIDI
     ("", "x.txt", MIDI, 400),                            # wrong extension
     ("", "x.mid", MIDI + b"\0" * MAX_UPLOAD, 413),       # too large
+    ("", "x.musicxml", MIDI, 400),                       # a score name, not a score
+    ("", "x.mxl", b"<score-partwise/>", 400),            # .mxl must be a zip
     ("../secret", "x.mid", MIDI, 400),
     ("a/../..", "x.mid", MIDI, 400),
     ("", "../x.mid", MIDI, 400),
@@ -112,3 +115,21 @@ def test_mkdir_and_split_path(lib):
     assert split_path("/a/b/") == ["a", "b"] and split_path("") == []
     with pytest.raises(LibraryError):
         split_path("a//b")
+
+
+SCORE = b'<?xml version="1.0" encoding="UTF-8"?>\n<score-partwise version="4.0"><part-list/></score-partwise>\n'
+
+
+def test_scores_live_beside_midi_files(lib):
+    """#2657: MusicXML (plain or .mxl) is stored, listed with its type, served and deleted like MIDI."""
+    library, root, _, _ = lib
+    assert library.save("mine", "Song.musicxml", SCORE) == "mine/Song.musicxml"
+    assert library.save("mine", "Song.mxl", b"PK\x03\x04" + b"\0" * 40) == "mine/Song.mxl"
+    t = {e["path"]: e for e in library.tree()}
+    assert t["mine/Song.musicxml"]["type"] == "score" and t["mine/Song.mxl"]["type"] == "score"
+    assert library.read("mine/Song.musicxml") == SCORE
+    library.delete("mine/Song.mxl")
+    assert "mine/Song.mxl" not in {e["path"] for e in library.tree()}
+    from web.library import content_type
+    assert content_type("a.mxl") == "application/vnd.recordare.musicxml"
+    assert content_type("a.musicxml") == "application/vnd.recordare.musicxml+xml" and content_type("a.mid") == "audio/midi"

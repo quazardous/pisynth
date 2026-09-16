@@ -106,6 +106,7 @@
         <button class="row" class:current={current === f.path} onclick={() => pick(f)}>
           <svg viewBox="0 0 24 24" class="icon note"><path d="M9 17.5a2.5 2.5 0 1 1-2-2.45V5l10-2v10.5a2.5 2.5 0 1 1-2-2.45V6.4l-6 1.2z" /></svg>
           <span class="name">{displayName(f.path)}</span>
+          {#if f.score}<span class="scorebadge" title="has a score">🎼</span>{/if}
           <span class="tags">
             {#if infos[f.path]}{fmt(infos[f.path].durationMs)}{#if infos[f.path].hands >= 2} · 2 hands{/if}{/if}
             {#if infos[f.path]?.difficulty}<span class="diff"><Gauge value={infos[f.path].difficulty} /></span>{/if}
@@ -124,7 +125,7 @@
 
   <div class="actions">
     <button class="small" onclick={() => fileInput.click()}>Add here</button>
-    <input bind:this={fileInput} type="file" accept=".mid,.midi,audio/midi" multiple hidden onchange={add}>
+    <input bind:this={fileInput} type="file" accept=".mid,.midi,audio/midi,.musicxml,.xml,.mxl" multiple hidden onchange={add}>
     {#if naming}
       <input class="fname" bind:value={folderName} placeholder="folder name" onkeydown={e => e.key === "Enter" && newFolder()}>
       <button class="small" onclick={newFolder}>OK</button>
@@ -151,6 +152,7 @@
   .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tags { font-size: .72rem; color: var(--muted); white-space: nowrap; }
   .diff { margin-left: 6px; }
+  .scorebadge { flex: 0 0 auto; font-size: .9rem; }
   .best { margin-left: 4px; color: var(--yellow); font-weight: 700; }
   .origin { margin-left: 4px; padding: 1px 5px; border-radius: 4px; background: #3a3a48; }
   .del { margin: 0 6px 0 0; padding: 4px 8px; background: none; color: var(--muted); font-weight: 400; }

@@ -180,7 +180,13 @@ def test_midi_library_routes(cert, static, tmp_path):
             code, hd, body = await h.http("GET", "/api/midi/Mes%20morceaux/F%C3%BCr%20Elise.mid", c)
             assert code == 200 and body == midi and hd["content-type"] == "audio/midi"
             assert (await h.http("GET", "/api/midi/..%2F..%2Fetc%2Fpasswd.mid", c))[0] == 400
-            assert (await h.http("POST", "/api/midi?name=big.mid", c, midi + b"\0" * (1 << 20)))[0] == 413
+            assert (await h.http("POST", "/api/midi?name=big.mid", c, midi + b"\0" * (8 << 20)))[0] == 413
+            score = b'<?xml version="1.0"?><score-partwise version="4.0"/>'
+            code, _, body = await h.http("POST", "/api/midi?dir=Mes%20morceaux&name=Elise.musicxml", c, score)   # #2657
+            assert code == 201
+            code, hd, body = await h.http("GET", "/api/midi/Mes%20morceaux/Elise.musicxml", c)
+            assert code == 200 and body == score and hd["content-type"] == "application/vnd.recordare.musicxml+xml"
+            assert (await h.http("DELETE", "/api/midi/Mes%20morceaux/Elise.musicxml", c))[0] == 204
             assert (await h.http("POST", "/pair", c, b"x" * 5000))[0] == 413              # big bodies: upload only
             assert (await h.http("POST", "/api/midi-folders?path=Vide", c))[0] == 201
             assert (await h.http("DELETE", "/api/midi/Mes%20morceaux", c))[0] == 409       # not empty

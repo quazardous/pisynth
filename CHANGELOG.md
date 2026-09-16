@@ -2,7 +2,7 @@
 
 All notable changes to pisynth, in plain language. Newest first.
 
-## Unreleased
+## 0.6.1 — 2026-09-17
 
 ### Added
 - **Octaves on the keyboard** — each C of the on-screen keyboard names its octave at the very bottom (C4 is middle

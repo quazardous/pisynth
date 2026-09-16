@@ -1,7 +1,7 @@
 {
   "name": "pisynth-companion",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.6.1",
   "type": "module",
   "description": "pisynth web companion — the phone side (#659). Built into ../static, served by the Pi.",
   "scripts": {

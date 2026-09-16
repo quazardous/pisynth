@@ -52,7 +52,7 @@ DEBUG    = os.environ.get("PISYNTH_DEBUG") == "1"
 # and skip the write entirely when nothing changed — far less traffic on the slow
 # SPI panel (~16-32 MHz). Set PISYNTH_RENDER=partial in pisynth-ui.service to switch.
 RENDER_MODE = os.environ.get("PISYNTH_RENDER", "full")
-VERSION  = "0.6.0"
+VERSION  = "0.6.1"
 
 # Keyboard channels we broadcast preset changes to. Channel 15 is left alone
 # (midi-bridge.sh reserves it for the D-pad feedback SFX); channel 9 is reserved for the

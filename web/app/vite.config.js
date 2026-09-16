@@ -28,7 +28,8 @@ function gitDescribe() {
     return m ? { tag: m[1], ahead: Number(m[2]), commit: m[3] } : null;
   } catch { return null; }
 }
-const GIT = gitDescribe();
+// A version bumped past the last tag is the next release being made: it is that version, nothing "after" it.
+const GIT = (d => (d && d.tag === VERSION ? d : null))(gitDescribe());
 const define = { __APP_VERSION__: JSON.stringify(VERSION), __APP_GIT__: JSON.stringify(GIT) };
 
 // build.json: which build this is ({hash, version}) — shown in About and on the pisynth screen, and fetched by the

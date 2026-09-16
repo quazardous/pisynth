@@ -171,6 +171,9 @@
       const ev = decodeFrame(buf);
       if (!ev) return;
       clock.observe(ev.t, now);
+      if (prefs.deviceSound && !DEMO && (ev.type === "on" || ev.type === "off")) {   // this device's sound (#2669): the keys you play
+        import("./lib/demopiano.js").then(p => (ev.type === "on" ? p.noteOn(ev.note, ev.velocity) : p.noteOff(ev.note)));
+      }
       if (ev.type === "on" && playing && mode === "play") {
         const at = clock.toLocal(ev.t) ?? now;
         const t = songPos(at);
@@ -391,7 +394,7 @@
     effects = []; finished = false; flash = null; error = ""; status = "";
     if (mode === "listen") {
       // pisynth's synth plays it, or this device's piano (#2670) — the same batches either way
-      const onDevice = prefs.listenOn === "device" && !DEMO;
+      const onDevice = prefs.deviceSound && !DEMO;             // (the demo's socket plays it on the device already)
       if (onDevice) { deviceSend ??= deviceListen(msg => { if (msg.state === "playing") leadMs = msg.lead_ms; }); audioContext(); }
       sender = new DemoSender({ events: current.events, send: onDevice ? deviceSend : send });
       sender.start(from, tf());

@@ -3,7 +3,7 @@
 //   notation: "en" (C D E) or "fr" (Do Ré Mi) — a French browser starts in French
 
 const KEYS = { notation: "pisynth.notation", arcade: "pisynth.arcade", playMode: "pisynth.playMode", view: "pisynth.view",
-  lastSong: "pisynth.lastSong", listenOn: "pisynth.listenOn", scoreFx: "pisynth.scoreFx", scoreNames: "pisynth.scoreNames", scoreZoom: "pisynth.scoreZoom" };
+  lastSong: "pisynth.lastSong", listenOn: "pisynth.listenOn", deviceSound: "pisynth.deviceSound", scoreFx: "pisynth.scoreFx", scoreNames: "pisynth.scoreNames", scoreZoom: "pisynth.scoreZoom" };
 export const PLAY_MODES = ["normal", "hybrid", "infinite"];
 
 function read(key) {
@@ -38,11 +38,12 @@ export function setScoreZoom(z) {
   write(KEYS.scoreZoom, String(prefs.scoreZoom));
 }
 
-// listenOn (#2670): who plays the song in Listen — "pisynth" (its synth, the default) or "device" (this browser's piano).
-Object.assign(prefs, { listenOn: read(KEYS.listenOn) === "device" ? "device" : "pisynth" });
-export function setListenOn(v) {
-  prefs.listenOn = v === "device" ? "device" : "pisynth";
-  write(KEYS.listenOn, prefs.listenOn);
+// deviceSound (#2670, #2669): this device's sound — the browser's piano plays the keys you play and the songs in Listen.
+// Off by default with a pisynth (its synth plays); the demo always has it. (Was "listenOn": "device".)
+Object.assign(prefs, { deviceSound: read(KEYS.deviceSound) !== null ? read(KEYS.deviceSound) === "1" : read(KEYS.listenOn) === "device" });
+export function setDeviceSound(on) {
+  prefs.deviceSound = !!on;
+  write(KEYS.deviceSound, prefs.deviceSound ? "1" : "0");
 }
 
 // scoreFx (#2667): Score mode plays calmly by default; on, it has the game's effects and points (and XP) too.

@@ -6,7 +6,7 @@
   import Catalog from "./Catalog.svelte";
   import Library from "./Library.svelte";
   import Gauge from "./Gauge.svelte";
-  import { prefs, setView, setPlayMode, setScoreFx, setScoreNames, setScoreZoom, setListenOn, PLAY_MODES } from "./lib/prefs.svelte.js";
+  import { prefs, setView, setPlayMode, setScoreFx, setScoreNames, setScoreZoom, PLAY_MODES } from "./lib/prefs.svelte.js";
   import { musicians, selectMusician } from "./lib/musician.svelte.js";
   import { metro, metroLive, toggleMetronome, setBpm } from "./lib/metronome.svelte.js";
   import { nearestPreset } from "./lib/metronome.js";
@@ -92,13 +92,6 @@
           <button class:on={mode === "play"} onclick={() => onMode("play")}>I play</button>
           <button class:on={mode === "listen"} onclick={() => onMode("listen")}>Listen</button>
         </div>
-        {#if mode === "listen" && !DEMO}
-          <div class="seg small" role="radiogroup" aria-label="listen through">
-            <span class="seglabel">Listen through</span>
-            <button class:on={prefs.listenOn === "pisynth"} role="radio" aria-checked={prefs.listenOn === "pisynth"} onclick={() => setListenOn("pisynth")}>pisynth</button>
-            <button class:on={prefs.listenOn === "device"} role="radio" aria-checked={prefs.listenOn === "device"} onclick={() => setListenOn("device")}>this device</button>
-          </div>
-        {/if}
         {#if mode === "play"}
           <div class="seg" role="radiogroup" aria-label="play mode">
             {#each PLAY_MODES as m (m)}

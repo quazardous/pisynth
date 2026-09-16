@@ -1,10 +1,26 @@
 // The GitHub Pages demo's stand-in for pisynth (#2669): API routes to static files, computer keys, frames, the demo's playing.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { demoRoute, keyNote, encodeFrame, simEvents, DEMO } from "../../web/app/src/lib/demobackend.js";
+import { demoRoute, keyNote, encodeFrame, simEvents, DEMO, setDemo, detectPisynth } from "../../web/app/src/lib/demobackend.js";
 import { decodeFrame } from "../../web/app/src/lib/midi.js";
 
-test("not a demo outside the demo build", () => assert.equal(DEMO, false));
+test("demo or not is decided at start: a live flag", () => {
+  assert.equal(DEMO, false);
+  setDemo(true);
+  assert.equal(DEMO, true);                                            // the importers see it
+  setDemo(false);
+});
+
+test("a pisynth is here when /api/session answers like one", async () => {
+  const answer = status => async () => new Response(null, { status });
+  assert.equal(await detectPisynth(answer(204)), "pisynth");          // paired
+  assert.equal(await detectPisynth(answer(401)), "pisynth");          // not paired yet
+  assert.equal(await detectPisynth(answer(502)), "pisynth");          // restarting behind a proxy: reconnecting, not the demo
+  assert.equal(await detectPisynth(answer(404)), "demo");             // a plain web host (GitHub Pages)
+  const down = async () => { throw new TypeError("network"); };
+  assert.equal(await detectPisynth(down, false), "offline");          // the Pi's own app, Pi away: never the demo
+  assert.equal(await detectPisynth(down, true), "demo");              // the Pages build, opened from files
+});
 
 test("the API answered from static files", () => {
   assert.deepEqual(demoRoute("/api/session"), { session: true });

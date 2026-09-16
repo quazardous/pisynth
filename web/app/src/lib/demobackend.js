@@ -4,8 +4,23 @@
 // keyboard, and a small Web Audio piano sounds them — and the songs in Listen. "Let the demo play" plays along like
 // the dev stack's simulator. The routing and key mapping are pure, tested under Node.
 
-export const DEMO = import.meta.env?.MODE === "demo";
+// Demo or not is decided when the app starts (#2669): no pisynth answering → demo. A live binding, set by setDemo().
+export let DEMO = false;
+export function setDemo(on) { DEMO = !!on; }
 export const BASE = import.meta.env?.BASE_URL ?? "/";
+const HAS_DEMO_DATA = import.meta.env?.MODE === "demo";            // the Pages build carries the songs and scores
+
+// Is a pisynth here? The /api/session answer → "pisynth" (paired or not, or restarting behind an error), "demo" (a plain
+// web host: nothing of pisynth's), or "offline" (no answer at all, where there is no demo to fall back on).
+export async function detectPisynth(fetchImpl = globalThis.fetch, hasDemoData = HAS_DEMO_DATA) {
+  try {
+    const r = await fetchImpl("/api/session", { credentials: "same-origin", cache: "no-store" });
+    if (r.status === 204 || r.status === 401 || r.status >= 500) return "pisynth";
+    return "demo";
+  } catch {
+    return hasDemoData ? "demo" : "offline";
+  }
+}
 
 // ---- the API, from static files ----
 // A request → what answers it: {static: path} (a file of the demo), {search: url} (the catalogue), {session} or {refused}.

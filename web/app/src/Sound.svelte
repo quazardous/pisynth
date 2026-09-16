@@ -2,6 +2,8 @@
   // Synth settings (#2417): soundfont/preset, levels, output, effects, keyboard (the metronome has its own tab, #2658) — the
   // box's touch UI applies them (same code paths) and pushes back any change made on the box.
   import { SynthApi, throttle } from "./lib/synthapi.js";
+  import { prefs, setDeviceSound } from "./lib/prefs.svelte.js";
+  import { audioContext } from "./lib/click.js";
 
   let { onMessage, send } = $props();
   const api = new SynthApi(obj => send(obj));
@@ -57,6 +59,12 @@
 </script>
 
 <main>
+  <section class="card">
+    <h2 class="row">Use this device's sound
+      <input type="checkbox" checked={prefs.deviceSound} onchange={e => { setDeviceSound(e.target.checked); if (e.target.checked) audioContext(); }}></h2>
+    <p class="muted">A piano in this browser plays the keys you play on the keyboard and the songs in Listen — with headphones on
+      the phone, say. pisynth's synth keeps playing too, unless you turn it down.</p>
+  </section>
   {#if !state || !catalog}
     <section class="card"><p class="muted">{error || "Reading the synth settings…"}</p></section>
   {:else}

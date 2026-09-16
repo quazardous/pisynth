@@ -5,9 +5,10 @@ All notable changes to pisynth, in plain language. Newest first.
 ## Unreleased
 
 ### Added
-- **Listen on this device** — in Listen, choose **Listen through: pisynth | this device** in the side panel: with
-  "this device" the song plays in the browser's own piano (headphones on the phone, or the synth off). And the
-  mini player has an **I play / Listen** button (hand on keys / headphones).
+- **This device's sound** — Settings → Sound → **Use this device's sound** (off by default): a piano in the browser
+  plays the keys you play and the songs in Listen (headphones on the phone, or the synth off). The mini player
+  has an **I play / Listen** button (hand on keys / headphones). With no pisynth answering, the companion starts
+  as the demo, with the device's keys and sound on.
 - **A demo of the web companion on GitHub Pages** — https://quazardous.github.io/pisynth/ : the companion
   running in the browser with no Pi. Play with a MIDI keyboard plugged into the computer, the computer keys or
   the keys on screen (a small browser piano sounds them, and Listen), or tick **Let the demo play** to watch the

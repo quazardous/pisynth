@@ -14,7 +14,6 @@ const KEY = "pisynth.metronome";
 const storage = () => globalThis.localStorage;
 
 export const metro = $state(loadMetro(storage(), storeKey(KEY)));       // this musician's settings
-if (DEMO) metro.by = "phone";                    // the demo (#2669): no pisynth to click, the phone does
 export const metroLive = $state({ connected: false, running: false, beat: 0, error: "" });
 
 let api = null, synced = false, clicker = null, grid = null, taps = [], lastLocal = -Infinity;
@@ -70,6 +69,7 @@ function onState(state) {
 
 // App: the companion socket is there (once).
 export function attachMetronome({ onMessage, send }) {
+  if (DEMO) metro.by = "phone";                  // the demo (#2669): no pisynth to click, the phone does
   api = new SynthApi(send);
   return onMessage(msg => { const s = api.onMessage(msg); if (s) onState(s); });
 }

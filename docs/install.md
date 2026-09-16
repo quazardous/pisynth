@@ -150,9 +150,18 @@ Load a song (the `⋯` button) and its notes fall onto the keyboard, with a togg
 
 Tempo, the A–B loop and the position are shared: listen to a passage, switch, play it. The **cog**
 (top right) opens the settings: **Sound** (soundfont, preset, gain, output, reverb, chorus,
-metronome, MIDI keyboard — the pisynth screen follows), **Display** (note names in English C D E or
+MIDI keyboard — the pisynth screen follows), **Metronome**, **Display** (note names in English C D E or
 French Do Ré Mi), **Latency** (measures the key-to-sound delay
 with the phone's microphone) and **About** (version, unpair this browser).
+
+**Metronome.** While the phone is connected, it manages pisynth's metronome (the metronome button in
+the top bar, or the cog → Metronome): start/stop, tempo (−/+, slider, **Tap**, Largo…Presto), beats per
+bar, click volume, and lights on the beats. The click is played **by pisynth** (the phone is a remote) or
+**by the phone** (headphones, say — pisynth then only counts the beats). Each musician keeps their own
+metronome and gets it back on pisynth when they pick up the phone. The pisynth screen keeps only
+Start / Stop meanwhile; when the phone leaves, the metronome is pisynth's again. **Click along with
+songs** (or the metronome button next to Play) makes the phone click with the song, at its tempo and time
+signature.
 
 **MIDI library.** Songs come from a library kept on the Pi (the `⋯` button, then browse the
 folders). It starts with a small **starter** set of classical piano pieces by level

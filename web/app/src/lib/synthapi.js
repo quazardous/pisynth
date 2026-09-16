@@ -1,15 +1,16 @@
 // Synth settings from the phone (#2417): request/response over the companion socket + a
 // throttle so dragging a slider sends a few updates, not hundreds. Pure, unit-tested under Node.
 
+let nextReq = 1;                        // shared: every SynthApi sees every reply (Sound, the metronome…)
+
 export class SynthApi {
   constructor(send) {
     this.send = send;                   // obj → bool
     this.pending = new Map();           // req id → resolve
-    this.next = 1;
   }
 
   request(op, extra = {}, timeoutMs = 20000) {
-    const req = this.next++;
+    const req = nextReq++;
     return new Promise(resolve => {
       if (!this.send({ t: "synth", op, req, ...extra })) { resolve({ ok: false, error: "not connected" }); return; }
       const timer = setTimeout(() => { this.pending.delete(req); resolve({ ok: false, error: "no answer" }); }, timeoutMs);

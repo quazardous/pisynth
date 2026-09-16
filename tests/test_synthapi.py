@@ -37,10 +37,16 @@ class FS:
 
 
 class Metro:
-    running, bpm, beats, vol = False, 100, 4, 80
+    running, bpm, beats, vol, silent = False, 100, 4, 80, False
 
     def __init__(self):
         self.reloads = 0
+
+    def set_silent(self, silent):
+        self.silent = bool(silent)
+
+    def stop(self):
+        self.running = False
 
     def set_volume(self, v):
         self.vol = max(0, min(100, v))
@@ -187,3 +193,31 @@ def test_an_fx_change_is_seen_as_a_state_change(host):
     before = host.synth_state()
     host.api_set("fx.reverb", {"room": 0.6})
     assert host.synth_state() != before                 # fx is mutated in place: state must copy it
+
+
+def test_companion_manages_the_metronome(host):
+    """#2658: the phone plays the click only while it is connected; when it leaves, the metronome stops."""
+    st = host.dispatch_json({"op": "get"})["state"]
+    assert st["companion"] is False and st["metronome"]["silent"] is False
+    assert host.dispatch_json({"op": "set", "key": "metronome", "value": {"silent": True}})["error"] == "no web companion connected"
+    assert host.dispatch_json({"op": "companion", "live": True})["ok"] and host.companion_live
+    r = host.dispatch_json({"op": "set", "key": "metronome", "value": {"silent": True, "running": True}})
+    assert r["ok"] and r["state"]["metronome"]["silent"] is True and r["state"]["companion"] is True
+    assert host.metro.running
+    host.dispatch_json({"op": "companion", "live": False})
+    assert not host.metro.running and not host.metro.silent and not host.companion_live
+
+
+def test_silent_metronome_beats_without_the_synth():
+    from pisynth.io.metronome import Metronome
+    m = Metronome()
+    calls = []
+    m.fluid_setup = lambda: calls.append("setup") or ""
+    m.fluid_teardown = lambda: calls.append("teardown")
+    m.click_cmd = lambda midi, port: ["true"]
+    m.silent = True
+    m.start()
+    assert m.running and m.err == "" and calls == []
+    m.reload()
+    m.stop()
+    assert not m.running and calls == []

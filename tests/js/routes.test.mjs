@@ -8,6 +8,7 @@ test("paths map to a player mode or a settings panel; old tab links still land s
   assert.deepEqual(parseRoute("/listen"), { mode: "listen", panel: null });
   assert.deepEqual(parseRoute("/demo"), { mode: "listen", panel: null });        // old Demo tab
   assert.deepEqual(parseRoute("/sound"), { mode: null, panel: "sound" });
+  assert.deepEqual(parseRoute("/metronome"), { mode: null, panel: "metronome" });
   assert.deepEqual(parseRoute("/latency/"), { mode: null, panel: "latency" });
   assert.deepEqual(parseRoute("/about"), { mode: null, panel: "about" });
   assert.deepEqual(parseRoute("/display"), { mode: null, panel: "display" });

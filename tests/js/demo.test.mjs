@@ -24,6 +24,13 @@ test("format 1 with a tempo map in track 0 and running status in track 1", () =>
   assert.equal(Math.round(song.durationMs), 2000);
 });
 
+test("time signature: quarters per bar (#2658), 4 when absent", () => {
+  const ts = (num, den) => parseMidi(smf(0, 480, [track([[0, 0xff, 0x58, 4, num, den, 24, 8], [0, 0xff, 0x2f, 0]])])).beatsPerBar;
+  assert.equal(ts(3, 2), 3);                                         // 3/4
+  assert.equal(ts(6, 3), 3);                                         // 6/8 = 3 quarters
+  assert.equal(parseMidi(smf(0, 480, [track([[0, 0xff, 0x2f, 0]])])).beatsPerBar, 4);
+});
+
 test("rejects non-MIDI and SMPTE timing", () => {
   assert.throws(() => parseMidi(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]).buffer), /not a MIDI file/);
   assert.throws(() => parseMidi(smf(0, 0xe728, [track([[0, 0xff, 0x2f, 0]])])), /SMPTE/);

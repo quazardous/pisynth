@@ -89,6 +89,7 @@ class Metronome:
         self.beats = 4
         self.vol = 80                                # click volume 0-100 → SMF velocity (#655)
         self.home_pulse = False                      # pulse the Home metronome icon on each beat (#668)
+        self.silent = False                          # the web companion plays the click: beats only, no sound (#2658)
         self.click_cmd = None                        # injected (midi_path, seq_port) -> aplaymidi argv (#655)
         self.fluid_setup = None                      # injected () -> main FLUID Synth seq port (str), "" on failure (#655)
         self.fluid_teardown = None                   # injected () -> None: silence the click channel on the main fluid (#655)
@@ -116,7 +117,7 @@ class Metronome:
             return
         self.err = ""
         self._stop.clear()
-        if not self._start_piano():                  # err set by the starter
+        if not self.silent and not self._start_piano():                  # err set by the starter
             self._stop.set()
             return
         self.running = True
@@ -175,7 +176,7 @@ class Metronome:
     def reload(self):
         """Apply a live bpm/beats/vol change: regenerate the SMF + relaunch aplaymidi — kill
         the current run and the watcher respawns it from the new values (#655)."""
-        if not self.running:
+        if not self.running or self.silent:          # silent: the beat loop reads bpm/beats live
             return
         p = self._proc
         if p:
@@ -184,7 +185,20 @@ class Metronome:
             except OSError:
                 pass
 
+    def set_silent(self, silent):
+        """Click played here or by the web companion (#2658); a running metronome restarts in the new way."""
+        silent = bool(silent)
+        if silent == self.silent:
+            return
+        was = self.running
+        if was:
+            self.stop()
+        self.silent = silent
+        if was:
+            self.start()
+
     def stop(self):
+        was_silent = self.silent and self.running
         self.running = False
         self._stop.set()
         self.beat = 0
@@ -195,7 +209,8 @@ class Metronome:
                 p.terminate()
             except OSError:
                 pass
-        self._teardown_audio()
+        if not was_silent:
+            self._teardown_audio()
 
     def _teardown_audio(self):
         """Release the click on stop/failure (#655): silence the click channel on the main

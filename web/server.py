@@ -261,11 +261,19 @@ class WebCompanion:
 
     def _drop(self, phone):
         self.clients.discard(phone)
+        self._companion_changed()
         asyncio.ensure_future(phone.close())
 
     def _disconnect_all(self):
         for phone in list(self.clients):
             self._drop(phone)
+
+    def _companion_changed(self):
+        """Tell the touch UI whether a phone is connected (#2658): the companion then manages the metronome."""
+        live = bool(self.clients)
+        if self.ui.companion_live != live:
+            self.ui.companion_live = live
+            asyncio.ensure_future(self.ui.send_companion())
 
     def _broadcast_synth_state(self, state):
         """The UI's watch stream → every paired phone (changes made on the box show up live)."""
@@ -382,6 +390,7 @@ class WebCompanion:
                 pass
         phone = Phone(ws)
         self.clients.add(phone)
+        self._companion_changed()
         phone.send_json({"t": "hello", "sim": self.sim is not None})   # the phone can ask the simulator to play along
         rate = _RateLimit(MAX_CMDS_PER_S)
         try:
@@ -390,6 +399,7 @@ class WebCompanion:
                     await self._command(phone, msg.data)     # a JSON command from the phone (#2416)
         finally:
             self.clients.discard(phone)
+            self._companion_changed()
             phone.backlog.clear()
             if self.demo:
                 self.demo.release_owner(phone)       # the phone left: no stuck notes

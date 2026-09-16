@@ -26,6 +26,9 @@ header {
     grid-column: 1; grid-row: 1; min-height: 44px; gap: 8px;
     padding: env(safe-area-inset-top, 0) 8px 0 max(12px, env(safe-area-inset-left, 0));
   }
+  /* the link status as a dot there (green: live), room for the metronome and the cog */
+  #app:has(> main) > header .status { flex: 0 0 auto; width: 10px; height: 10px; padding: 0; font-size: 0; background: var(--muted); }
+  #app:has(> main) > header .status.on { background: #0c0; }
 }
 .title { font-weight: 700; letter-spacing: .5px; }
 .status { font-size: .8rem; padding: 3px 10px; border-radius: 999px; color: var(--muted); background: rgba(120,124,140,.12); margin-left: auto; }

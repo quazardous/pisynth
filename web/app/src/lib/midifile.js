@@ -21,7 +21,7 @@ export function parseMidi(buffer) {
   p += hlen - 6;
   if (division & 0x8000) throw new Error("SMPTE-timed MIDI files are not supported");
   const raw = [];                        // {tick, order, kind, status, d1, d2, tempo, track}
-  let order = 0, name = "";
+  let order = 0, name = "", beatsPerBar = null;
   for (let t = 0; t < ntracks && p < v.byteLength; t++) {
     if (str(4) !== "MTrk") throw new Error("bad track header");
     const len = u32();                  // (read first: `p + u32()` would use p before u32 advances it)
@@ -35,6 +35,8 @@ export function parseMidi(buffer) {
       if (status === 0xff) {
         const type = v.getUint8(p++), len = vlq();
         if (type === 0x51 && len === 3) raw.push({ tick, order: order++, kind: "tempo", tempo: (v.getUint8(p) << 16) | (v.getUint8(p + 1) << 8) | v.getUint8(p + 2) });
+        if (type === 0x58 && len >= 2 && beatsPerBar === null)       // time signature → quarters per bar (6/8 = 3)
+          beatsPerBar = Math.max(1, Math.round((v.getUint8(p) * 4) / 2 ** v.getUint8(p + 1)));
         if (type === 0x06) raw.push({ tick, order: order++, kind: "marker", text: decodeText(str(len)) });   // parts / sections
         else if (type === 0x03 && !name && t <= 1) name = decodeText(str(len)); else p += len;
         continue;
@@ -58,7 +60,8 @@ export function parseMidi(buffer) {
     else if (e.kind === "marker") markers.push({ ms, text: e.text.trim() });
     else events.push({ ms, status: e.status, d1: e.d1, d2: e.d2, track: e.track });
   }
-  return { format, tracks: ntracks, name: name.trim(), events, markers, durationMs: ms, bpm: Math.round(60e6 / (firstTempo ?? 500000)) };
+  return { format, tracks: ntracks, name: name.trim(), events, markers, durationMs: ms, bpm: Math.round(60e6 / (firstTempo ?? 500000)),
+           beatsPerBar: beatsPerBar ?? 4 };
 }
 
 // A short built-in demo (no file needed): C major scale up, then I–vi–IV–V with the pedal.

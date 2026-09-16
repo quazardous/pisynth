@@ -596,6 +596,7 @@ class App(AudioMixin, BluetoothMixin, CompanionMixin, HotplugMixin, MetronomeMix
         self.metro.stop()
         self.metro.bpm, self.metro.beats, self.metro.vol = 100, 4, 80
         self.metro.home_pulse = False
+        self.metro.silent = False
         self.bt_names = {}; self._bt_names_dirty = False
         self.bt_sink = ""
         self.nav_cfg = self._nav_cfg_from({})        # MIDI nav back to defaults (off) (#373)

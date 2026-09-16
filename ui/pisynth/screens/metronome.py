@@ -16,6 +16,13 @@ TEMPO_PRESETS = [("Largo", 50), ("Adagio", 66), ("Andante", 92), ("Moderato", 11
 class MetronomeMixin:
     # ---- metronome (#287/#655/#668) ----
     def _metronome_menu(self):
+        if getattr(self, "companion_live", False):   # the web companion manages it (#2658): just Start/Stop here
+            return MenuScreen("Metronome", [
+                Item("Start / Stop", on_select=self._metro_toggle,
+                     value=(lambda: "running" if self.metro.running else "stopped")),
+                Item("Click", value=(lambda: "phone" if self.metro.silent else "pisynth")),
+                Item("Tempo", value=(lambda: f"{self.metro.bpm} BPM, {self.metro.beats}/bar")),
+            ], footer="Managed by the web companion")
         return MenuScreen("Metronome", [
             Item("Start / Stop", on_select=self._metro_toggle,    # first — the primary action (david)
                  value=(lambda: "running" if self.metro.running else "stopped")),
@@ -27,6 +34,11 @@ class MetronomeMixin:
             Item("Home pulse", on_select=self._metro_toggle_home_pulse,   # beat indicator on Home (#668)
                  value=(lambda: "on" if self.metro.home_pulse else "off")),
         ])
+
+    def _companion_metro_changed(self):
+        """A companion came or left while the Metronome screen is open: show the matching screen (#2658)."""
+        if self.stack and self.stack[-1].title == "Metronome":
+            self.stack[-1] = self._metronome_menu()
 
     def _save_metro(self):
         """Persist all metronome prefs together so writing one never drops another (#287)."""

@@ -76,6 +76,7 @@ class SynthApiMixin:
         self._last_pushed = None
         self._catalog_cache = (None, None)            # (files signature, catalog)
         self._gain_save_at = 0.0
+        self.companion_live = False                   # a web companion is connected (#2658), told by pisynth-web
 
     # ---- applying to the synth ----
     def _apply_fx(self, units=("reverb", "chorus")):
@@ -97,7 +98,8 @@ class SynthApiMixin:
             "output": {"soundcard": self.soundcard, "bt_sink": self.bt_sink, "label": self._audio_label()},
             "fx": {unit: dict(cfg) for unit, cfg in self.fx.items()},   # a copy: fx is mutated in place
             "metronome": {"running": self.metro.running, "bpm": self.metro.bpm, "beats": self.metro.beats,
-                          "vol": self.metro.vol},
+                          "vol": self.metro.vol, "silent": bool(self.metro.silent)},
+            "companion": bool(self.companion_live),
             "midi_keyboard": self.midi_keyboard,
         }
 
@@ -133,7 +135,27 @@ class SynthApiMixin:
                 err = f"bad value: {e}"
             self.render()
             return {"ok": err is None, **({"error": err} if err else {}), "state": self.synth_state()}
+        if op == "companion":
+            self.companion_set_live(bool(msg.get("live")))
+            return {"ok": True}
         return {"ok": False, "error": f"unknown op: {op}"}
+
+    def companion_set_live(self, live):
+        """pisynth-web says whether a phone is connected (#2658). While one is, the companion manages the
+        metronome; when the last one leaves, a click it was playing is gone — the metronome stops and
+        plays here again next time."""
+        if live == self.companion_live:
+            return
+        self.companion_live = live
+        if not live and self.metro.silent:
+            if self.metro.running:
+                self.metro.stop()
+            self.metro.set_silent(False)
+        self._companion_metro_changed()
+        self.render()
+
+    def _companion_metro_changed(self):
+        """Hook: the metronome screen shows who manages it (screens/metronome.py)."""
 
     def api_set(self, key, value):
         """Apply one change like the touch screen would. Returns None, or an error string."""
@@ -221,6 +243,10 @@ class SynthApiMixin:
         self._save_metro()
         if reload:
             m.reload()
+        if "silent" in value:                         # the companion plays the click itself (#2658)
+            if value["silent"] and not self.companion_live:
+                return "no web companion connected"
+            m.set_silent(bool(value["silent"]))
         if "running" in value and bool(value["running"]) != m.running:
             self._metro_toggle()
         return None

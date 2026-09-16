@@ -1,7 +1,8 @@
 <script>
-  // Settings panel behind the cog (#2419): Sound (#2417), Display, Musicians, Latency (#659) and About. It opens over
+  // Settings panel behind the cog (#2419): Sound (#2417), Metronome (#2658), Display, Musicians, Latency (#659) and About. It opens over
   // the player, which keeps playing underneath — change the reverb while pisynth plays a song.
   import Sound from "./Sound.svelte";
+  import Metronome from "./Metronome.svelte";
   import Latency from "./Latency.svelte";
   import { prefs, setNotation, setArcade } from "./lib/prefs.svelte.js";
   import { aids, setAid } from "./lib/aids.svelte.js";
@@ -17,7 +18,7 @@
     ["ghost", "Ghost keys", "In \"I play\", the keyboard shows the perfect timing next to your playing: in time, your blue key gets a yellow outline."],
     ["shake", "Shaking notes", "A note shakes harder and harder as it reaches the yellow line, so you feel the moment coming."],
   ];
-  const TABS = [["sound", "Sound"], ["display", "Display"], ["musicians", "Musicians"], ["latency", "Latency"], ["about", "About"]];
+  const TABS = [["sound", "Sound"], ["metronome", "Metronome"], ["display", "Display"], ["musicians", "Musicians"], ["latency", "Latency"], ["about", "About"]];
 
   let build = $state("…");
   let confirmUnpair = $state(false);
@@ -57,6 +58,8 @@
   <div class="body">
     {#if panel === "sound"}
       <Sound {onMessage} {send} />
+    {:else if panel === "metronome"}
+      <Metronome />
     {:else if panel === "display"}
       <section class="card">
         <h1>Note names</h1>

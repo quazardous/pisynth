@@ -5,6 +5,15 @@ All notable changes to pisynth, in plain language. Newest first.
 ## Unreleased
 
 ### Added
+- **The metronome on the phone** — while the companion is connected it manages pisynth's metronome: a
+  Metronome page (the button in the top bar) with start/stop, a big tempo with −/+, a slider, tap tempo
+  and the Largo…Presto markings, beats per bar, click volume and lights on the beats. Choose who plays
+  the click: **pisynth** (through the synth, the phone is a remote) or **this phone** (pisynth then only
+  counts the beats, and Start/Stop on its screen starts the phone's click). Each musician keeps their own
+  metronome and gets it back on pisynth when they pick up the phone. The pisynth screen shows "Managed by
+  the web companion" with just Start/Stop meanwhile; when the phone leaves, everything is back as before.
+  **Click along with songs** (the metronome button next to Play) makes the phone click with the song, at
+  its tempo and time signature, including the quiet bar before a hybrid part starts again.
 - **Scores (sheet music)** — the library takes MusicXML scores (`.musicxml`, `.xml`, `.mxl`: the open
   format every notation program exports), from the PC or uploaded from the phone. A score beside a MIDI
   file of the same name is that song's sheet music (🎼); a score on its own is a song you can play,

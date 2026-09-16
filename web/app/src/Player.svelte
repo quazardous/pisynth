@@ -37,6 +37,9 @@
   import Gauge from "./Gauge.svelte";
   import Score from "./Score.svelte";
   import { scorePosition } from "./lib/musicxml.js";
+  import { metro, setClickInPlayer } from "./lib/metronome.svelte.js";
+  import { songBeat } from "./lib/metronome.js";
+  import { startClicker } from "./lib/metroclick.js";
 
   let { onFrame, onMessage, send, mode = "play", onMode = () => {} } = $props();
 
@@ -351,6 +354,7 @@
       }
     }
     playing = true;
+    startSongClick();
     enterPlayMode();
     timer = setInterval(() => {
       sender?.tick();                                         // listen: next look-ahead batch
@@ -360,8 +364,21 @@
     raf = requestAnimationFrame(loopFn);
   }
 
+  // The click along with the song (#2658), from the phone: on the song's beats, bar lines at its time signature.
+  // After a count-in it starts with the song; a hybrid restart's quiet bar clicks too, to put the hand back.
+  let songClick = null;
+  function startSongClick() {
+    songClick?.stop(); songClick = null;
+    if (!playing || !metro.inPlayer) return;
+    const grid = { beatMs: beatMs(), beatsPerBar: current.beatsPerBar || 4, fromMs: quietLead ? from - countBeats * beatMs() : from,
+                   toMs: current.durationMs, toSong: songPos, toLocal: s => clockStart + (s - origin) / tf() };
+    songClick = startClicker({ nextBeat: t => songBeat(grid, t), vol: () => metro.vol });
+  }
+  $effect(() => { metro.inPlayer; untrack(() => (playing ? startSongClick() : null)); });
+
   function stop(tell = true) {
     if (!playing) return;
+    songClick?.stop(); songClick = null;
     clearInterval(timer); cancelAnimationFrame(raf);
     position = Math.max(from, Math.min(songPos(performance.now()), current.durationMs));
     if (sender) { if (tell) sender.stop(); else sender.playing = false; sender = null; }
@@ -825,6 +842,10 @@
             title={hybrid ? "Back to this part · tap twice: back to part 1" : ""}>
       <svg viewBox="0 0 24 24"><path d="M12 5V1.5L7 6.5l5 5V7.5a5.5 5.5 0 1 1-5.5 5.5H4a8 8 0 1 0 8-8z" /></svg>
     </button>
+    <button class="metrobtn" class:on={metro.inPlayer} onclick={() => setClickInPlayer(!metro.inPlayer)}
+            aria-pressed={metro.inPlayer} aria-label={metro.inPlayer ? "stop clicking along" : "click along with the song"}>
+      <svg viewBox="0 0 24 24"><path d="M9.2 2h5.6l4.4 18.5A1.2 1.2 0 0 1 18 22H6a1.2 1.2 0 0 1-1.2-1.5zM7.4 16h9.2l-.9-3.8-3.2 3.2-1.3-1.3 3.9-3.9L13.2 4h-2.4z" /></svg>
+    </button>
     {#if song?.scoreXml}
       <button class="scorebtn" class:on={scoreView} onclick={() => { scoreView = !scoreView; paint(); }}
               aria-pressed={scoreView} aria-label={scoreView ? "show the falling notes" : "show the score"}>🎼</button>
@@ -969,6 +990,9 @@
   .replay svg { width: 22px; height: 22px; fill: var(--fg); }
   .replay:disabled { opacity: .35; }
   .scorebtn { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; font-size: 1.2rem; line-height: 1; }
+  .metrobtn { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; color: var(--muted); display: grid; place-items: center; padding: 0; }
+  .metrobtn svg { width: 20px; height: 20px; fill: currentColor; }
+  .metrobtn.on { background: var(--accent); color: #fff; }
   .scorebtn.on { background: #fbfaf5; box-shadow: 0 0 0 2px var(--yellow); }
   /* ∞ toggle: the song starts over by itself, with its own score */
   /* play mode button: 1× normal · 🔒 hybrid · ∞ infinite (tap to cycle; the ⋯ sheet explains them) */

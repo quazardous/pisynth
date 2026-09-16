@@ -1,5 +1,5 @@
 <script>
-  // Synth settings (#2417): soundfont/preset, levels, output, effects, metronome, keyboard — the
+  // Synth settings (#2417): soundfont/preset, levels, output, effects, keyboard (the metronome has its own tab, #2658) — the
   // box's touch UI applies them (same code paths) and pushes back any change made on the box.
   import { SynthApi, throttle } from "./lib/synthapi.js";
 
@@ -40,7 +40,6 @@
   const setGain = throttle(v => set("gain", v), 150);
   const setVolume = throttle(v => set("volume", v), 150);
   const setFx = throttle((unit, patch) => set(`fx.${unit}`, patch), 150);
-  const setMetro = throttle(patch => set("metronome", patch), 150);
 
   async function choosePreset(font, bank, prog) { busy = true; await set("preset", { font, bank, prog }); busy = false; }
 
@@ -115,17 +114,6 @@
         {/each}
       </section>
     {/each}
-
-    <section class="card">
-      <h2 class="row">Metronome
-        <input type="checkbox" checked={state.metronome.running} onchange={e => set("metronome", { running: e.target.checked })}></h2>
-      <label>Tempo {state.metronome.bpm} BPM
-        <input type="range" min="40" max="240" step="1" value={state.metronome.bpm} oninput={e => setMetro({ bpm: +e.target.value })}></label>
-      <label>Beats per bar {state.metronome.beats}
-        <input type="range" min="1" max="8" step="1" value={state.metronome.beats} oninput={e => setMetro({ beats: +e.target.value })}></label>
-      <label>Click volume {state.metronome.vol}
-        <input type="range" min="0" max="100" step="5" value={state.metronome.vol} oninput={e => setMetro({ vol: +e.target.value })}></label>
-    </section>
 
     <section class="card">
       <h2>MIDI keyboard</h2>

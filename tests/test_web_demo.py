@@ -206,7 +206,8 @@ def test_synth_settings_are_relayed_to_the_ui_and_state_pushed(tmp_path):
             assert {"op": "set", "key": "gain", "value": 3.1} in seen
             await ws.send_json({"t": "synth", "op": "delete_everything"})         # not relayed
             await asyncio.sleep(0.1)
-            assert all(m["op"] in ("watch", "set") for m in seen)
+            assert all(m["op"] in ("watch", "set", "companion") for m in seen)
+            assert {"op": "companion", "live": True} in seen                  # #2658: the UI knows a phone is here
             await ws.close()
         ui.close()
     run(go())

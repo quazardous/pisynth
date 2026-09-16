@@ -12,6 +12,7 @@ class UiLink:
     def __init__(self, host="127.0.0.1", port=9810, on_state=None):
         self.host, self.port, self.on_state = host, port, on_state
         self._watch_task = None
+        self.companion_live = False                   # a phone is connected (#2658), repeated to a restarted UI
 
     async def request(self, msg, timeout=15.0):
         """One JSON request → the UI's JSON reply (or an error dict). `get` can take a moment
@@ -30,6 +31,9 @@ class UiLink:
         finally:
             w.close()
 
+    async def send_companion(self):
+        return await self.request({"op": "companion", "live": self.companion_live}, timeout=3.0)
+
     def start_watch(self):
         if self._watch_task is None:
             self._watch_task = asyncio.ensure_future(self._watch())
@@ -40,6 +44,8 @@ class UiLink:
                 r, w = await asyncio.wait_for(asyncio.open_connection(self.host, self.port), 2)
                 w.write(b'{"op":"watch"}\n')
                 await w.drain()
+                if self.companion_live:
+                    await self.send_companion()       # the UI (re)started: it doesn't know a phone is here
                 while True:
                     line = await r.readline()
                     if not line:

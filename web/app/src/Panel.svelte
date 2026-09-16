@@ -6,7 +6,7 @@
   import Catalog from "./Catalog.svelte";
   import Library from "./Library.svelte";
   import Gauge from "./Gauge.svelte";
-  import { prefs, setView, setPlayMode, setScoreFx, PLAY_MODES } from "./lib/prefs.svelte.js";
+  import { prefs, setView, setPlayMode, setScoreFx, setScoreNames, setScoreZoom, PLAY_MODES } from "./lib/prefs.svelte.js";
   import { musicians, selectMusician } from "./lib/musician.svelte.js";
   import { metro, metroLive, toggleMetronome, setBpm } from "./lib/metronome.svelte.js";
   import { nearestPreset } from "./lib/metronome.js";
@@ -62,6 +62,16 @@
         <label class="switch">
           <input type="checkbox" checked={prefs.scoreFx} onchange={e => setScoreFx(e.target.checked)}>
           <span>Effects & points<small>combos, explosions, points and XP while you play the score</small></span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" checked={prefs.scoreNames} onchange={e => setScoreNames(e.target.checked)}>
+          <span>Note names<small>under each note of the score ({prefs.notation === "fr" ? "Do Ré Mi" : "C D E"})</small></span>
+        </label>
+        <label class="zoom">Score size {prefs.scoreZoom > 0 ? "+" : ""}{prefs.scoreZoom}%
+          <span class="zoomrow">
+            <input type="range" min="-100" max="100" step="10" value={prefs.scoreZoom} oninput={e => setScoreZoom(+e.target.value)}>
+            {#if prefs.scoreZoom}<button class="link" onclick={() => setScoreZoom(0)}>reset</button>{/if}
+          </span>
         </label>
       {:else}
         <div class="seg" role="group" aria-label="I play or listen">
@@ -155,6 +165,9 @@
   .switch { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
   .switch input { width: 22px; height: 22px; flex: 0 0 auto; }
   .switch small { display: block; color: var(--muted); font-size: .75rem; }
+  .zoom { display: block; margin-top: 10px; font-size: .85rem; }
+  .zoomrow { display: flex; align-items: center; gap: 8px; }
+  .zoomrow input { flex: 1; }
   .metro { display: flex; align-items: center; gap: 8px; }
   .metro .go { margin: 0; width: 42px; height: 42px; padding: 0; border-radius: 50%; background: #2c2c3a; color: var(--muted); display: grid; place-items: center; }
   .metro .go svg { width: 22px; height: 22px; fill: currentColor; }

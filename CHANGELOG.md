@@ -35,6 +35,8 @@ All notable changes to pisynth, in plain language. Newest first.
   panel leaves a small **mini player** floating over the stage: ☰, Play / Stop, ↻, the song's name, a progress
   bar that keeps its size, the metronome in Score mode, the points when there are points. Score mode plays
   calmly by default; **Effects & points** in the panel turns on the combos, explosions, points and XP there too.
+  Also in the panel for the score: **note names** on or off, and the **score size** (−100 % to +100 %: half to
+  double). At the end of the song the blue play line goes away.
 - **Two modes: Score | Game** — (now in the side panel). **Score** (the default) is a calm music
   stand: the song you had last time is back, its score on **one line that scrolls under a play line at the
   metronome's tempo** (a bar of clicks to count in); slide it with a finger to go back or forward. As you play,

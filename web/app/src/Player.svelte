@@ -23,7 +23,7 @@
   import { songFeatures, difficulty } from "./lib/difficulty.js";
   import { Progress, levelDifficulty } from "./lib/progress.js";
   import { detectChord, noteName, pitchName } from "./lib/theory.js";
-  import { prefs, setPlayMode, PLAY_MODES, setView, lastSong, setLastSong } from "./lib/prefs.svelte.js";
+  import { prefs, setPlayMode, PLAY_MODES, setView, lastSong, setLastSong, zoomFactor } from "./lib/prefs.svelte.js";
   import { aids } from "./lib/aids.svelte.js";
   import { RecordBook, songKey } from "./lib/records.js";
   import { EndlessScore } from "./lib/endless.js";
@@ -310,7 +310,7 @@
   // points, and the arcade effects with them: always in Game mode, in Score mode when "Effects & points" is on (#2667)
   const points = $derived(!scoreMode || prefs.scoreFx);
   const fx = () => prefs.arcade && (!scoreMode || prefs.scoreFx);
-  let scorePos = $state(0);
+  let scorePos = $state(0), pastEnd = $state(false);
   // The judged notes coloured on the score: markKey(position, pitch) → "good" | "off" | "miss".
   let marks = $state.raw(new Map()), marksSeen = -1, marksAt = 0;
   function updateMarks(now, force = false) {
@@ -538,6 +538,8 @@
     sparks.step(dt, { gravity: 900 * (globalThis.devicePixelRatio || 1) });   // arcade (#2434): sparks fly, the score runs up
     if (Math.round(rolling.step(dt)) !== shownScore) shownScore = Math.round(rolling.value);
     if (!song) return;
+    const over = t >= current.durationMs - 1;                  // the end reached: the score's play line goes away
+    if (over !== pastEnd) pastEnd = over;
     if (scoreView && song.timeline) {                          // the score's cursor, where the song is
       const p = scorePosition(song.timeline, Math.max(0, t));
       if (Math.abs(p - scorePos) > 1 / 128) scorePos = p;
@@ -762,7 +764,8 @@
   {#if song}
     <div class="stage" bind:clientWidth={stageW} bind:clientHeight={stageH}>
       {#if scoreView && song.scoreXml}
-        <Score xml={song.scoreXml} position={scorePos} notation={prefs.notation} {marks} horizontal onSeek={seekWhole} />
+        <Score xml={song.scoreXml} position={scorePos} notation={prefs.notation} {marks} horizontal onSeek={seekWhole}
+               names={prefs.scoreNames} zoom={zoomFactor(prefs.scoreZoom)} ended={pastEnd} />
       {:else}
         <canvas bind:this={canvas}></canvas>
       {/if}

@@ -9,7 +9,9 @@
   import { spelledName } from "./lib/theory.js";
   import { markKey, xAtWhole, wholeAtX } from "./lib/musicxml.js";
 
-  let { xml, position = 0, notation = "en", marks = new Map(), horizontal = false, onSeek = () => {}, onDrag = () => {} } = $props();
+  // names: the note names under the notes · zoom: the drawing's scale (1 = as OSMD draws it) · ended: the song is over (no play line)
+  let { xml, position = 0, notation = "en", marks = new Map(), horizontal = false, onSeek = () => {}, onDrag = () => {},
+        names = true, zoom = 1, ended = false } = $props();
   const MARK_COLORS = { good: "#1f9d55", off: "#e07b00", miss: "#d63030" };
   const PLAY_LINE = 0.3;                                         // horizontal: the play line, from the left
   let heads = new Map(), painted = new Map();                  // markKey → notehead SVG elements; key → colour shown
@@ -35,6 +37,7 @@
   }
 
   function draw() {
+    osmd.zoom = zoom;
     osmd.render();
     painted = new Map();                                        // a fresh drawing: nothing tinted yet
     labels();
@@ -63,18 +66,21 @@
     if (!svg || !osmd?.GraphicSheet) return;
     svg.querySelectorAll(".note-name").forEach(e => e.remove());
     heads = new Map();
+    const withNames = names;
     for (const row of osmd.GraphicSheet.MeasureList) for (const measure of row) {
       for (const entry of measure?.staffEntries ?? []) for (const voice of entry.graphicalVoiceEntries) for (const gn of voice.notes) {
         const src = gn.sourceNote;
         if (!src || src.isRest() || !src.Pitch) continue;
         const head = gn.getNoteheadSVGs?.()?.[0];
         if (!head?.getBBox) continue;
-        const box = head.getBBox(), t = document.createElementNS(NS, "text");
-        t.setAttribute("class", "note-name");
-        t.setAttribute("x", String(box.x + box.width / 2));
-        t.setAttribute("y", String(box.y + box.height + 9));
-        t.textContent = spelledName(src.Pitch.FundamentalNote, src.Pitch.AccidentalHalfTones, notation);
-        head.parentNode.appendChild(t);
+        if (withNames) {
+          const box = head.getBBox(), t = document.createElementNS(NS, "text");
+          t.setAttribute("class", "note-name");
+          t.setAttribute("x", String(box.x + box.width / 2));
+          t.setAttribute("y", String(box.y + box.height + 9));
+          t.textContent = spelledName(src.Pitch.FundamentalNote, src.Pitch.AccidentalHalfTones, notation);
+          head.parentNode.appendChild(t);
+        }
         const key = markKey(src.getAbsoluteTimestamp().RealValue, src.halfTone + 12);
         heads.set(key, [...(heads.get(key) ?? []), head]);
       }
@@ -132,7 +138,8 @@
   $effect(() => { xml; horizontal; if (host) render(); });
   $effect(() => { marks; if (ready) paintMarks(); });
   $effect(() => { const p = position; if (ready) { seek(p); scroll(p); } });
-  $effect(() => { notation; if (ready) labels(); });
+  $effect(() => { notation; names; if (ready) labels(); });
+  $effect(() => { const z = zoom; if (ready && osmd && Math.abs((osmd.zoom || 1) - z) > 1e-3) draw(); });   // the size changed: draw again
   $effect(() => {                                              // redraw when the width changes (rotation, sheet)
     if (!host) return;
     observer = new ResizeObserver(() => {
@@ -147,7 +154,7 @@
 </script>
 
 <div class="score" class:horizontal bind:this={host} role="region" aria-label="the score — slide it with a finger" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up}></div>
-{#if horizontal && ready}<div class="playline" style:left="{PLAY_LINE * 100}%" aria-hidden="true"></div>{/if}
+{#if horizontal && ready && !ended}<div class="playline" style:left="{PLAY_LINE * 100}%" aria-hidden="true"></div>{/if}
 {#if error}<p class="error">{error}</p>{:else if !ready}<p class="loading">Drawing the score…</p>{/if}
 
 <style>

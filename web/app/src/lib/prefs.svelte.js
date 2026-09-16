@@ -3,7 +3,7 @@
 //   notation: "en" (C D E) or "fr" (Do Ré Mi) — a French browser starts in French
 
 const KEYS = { notation: "pisynth.notation", arcade: "pisynth.arcade", playMode: "pisynth.playMode", view: "pisynth.view",
-  lastSong: "pisynth.lastSong", scoreFx: "pisynth.scoreFx" };
+  lastSong: "pisynth.lastSong", scoreFx: "pisynth.scoreFx", scoreNames: "pisynth.scoreNames", scoreZoom: "pisynth.scoreZoom" };
 export const PLAY_MODES = ["normal", "hybrid", "infinite"];
 
 function read(key) {
@@ -23,6 +23,20 @@ function initialNotation() {
 export const prefs = $state({ notation: initialNotation(), arcade: read(KEYS.arcade) !== "0",
   playMode: PLAY_MODES.includes(read(KEYS.playMode)) ? read(KEYS.playMode) : "hybrid",
   view: read(KEYS.view) === "game" ? "game" : "piano", scoreFx: read(KEYS.scoreFx) === "1" });
+
+// The score's look (#2667): note names under the notes (on by default), and its size, -100 … +100 (% steps: half
+// size … double size, 0 = as drawn).
+export const clampZoom = z => (Number.isFinite(+z) ? Math.max(-100, Math.min(100, Math.round(+z))) : 0);
+export const zoomFactor = z => 2 ** (clampZoom(z) / 100);
+Object.assign(prefs, { scoreNames: read(KEYS.scoreNames) !== "0", scoreZoom: clampZoom(read(KEYS.scoreZoom) ?? 0) });
+export function setScoreNames(on) {
+  prefs.scoreNames = !!on;
+  write(KEYS.scoreNames, prefs.scoreNames ? "1" : "0");
+}
+export function setScoreZoom(z) {
+  prefs.scoreZoom = clampZoom(z);
+  write(KEYS.scoreZoom, String(prefs.scoreZoom));
+}
 
 // scoreFx (#2667): Score mode plays calmly by default; on, it has the game's effects and points (and XP) too.
 export function setScoreFx(on) {

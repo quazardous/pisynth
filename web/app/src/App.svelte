@@ -117,12 +117,15 @@
 
 <style>
   /* the musician playing, in place of the title: a dropdown to choose (names are edited under the cog → Musicians) */
-  .who { position: relative; display: inline-flex; align-items: center; height: 38px; min-width: 0; max-width: 70%; border-radius: 19px;
+  .who { position: relative; display: inline-flex; align-items: center; height: 38px; width: 11.5em; min-width: 0; max-width: 70%; border-radius: 19px;
+         overflow: hidden; flex: 0 1 auto;
          border: 2px solid var(--mc, #c38bff); background: linear-gradient(rgba(18,18,24,.62), rgba(18,18,24,.62)), var(--mc, #c38bff); }
+  /* focused: a soft ring on the pill itself — the select's own focus outline used to stick out on the right */
+  .who:focus-within { box-shadow: 0 0 0 2px rgba(255,255,255,.3); }
   .who svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; fill: var(--mc, #c38bff); pointer-events: none; }
   .who::after { content: ""; position: absolute; right: 12px; top: 50%; width: 7px; height: 7px; pointer-events: none;
                 border-right: 2px solid var(--mc, #c38bff); border-bottom: 2px solid var(--mc, #c38bff); transform: translateY(-70%) rotate(45deg); }
-  .who select { -webkit-appearance: none; appearance: none; display: block; height: 100%; min-width: 10.5em; max-width: 100%; margin: 0;
+  .who select { -webkit-appearance: none; appearance: none; display: block; height: 100%; width: 100%; min-width: 0; margin: 0; outline: none;
                 padding: 0 32px 0 34px; border: 0; border-radius: 19px; background: transparent; color: #fff; font: inherit; font-weight: 700;
                 line-height: 34px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; cursor: pointer; }
   .who option { color: #121218; background: #fff; }

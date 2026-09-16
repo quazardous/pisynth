@@ -9,6 +9,9 @@ the combos pile up.
   <img src="docs/img/companion-combo.jpg" width="340" alt="The web companion on a phone: Alex playing, notes falling with finger numbers, 16 hits, a KILLER COMBO comic splash, the five fingers of each hand on the keyboard">
 </p>
 
+**[▶ Try the web companion in your browser](https://quazardous.github.io/pisynth/)** — a demo with no Pi: play
+with a MIDI keyboard plugged into your computer, the computer keys, or let it play for you.
+
 Built on **fluidsynth** (SoundFont playback, straight to ALSA for low latency), a framebuffer
 touch UI (no X, no Wayland), and a web companion served by the Pi itself. Nothing leaves your
 local network.

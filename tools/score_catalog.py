@@ -139,6 +139,10 @@ COMPOSERS = [
 PD_YEAR = 1956
 TRADITIONAL = re.compile(r"^(misc traditional|trad\b|traditional|tradicional|traditionnel|traditionell|anon\b|anonymous|anonyme|unknown|folk ?song|folksong|chanson populaire|volkslied|spiritual|negro spiritual|children'?s song|nursery rhyme)")
 
+# Songs often uploaded as "traditional" that have a composer still in copyright: never kept, whoever is named.
+NOT_TRADITIONAL = re.compile(r"katyusha|katioucha|katjuscha|катюша|kalinka malinka|moscow nights|podmoskovnye|"
+                             r"polyushko|meadowlands|dark eyes \(|la vie en rose|bella ciao swing|happy birthday")
+
 EXCLUDED_GENRES = {"rock", "pop", "electronic", "jazz", "rbfunksoul", "hiphop", "metal", "country", "newage",
                    "soundtrack", "reggae", "blues", "latin", "comedy", "holiday"}
 CATEGORY_TAGS = {
@@ -241,6 +245,8 @@ def keep(row):
         return None
     genres = set((row.get("genres") or "NA").split("-")) - {"NA"}
     if genres & EXCLUDED_GENRES:
+        return None
+    if NOT_TRADITIONAL.search(fold(" ".join([row.get("title") or "", row.get("song_name") or ""]))):
         return None
     who = composer_of(row.get("composer_name"), row.get("artist_name"), row.get("subtitle"), row.get("title"),
                       row.get("song_name"))                 # often only the title names the composer

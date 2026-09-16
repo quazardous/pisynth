@@ -5,6 +5,11 @@ All notable changes to pisynth, in plain language. Newest first.
 ## Unreleased
 
 ### Added
+- **A demo of the web companion on GitHub Pages** — https://quazardous.github.io/pisynth/ : the companion
+  running in the browser with no Pi. Play with a MIDI keyboard plugged into the computer, the computer keys or
+  the keys on screen (a small browser piano sounds them, and Listen), or tick **Let the demo play** to watch the
+  game. The starter songs and 300 catalogue scores come along, searchable. Built and published by a GitHub
+  Action on every push to main.
 - **The metronome on the phone** — in the piano view (a score, or playing freely; not in the game view,
   which switches it off), while the companion is connected it manages pisynth's metronome: a
   Metronome page (the button in the top bar) with start/stop, a big tempo with −/+, a slider, tap tempo
@@ -22,7 +27,8 @@ All notable changes to pisynth, in plain language. Newest first.
   level, two hands or melody, composer, and order by popularity, ease or title; ★ favourites and recently
   played per musician. Only music really out of copyright is kept: public domain or CC0 MuseScore scores
   (through the PDMX dataset) by composers who died before 1956, or traditional tunes. Built on the PC by
-  `tools/score_catalog.py` and copied to the Pi by the deploy.
+  `tools/score_catalog.py` and copied to the Pi by the deploy. Songs often uploaded as "traditional" whose
+  composer is still in copyright (Katyusha…) are left out.
 - **Classical pieces with their score** — 11 pieces of the starter set (Für Elise, the Bach C major prelude
   and fugue, Chopin preludes, Gymnopédie, Träumerei…) are now scores, from MuseScore editions released as
   CC0 or Public Domain (found through the PDMX dataset): they show in the piano view and play like before, at

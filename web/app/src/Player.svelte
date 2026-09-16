@@ -32,6 +32,7 @@
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
   import Keyboard from "./Keyboard.svelte";
   import Panel from "./Panel.svelte";
+  import { DEMO } from "./lib/demobackend.js";
   import { listLibrary, loadSong, nextSongEntry, displayName } from "./lib/library.js";
   import Comic from "./Comic.svelte";
   import Gauge from "./Gauge.svelte";
@@ -411,7 +412,7 @@
         const part = notes.filter(n => n.start >= from && n.start < end).slice(0, 5000)
           .map(n => [Math.round((n.start - from) / tf()), Math.round((Math.min(n.end, end) - from) / tf()), n.note]);
         send({ t: "sim", notes: part, in_ms: Math.round(clockStart - performance.now()) });
-        status = "simulator playing along";
+        status = DEMO ? "the demo is playing for you" : "simulator playing along";
       }
     }
     playing = true;

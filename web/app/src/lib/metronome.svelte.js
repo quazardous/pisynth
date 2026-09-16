@@ -8,11 +8,13 @@ import { loadMetro, saveMetro, clampBpm, clampBeats, clampVol, gridBeat, tapTemp
 import { startClicker } from "./metroclick.js";
 import { audioContext } from "./click.js";
 import { storeKey, onMusicianChange } from "./musician.svelte.js";
+import { DEMO } from "./demobackend.js";
 
 const KEY = "pisynth.metronome";
 const storage = () => globalThis.localStorage;
 
 export const metro = $state(loadMetro(storage(), storeKey(KEY)));       // this musician's settings
+if (DEMO) metro.by = "phone";                    // the demo (#2669): no pisynth to click, the phone does
 export const metroLive = $state({ connected: false, running: false, beat: 0, error: "" });
 
 let api = null, synced = false, clicker = null, grid = null, taps = [], lastLocal = -Infinity;
@@ -20,7 +22,7 @@ const save = () => saveMetro(metro, storage(), storeKey(KEY));
 const settings = () => ({ bpm: metro.bpm, beats: metro.beats, vol: metro.vol });
 
 async function request(value, tries = 3) {
-  if (!api) return;
+  if (!api || DEMO) return;
   const r = await api.set("metronome", value);
   // pisynth-web tells the box a phone is here a moment after it connects: ask again
   if (!r.ok && r.error === "no web companion connected" && tries > 1) { setTimeout(() => request(value, tries - 1), 800); return; }
@@ -82,6 +84,7 @@ export async function metronomeLink(live) {
 
 onMusicianChange(() => {
   Object.assign(metro, loadMetro(storage(), storeKey(KEY)));
+  if (DEMO) metro.by = "phone";
   if (synced) { lastLocal = performance.now(); request({ ...settings(), silent: metro.by === "phone" }); }
   if (clicker) regrid();
 });

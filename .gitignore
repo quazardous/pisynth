@@ -40,3 +40,6 @@ soundfonts/*.sf3
 /web/app/node_modules/
 /dev/certs/
 /dev/state/
+
+# the GitHub Pages demo build (#2669)
+/dist-demo/

@@ -12,6 +12,9 @@
   import { nearestPreset } from "./lib/metronome.js";
   import { loadSong } from "./lib/library.js";
   import { sampleSong } from "./lib/midifile.js";
+  import { DEMO, demoState, setAutoplay } from "./lib/demobackend.js";
+
+  let autoplay = $state(demoState.autoplay);
 
   let {
     song = null, mode = "play", onMode = () => {}, onPick, onClose, onPanel = () => {}, link = "",
@@ -39,7 +42,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h10a5 5 0 0 1 0 10c-1.5 0-2.3-.8-3-1.5h-4c-.7.7-1.5 1.5-3 1.5A5 5 0 0 1 7 6zm-.5 3v1.5H5V12h1.5v1.5H8V12h1.5v-1.5H8V9zm9 .5a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm2 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2z" /></svg>Game</button>
     </div>
     <span class="dot" class:on={link === "live"} title="pisynth: {link}"></span>
-    <button class="icon" onclick={() => onPanel("sound")} aria-label="settings">
+    <button class="icon" onclick={() => onPanel(DEMO ? "display" : "sound")} aria-label="settings">
       <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.47.47 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z" /></svg>
     </button>
     <button class="icon" onclick={onClose} aria-label="close the panel">
@@ -48,6 +51,17 @@
   </div>
 
   <div class="scroll">
+    {#if DEMO}
+      <section class="demo">
+        <p><b>Demo</b> — no pisynth here. Play with a MIDI keyboard plugged into this computer, the computer keys
+          (<kbd>A</kbd>…<kbd>L</kbd> white, <kbd>W</kbd> <kbd>E</kbd> <kbd>T</kbd>… black, <kbd>Z</kbd>/<kbd>X</kbd> octave) or the keys on screen.
+          <a href="https://github.com/quazardous/pisynth">Get pisynth</a></p>
+        <label class="switch">
+          <input type="checkbox" checked={autoplay} onchange={e => { autoplay = e.target.checked; setAutoplay(autoplay); }}>
+          <span>Let the demo play<small>the song is played for you, to watch the game</small></span>
+        </label>
+      </section>
+    {/if}
     <section>
       <div class="row">
         <label class="who" style:--mc={musicians.list.find(m => m.id === musicians.current)?.color}>
@@ -165,6 +179,9 @@
   .switch { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
   .switch input { width: 22px; height: 22px; flex: 0 0 auto; }
   .switch small { display: block; color: var(--muted); font-size: .75rem; }
+  .demo p { font-size: .82rem; line-height: 1.45; }
+  .demo a { color: var(--accent); }
+  kbd { font: 700 .72rem system-ui, sans-serif; padding: 0 4px; border-radius: 4px; background: #3a3a48; }
   .zoom { display: block; margin-top: 10px; font-size: .85rem; }
   .zoomrow { display: flex; align-items: center; gap: 8px; }
   .zoomrow input { flex: 1; }

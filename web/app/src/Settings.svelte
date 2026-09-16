@@ -2,6 +2,7 @@
   // Settings panel behind the cog (#2419): Sound (#2417), Metronome (#2658), Display, Musicians, Latency (#659) and About. It opens over
   // the player, which keeps playing underneath — change the reverb while pisynth plays a song.
   import Sound from "./Sound.svelte";
+  import { DEMO } from "./lib/demobackend.js";
   import Metronome from "./Metronome.svelte";
   import Latency from "./Latency.svelte";
   import { prefs, setNotation, setArcade } from "./lib/prefs.svelte.js";
@@ -18,7 +19,8 @@
     ["ghost", "Ghost keys", "In \"I play\", the keyboard shows the perfect timing next to your playing: in time, your blue key gets a yellow outline."],
     ["shake", "Shaking notes", "A note shakes harder and harder as it reaches the yellow line, so you feel the moment coming."],
   ];
-  const TABS = [["sound", "Sound"], ["metronome", "Metronome"], ["display", "Display"], ["musicians", "Musicians"], ["latency", "Latency"], ["about", "About"]];
+  // the demo (#2669) has no pisynth: no synth settings, no latency to measure
+  const TABS = [...(DEMO ? [] : [["sound", "Sound"]]), ["metronome", "Metronome"], ["display", "Display"], ["musicians", "Musicians"], ...(DEMO ? [] : [["latency", "Latency"]]), ["about", "About"]];
 
   let build = $state("…");
   let confirmUnpair = $state(false);
@@ -113,7 +115,12 @@
           (QR icon on the pisynth screen) disconnects this one.</p>
         <p class="muted">Scores to find: public domain and CC0 scores shared by MuseScore users, found through the PDMX
           dataset (Long et al., 2024, CC-BY-4.0). Each score shows its composer, licence and source.</p>
+        {#if DEMO}
+          <p class="muted">This is the demo of the web companion, running in your browser with no pisynth: play with a MIDI keyboard
+            plugged into this computer, the computer keys or the on-screen keys. <a href="https://github.com/quazardous/pisynth">Get pisynth</a>.</p>
+        {:else}
         <button class="danger" onclick={unpair}>{confirmUnpair ? "Tap again to unpair" : "Unpair this browser"}</button>
+        {/if}
         {#if unpairError}<p class="error">Couldn't unpair: {unpairError}</p>{/if}
       </section>
     {/if}

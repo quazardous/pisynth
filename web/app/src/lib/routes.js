@@ -5,8 +5,10 @@ export const PANELS = ["sound", "metronome", "display", "musicians", "latency", 
 export const MODES = ["play", "listen"];
 
 // Path → {mode, panel}. mode null = keep the current one (a panel opens over the player).
-export function parseRoute(pathname) {
-  const p = (pathname || "/").replace(/\/+$/, "") || "/";
+export function parseRoute(pathname, base = "/") {
+  let p = pathname || "/";
+  if (base !== "/" && p.startsWith(base)) p = `/${p.slice(base.length)}`;   // served under a base path (the demo, #2669)
+  p = p.replace(/\/+$/, "") || "/";
   if (p === "/play") return { mode: "play", panel: null };
   if (p === "/listen" || p === "/demo") return { mode: "listen", panel: null };   // /demo: the old Demo tab
   const name = p.slice(1);

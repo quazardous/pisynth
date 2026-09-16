@@ -51,7 +51,42 @@ const pwa = VitePWA({
   },
 });
 
-export default defineConfig({
+// The GitHub Pages demo (#2669): `vite build --mode demo` → ../../dist-demo, served under /pisynth/, no Pi behind it.
+// Its songs travel as static files: the starter set (library/midi, listed in demo/library.json) and the score catalogue
+// subset kept in web/demo (tools/build_demo.py). No service worker there.
+function demoData() {
+  const repo = new URL("../../", import.meta.url).pathname;
+  return {
+    name: "pisynth-demo-data",
+    apply: "build",
+    closeBundle() {
+      const out = `${repo}dist-demo/demo`;
+      fs.rmSync(out, { recursive: true, force: true });
+      fs.cpSync(`${repo}web/demo`, out, { recursive: true });
+      fs.cpSync(`${repo}library/midi`, `${out}/library/starter`, { recursive: true, filter: p => !p.endsWith(".md") });
+      const entries = [{ path: "starter", kind: "dir", origin: "sync", deletable: false }];
+      const walk = rel => {
+        for (const name of fs.readdirSync(`${out}/library/${rel}`).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))) {
+          const r = `${rel}/${name}`, p = `${out}/library/${r}`;
+          if (fs.statSync(p).isDirectory()) { entries.push({ path: r, kind: "dir", origin: "sync", deletable: false }); walk(r); }
+          else if (/\.(mid|midi|musicxml|xml|mxl)$/i.test(name)) {
+            entries.push({ path: r, kind: "file", type: /\.midi?$/i.test(name) ? "midi" : "score", size: fs.statSync(p).size, origin: "sync", deletable: false });
+          }
+        }
+      };
+      walk("starter");
+      fs.writeFileSync(`${out}/library.json`, JSON.stringify({ entries }));
+      fs.writeFileSync(`${repo}dist-demo/.nojekyll`, "");
+      fs.copyFileSync(`${repo}dist-demo/index.html`, `${repo}dist-demo/404.html`);   // Pages: /pisynth/sound etc. open the app
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => mode === "demo" ? {
+  base: "/pisynth/",
+  plugins: [svelte(), buildInfo(), demoData()],
+  build: { outDir: "../../dist-demo", emptyOutDir: true, target: "es2020", assetsInlineLimit: 0, chunkSizeWarningLimit: 1500 },
+} : {
   plugins: [svelte(), buildInfo(), pwa],
   server: {
     https,

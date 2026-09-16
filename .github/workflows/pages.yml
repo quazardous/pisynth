@@ -1,0 +1,50 @@
+# The web companion's demo on GitHub Pages (#2669): built from main, no Pi behind it.
+# Needs, once: repository Settings → Pages → Source: "GitHub Actions".
+name: demo on GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/app/**", "web/demo/**", "library/midi/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/app/package-lock.json
+      - name: Install
+        working-directory: web/app
+        run: npm ci
+      - name: Tests (the phone side)
+        run: node --test tests/js/*.test.mjs
+      - name: Build the demo
+        working-directory: web/app
+        run: npx vite build --mode demo
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-demo
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

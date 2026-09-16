@@ -10,7 +10,8 @@
   import { metroLive, attachMetronome, metronomeLink, toggleMetronome } from "./lib/metronome.svelte.js";
   import { prefs } from "./lib/prefs.svelte.js";
 
-  const initial = parseRoute(location.pathname);
+  const BASE = import.meta.env.BASE_URL;          // "/" on the Pi, "/pisynth/" for the GitHub Pages demo (#2669)
+  const initial = parseRoute(location.pathname, BASE);
   let mode = $state(initial.mode ?? "play");
   let panel = $state(initial.panel);
   let pairing = $state("checking");               // checking | paired | unpaired | expired | offline
@@ -21,11 +22,11 @@
   function navigate(next) {
     mode = next.mode ?? mode;
     panel = next.panel;
-    const path = routePath({ mode, panel });
+    const path = BASE.replace(/\/$/, "") + routePath({ mode, panel });
     if (path !== location.pathname) history.pushState(null, "", path);
   }
   addEventListener("popstate", () => {
-    const r = parseRoute(location.pathname);
+    const r = parseRoute(location.pathname, BASE);
     panel = r.panel;
     if (r.mode) mode = r.mode;
   });

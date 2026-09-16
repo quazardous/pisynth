@@ -1,7 +1,10 @@
 // Pairing + the MIDI socket (#659). The QR on the pisynth screen opens /#k=<one-time token>;
 // we trade it for a session cookie, then open the WebSocket (cookie-authenticated).
+// The GitHub Pages demo (#2669) has no pisynth: always "paired", and a stand-in socket (lib/demobackend.js).
+import { DEMO, openDemoSocket } from "./demobackend.js";
 
 export async function ensurePaired() {
+  if (DEMO) return "paired";
   const m = location.hash.match(/(?:^#|&)k=([\w-]+)/);
   if (m) {
     history.replaceState(null, "", location.pathname);           // never leave the token in the URL
@@ -23,6 +26,7 @@ export async function ensurePaired() {
 // Reconnecting WebSocket. onFrame(ArrayBuffer) for MIDI, onMessage(object) for JSON replies,
 // onState("live"|"reconnecting"|"unpaired"). Returns {send(obj), close()}.
 export function openMidiSocket({ onFrame, onState, onMessage = () => {} }) {
+  if (DEMO) return openDemoSocket({ onFrame, onState, onMessage });
   let ws, stopped = false, delay = 500;
   const connect = () => {
     ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);   // ws: on http://localhost (dev)

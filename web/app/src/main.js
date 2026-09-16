@@ -1,6 +1,9 @@
 import { mount } from "svelte";
 import "./app.css";
 import App from "./App.svelte";
+import { DEMO, installDemo } from "./lib/demobackend.js";
+
+installDemo();                                          // the GitHub Pages demo (#2669): the API from static files
 import bangers from "@fontsource/bangers/files/bangers-latin-400-normal.woff2?url";
 
 // Bangers (SIL OFL 1.1, bundled — the Pi may have no internet): the comic splash lettering (#2434).
@@ -10,7 +13,7 @@ if (globalThis.FontFace) {
   face.load().catch(() => {});                          // ready before the first combo
 }
 
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator && !DEMO) {
   if (import.meta.env.DEV) {
     // Dev server: no service worker — it would serve stale modules and defeat hot reload.
     navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));

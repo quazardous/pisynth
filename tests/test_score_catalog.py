@@ -115,3 +115,9 @@ def test_file_and_missing_catalogue(tmp_path):
     assert cat.file(99) is None
     empty = ScoreCatalog(str(tmp_path / "nothing"))
     assert empty.search()["total"] == 0 and empty.file(1) is None
+
+
+def test_songs_with_a_composer_in_copyright_are_never_traditional():
+    """#2669: "Katyusha" (Blanter, died 1990) uploaded as a traditional tune is dropped."""
+    assert B.keep(row(composer_name="NA", artist_name="Misc Traditional", title="Katyusha [Grand Piano]", genres="folk")) is None
+    assert B.keep(row(composer_name="NA", artist_name="Misc Traditional", title="The Kesh", genres="folk")) is not None

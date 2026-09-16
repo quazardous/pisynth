@@ -2,6 +2,7 @@
   // On-screen keyboard (#659). Positions come from lib/viewport.js, the same mapping the note
   // highway uses (#2418), so a `view` ({x0, span} in white keys) can slide smoothly.
   import { keysInView, rangeView, toPct } from "./lib/viewport.js";
+  import { DEMO, demoState } from "./lib/demobackend.js";
   // on = your keys (blue) · demo = keys to light yellow · ghost = the perfect timing (#2429), drawn
   // as a translucent, outlined key that can overlap yours · fingers = Map note → {finger, color}: the
   // suggested finger, a numbered badge on the key (#2431)
@@ -16,6 +17,10 @@
     const at = layout.filter(k => keys.includes(k.n));
     return at.length ? at.reduce((s, k) => s + k.left + k.width / 2, 0) / at.length : null;
   };
+  // The demo (#2669): the keys can be played with a finger or the mouse.
+  const touching = new Map();                                    // pointer → note
+  function press(e, n) { if (!DEMO) return; e.preventDefault(); touching.set(e.pointerId, n); demoState.play?.(true, n, 96); }
+  function release(e) { const n = touching.get(e.pointerId); if (n === undefined) return; touching.delete(e.pointerId); demoState.play?.(false, n); }
   const arrows = $derived((moves || []).map(mv => ({ x1: centre(mv.from), x2: centre(mv.to), dir: mv.dir }))
     .filter(a => a.x2 !== null).map(a => ({ ...a, x1: a.x1 ?? a.x2 - a.dir * 6 })));
 </script>
@@ -23,7 +28,8 @@
 <div class="keyboard" aria-label="live keyboard" style:height style:min-height={minHeight}>
   {#each layout as k (k.n)}
     <div class="key" class:black={k.black} class:white={!k.black} class:on={on.has(k.n)} class:demo={demo.has(k.n) && !on.has(k.n)} class:ghost={ghost.has(k.n)}
-         style:left="{k.left}%" style:width="{k.width}%">
+         style:left="{k.left}%" style:width="{k.width}%"
+         onpointerdown={e => press(e, k.n)} onpointerup={release} onpointerleave={release} onpointercancel={release} role="presentation">
       {#if fingers?.has(k.n)}<span class="finger {fingers.get(k.n).move}" class:thumb={fingers.get(k.n).finger === 1} style:--hand={fingers.get(k.n).color}>{fingers.get(k.n).finger}</span>{/if}
     </div>
   {/each}

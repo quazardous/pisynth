@@ -43,8 +43,8 @@
     labels();
     paintMarks();
     measures = horizontal ? layout() : [];
-    osmd.cursor.show();
-    seek(position, true);
+    if (horizontal) osmd.cursor.hide();                         // one line: the blue play line is the cursor (OSMD's stays at the start)
+    else { osmd.cursor.show(); seek(position, true); }
     scroll(position);
   }
 
@@ -137,7 +137,7 @@
 
   $effect(() => { xml; horizontal; if (host) render(); });
   $effect(() => { marks; if (ready) paintMarks(); });
-  $effect(() => { const p = position; if (ready) { seek(p); scroll(p); } });
+  $effect(() => { const p = position; if (ready) { if (!horizontal) seek(p); scroll(p); } });
   $effect(() => { notation; names; if (ready) labels(); });
   $effect(() => { const z = zoom; if (ready && osmd && Math.abs((osmd.zoom || 1) - z) > 1e-3) draw(); });   // the size changed: draw again
   $effect(() => {                                              // redraw when the width changes (rotation, sheet)

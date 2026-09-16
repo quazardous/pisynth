@@ -30,7 +30,7 @@ function gitDescribe() {
 }
 // A version bumped past the last tag is the next release being made: it is that version, nothing "after" it.
 const GIT = (d => (d && d.tag === VERSION ? d : null))(gitDescribe());
-const define = { __APP_VERSION__: JSON.stringify(VERSION), __APP_GIT__: JSON.stringify(GIT) };
+const define = { __APP_VERSION__: JSON.stringify(VERSION) };
 
 // build.json: which build this is ({hash, version}) — shown in About and on the pisynth screen, and fetched by the
 // setup page to test the certificate. The hash is Vite's own content hash of the app's entry chunk.
@@ -41,7 +41,10 @@ function buildInfo() {
     generateBundle(_, bundle) {
       const entry = Object.values(bundle).find(f => f.type === "chunk" && f.isEntry);
       const hash = entry?.fileName.match(/-([\w-]{8,})\.js$/)?.[1] ?? "dev";
-      this.emitFile({ type: "asset", fileName: "build.json", source: JSON.stringify({ hash, version: VERSION, git: GIT }) + "\n" });
+      this.emitFile({ type: "asset", fileName: "build.json", source: JSON.stringify({ hash, version: VERSION }) + "\n" });
+      // where the build stands from its release, in a file of its own: not in the app's code nor in a committed
+      // file, so a deploy after a commit changes nothing in git (web/static/version.json is ignored)
+      this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify({ version: VERSION, git: GIT }) + "\n" });
     },
   };
 }

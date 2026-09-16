@@ -41,5 +41,8 @@ soundfonts/*.sf3
 /dev/certs/
 /dev/state/
 
+# where the companion build stands from its release (#2673), rewritten by every build
+/web/static/version.json
+
 # the GitHub Pages demo build (#2669)
 /dist-demo/

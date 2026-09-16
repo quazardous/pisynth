@@ -21,8 +21,6 @@ test("a build after a release says so", () => {
 });
 
 test("the Pi serving another version asks for a reload", () => {
-  assert.equal(versionNotice("0.6.0", { version: "0.6.0", git: { tag: "0.6.0", ahead: 2, commit: "bbb" } }, { tag: "0.6.0", ahead: 1, commit: "aaa" }),
-    "pisynth serves 0.6.0 + 2 changes (bbb) — reload to update");
   assert.equal(versionNotice("0.6.0", { hash: "x", version: "0.6.1" }), "pisynth serves 0.6.1 — reload to update");
   assert.equal(versionNotice("0.6.0", { version: "0.6.0" }), null);
   assert.equal(versionNotice("0.6.0", { hash: "old" }), null);           // an older build.json without a version

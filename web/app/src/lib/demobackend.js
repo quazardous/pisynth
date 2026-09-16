@@ -33,7 +33,7 @@ export function demoRoute(url, method = "GET") {
   if (path === "/api/catalog") return { search: url };
   const m = path.match(/^\/api\/catalog\/(\d+)\.mxl$/);
   if (m) return { static: `demo/catalog/${m[1]}.mxl` };
-  if (path === "/build.json" || path === "/metronome-tick.wav") return { static: path.slice(1) };
+  if (path === "/build.json" || path === "/version.json" || path === "/metronome-tick.wav") return { static: path.slice(1) };
   return null;                                    // anything else: the real fetch
 }
 

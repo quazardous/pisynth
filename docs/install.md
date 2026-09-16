@@ -143,29 +143,31 @@ private addresses), never for an internet site. If the Pi gets a new IP address,
 certificate on its own at the next start — the phone keeps trusting it. On a computer,
 `./pair.sh --ca` downloads the certificate and says how to import it.
 
-The companion is **one screen**. With no song loaded it shows the keys and chord you play, live.
-Load a song (the `⋯` button) and its notes fall onto the keyboard, with a toggle at the top:
-- **I play** — hit each note as it reaches the yellow line; your timing is scored;
-- **Listen** — pisynth plays the song, the notes light up as they sound.
+The companion is **one screen**, made for a phone or tablet held sideways: the stage (the score or the
+falling notes) and the keyboard take it all. With no song loaded it shows the keys and chord you play, live.
 
-Tempo, the A–B loop and the position are shared: listen to a passage, switch, play it. The **cog**
-(top right) opens the settings: **Sound** (soundfont, preset, gain, output, reverb, chorus,
-MIDI keyboard — the pisynth screen follows), **Metronome**, **Display** (note names in English C D E or
-French Do Ré Mi), **Latency** (measures the key-to-sound delay
-with the phone's microphone) and **About** (version, unpair this browser).
+- **The side panel** (☰, top left) holds everything else: **Score | Game**, I play / Listen and normal /
+  hybrid / infinite (Game), the musician, the metronome, **Effects & points** (Score), the song's tempo and
+  A–B loop, the settings (⚙: **Sound** — soundfont, preset, gain, output, reverb, chorus, MIDI keyboard, the
+  pisynth screen follows —, **Metronome**, **Display** — note names in English C D E or French Do Ré Mi —,
+  **Musicians**, **Latency** — the key-to-sound delay measured with the phone's microphone —, **About**), and
+  the **gallery**.
+- **Closed**, it leaves the **mini player** over the stage: ☰, Play / Stop, ↻ (back to the start, or A), the
+  song's name, the progress bar, the metronome (Score) and the points (Game, or Score with points on).
+
+Any song or score plays in either mode. In Game mode, **I play**: hit each note as it reaches the yellow
+line, your timing is scored; **Listen**: pisynth plays the song, the notes light up as they sound.
 
 **Metronome.** In Score mode (the Game mode has none), while the phone
-is connected, it manages pisynth's metronome (the metronome button in
-the top bar, or the cog → Metronome): start/stop, tempo (−/+, slider, **Tap**, Largo…Presto), beats per
+is connected, it manages pisynth's metronome (in the side panel, "more…" for all of it): start/stop, tempo (−/+, slider, **Tap**, Largo…Presto), beats per
 bar, click volume, and lights on the beats. The click is played **by pisynth** (the phone is a remote) or
 **by the phone** (headphones, say — pisynth then only counts the beats). Each musician keeps their own
 metronome and gets it back on pisynth when they pick up the phone. The pisynth screen keeps only
 Start / Stop meanwhile; when the phone leaves, the metronome is pisynth's again. **Click along with
-songs** (or the metronome button next to Play) makes the phone click with the song, at its tempo and time
+songs** (or the metronome button of the mini player) makes the phone click with the song, at its tempo and time
 signature.
 
-**MIDI library.** Songs come from a library kept on the Pi (the `⋯` button, then browse the
-folders). It starts with a small **starter** set of classical piano pieces by level
+**MIDI library.** Songs come from a library kept on the Pi (the gallery's search, or its Folders). It starts with a small **starter** set of classical piano pieces by level
 (Public Domain, from the [Mutopia Project](https://www.mutopiaproject.org/), see
 `library/midi/SOURCES.md`).
 
@@ -173,16 +175,15 @@ folders). It starts with a small **starter** set of classical piano pieces by le
 `.mxl`, the open format every notation program exports). A score with the same name as a MIDI file is
 that song's score (🎼 in the library); a score on its own is a song you can play too.
 
-**Score | Game.** The switch at the top chooses the mode. **Score** (the default) is a music stand: its top
-bar holds the score library, the metronome and the cog. The score is drawn on one line, with the note names
+**Score | Game.** The switch in the side panel chooses the mode. **Score** (the default) is a music stand,
+calm unless you turn **Effects & points** on. The score is drawn on one line, with the note names
 (English or French, as under the cog → Display); Play counts a bar in, then the score scrolls under the blue
-play line at the **metronome's tempo** (change it in the metronome, or `⋯`); slide it with a finger to go
-back or forward. Each note you play turns green (in time), orange (early or late) or red (missed). **Game**
-is the falling notes game: musician, level and XP, I play / Listen, normal / hybrid / infinite, the song
-library, the cog. The companion reopens the song you had last time. The children's songs of the starter set
+play line at the **metronome's tempo** (change it in the panel); slide it with a finger to go
+back or forward. Each note you play turns green (in time), orange (early or late) or red (missed). A song without a score shows its falling notes. **Game**
+is the falling notes game, with effects, points, levels and XP. The companion reopens the song you had last time. The children's songs of the starter set
 come with their scores.
 
-**Find a score.** The library opens on **Find a score**: thousands of piano scores kept on pisynth, public
+**The gallery.** One search over your library and a catalogue of thousands of piano scores kept on pisynth, public
 domain or CC0, by composers who died before 1956 or traditional. Type words in any order, without accents
 ("chop noct", "fur elise", "tchaikovski"); narrow by category (Classical, Folk & traditional, Sacred,
 Children, Studies, Dances), level, two hands or melody, composer; order by popularity, ease or title. ★ keeps

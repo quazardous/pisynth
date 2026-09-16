@@ -53,6 +53,19 @@ export function nextSongEntry(entries, path) {
   return null;
 }
 
+// The library's songs whose name or folder holds every word typed (any order, accents and case ignored) — the
+// gallery's search (#2667). Sorted by path, at most `max`.
+export function searchLibrary(entries, q, max = 50) {
+  const fold = s => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const terms = fold(q || "").split(/[^a-z0-9]+/).filter(Boolean);
+  if (!terms.length) return [];
+  const words = s => fold(s).split(/[^a-z0-9]+/).filter(Boolean);
+  return songsOf(entries.filter(e => e.kind === "file"))
+    .filter(e => { const ws = words(e.path); return terms.every(t => ws.some(w => w.startsWith(t))); })
+    .sort((a, b) => a.path.localeCompare(b.path, undefined, { numeric: true }))
+    .slice(0, max);
+}
+
 // "a/b/c" → [{name:"a", path:"a"}, {name:"b", path:"a/b"}, {name:"c", path:"a/b/c"}]
 export function crumbs(dir) {
   if (!dir) return [];

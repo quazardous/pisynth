@@ -3,7 +3,7 @@
 //   notation: "en" (C D E) or "fr" (Do Ré Mi) — a French browser starts in French
 
 const KEYS = { notation: "pisynth.notation", arcade: "pisynth.arcade", playMode: "pisynth.playMode", view: "pisynth.view",
-  lastSong: "pisynth.lastSong" };
+  lastSong: "pisynth.lastSong", scoreFx: "pisynth.scoreFx" };
 export const PLAY_MODES = ["normal", "hybrid", "infinite"];
 
 function read(key) {
@@ -22,7 +22,13 @@ function initialNotation() {
 
 export const prefs = $state({ notation: initialNotation(), arcade: read(KEYS.arcade) !== "0",
   playMode: PLAY_MODES.includes(read(KEYS.playMode)) ? read(KEYS.playMode) : "hybrid",
-  view: read(KEYS.view) === "game" ? "game" : "piano" });
+  view: read(KEYS.view) === "game" ? "game" : "piano", scoreFx: read(KEYS.scoreFx) === "1" });
+
+// scoreFx (#2667): Score mode plays calmly by default; on, it has the game's effects and points (and XP) too.
+export function setScoreFx(on) {
+  prefs.scoreFx = !!on;
+  write(KEYS.scoreFx, prefs.scoreFx ? "1" : "0");
+}
 
 // view (#2657): "piano" (the default) shows the song's score, calm, like a music stand; "game" the falling
 // notes with the arcade effects. A song without a score shows its falling notes either way.

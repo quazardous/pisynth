@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { encodePath, parentOf, baseName, displayName, folderLabel, childrenOf, crumbs, songInfo, InfoCache, nextSongEntry } from "../../web/app/src/lib/library.js";
+import { encodePath, parentOf, baseName, displayName, folderLabel, childrenOf, crumbs, songInfo, InfoCache, nextSongEntry, searchLibrary } from "../../web/app/src/lib/library.js";
 import { sampleSong } from "../../web/app/src/lib/midifile.js";
 
 const entries = [
@@ -75,4 +75,16 @@ test("songs: a MIDI file and a score of the same name are one song; a score alon
   assert.ok(isScorePath("x.XML") && isScorePath("x.mxl") && !isScorePath("x.mid"));
   assert.equal(stemOf("a/b.musicxml"), "a/b");
   assert.equal(displayName("a/0-homer/3-Au-clair.musicxml"), "3 Au clair");
+});
+
+test("the gallery's search finds library songs by name or folder, any word order, no accents (#2667)", () => {
+  const f = (path, extra = {}) => ({ kind: "file", path, size: 1, ...extra });
+  const entries = [{ kind: "dir", path: "starter" }, f("starter/0-homer/7-Ode-to-joy.mid"), f("starter/0-homer/7-Ode-to-joy.musicxml"),
+                   f("starter/3-intermediate/Beethoven-Fur-Elise-WoO-59.mxl"), f("Mes morceaux/Für Élise.mid")];
+  assert.deepEqual(searchLibrary(entries, "joy ode").map(e => e.path), ["starter/0-homer/7-Ode-to-joy.mid"]);   // paired: one song
+  assert.ok(searchLibrary(entries, "joy ode")[0].score);
+  assert.deepEqual(searchLibrary(entries, "fur eli").map(e => e.path), ["Mes morceaux/Für Élise.mid", "starter/3-intermediate/Beethoven-Fur-Elise-WoO-59.mxl"]);
+  assert.deepEqual(searchLibrary(entries, "homer").length, 1);                                               // the folder counts
+  assert.deepEqual(searchLibrary(entries, "  "), []);
+  assert.deepEqual(searchLibrary(entries, "nothing here"), []);
 });

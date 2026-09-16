@@ -31,7 +31,7 @@
   import { musicians, storeKey } from "./lib/musician.svelte.js";
   import { enterPlayMode, exitPlayMode, releaseAwake } from "./lib/screen.js";
   import Keyboard from "./Keyboard.svelte";
-  import Library from "./Library.svelte";
+  import Panel from "./Panel.svelte";
   import { listLibrary, loadSong, nextSongEntry, displayName } from "./lib/library.js";
   import Comic from "./Comic.svelte";
   import Gauge from "./Gauge.svelte";
@@ -42,7 +42,8 @@
   import { songBeat } from "./lib/metronome.js";
   import { startClicker } from "./lib/metroclick.js";
 
-  let { onFrame, onMessage, send, mode = "play", onMode = () => {} } = $props();
+  // onPanel(name): open a settings panel (App) · link: the link to pisynth ("live" …)
+  let { onFrame, onMessage, send, mode = "play", onMode = () => {}, onPanel = () => {}, link = "" } = $props();
 
   const AHEAD_MS = 2600;           // song ms visible above the line: at 50 % tempo the notes fall half as fast
   const PAST_MS = 300;             // a note stays drawn this long after it ends
@@ -61,7 +62,7 @@
   let playing = $state(false);
   let position = $state(0);        // song ms shown on the bar
   let loop = $state(null);         // {a, b} song ms
-  let sheet = $state(null);         // null | "library" (📁 button) | "options" (⋯: tempo, loop)
+  let panelOpen = $state(!lastSong());   // the side panel (#2667); closed: the mini player — open at first, with no song yet
   let finished = $state(false);
   let best = $state.raw(null);      // this song's record on the phone, and what the last run beat
   let countIn = $state(0);
@@ -306,7 +307,9 @@
   // tempo, a finger slides it; no XP, game modes or arcade. Game mode: the falling notes game.
   const scoreMode = $derived(prefs.view === "piano");
   const scoreView = $derived(scoreMode && !!song?.scoreXml);
-  const fx = () => prefs.arcade && !scoreView;                 // explosions, combos, oops: the game view's
+  // points, and the arcade effects with them: always in Game mode, in Score mode when "Effects & points" is on (#2667)
+  const points = $derived(!scoreMode || prefs.scoreFx);
+  const fx = () => prefs.arcade && (!scoreMode || prefs.scoreFx);
   let scorePos = $state(0);
   // The judged notes coloured on the score: markKey(position, pitch) → "good" | "off" | "miss".
   let marks = $state.raw(new Map()), marksSeen = -1, marksAt = 0;
@@ -329,7 +332,7 @@
 
   function load(s) {
     stop();
-    song = s; error = ""; status = ""; sheet = null;
+    song = s; error = ""; status = "";
     setLastSong(s);
     clearMarks();
     scorePos = 0;
@@ -394,7 +397,7 @@
       clockStart = now + CLICK_LEAD_MS + leadSong / tf();
       judge.setTempo(tf());
       judge.reset(from);
-      runActive = !scoreMode;                                 // this run will earn XP when it ends (#2436) — a game thing
+      runActive = points;                                     // this run will earn XP when it ends (#2436) — with points only
       lastJudged = 0;
       stats = { score: 0, streak: 0, accuracy: 0 };
       combo.reset(); rolling.jump(0); shownScore = 0; hitsShown = 0; announce = null; oopsAt = null; sparks.items = [];
@@ -498,7 +501,7 @@
     const now = performance.now(), double = now - lastRewind < 450;
     lastRewind = now;
     stop();
-    finished = false; sheet = null; flash = null; announce = null; oopsAt = null;
+    finished = false; flash = null; announce = null; oopsAt = null;
     clearMarks();
     if (hybrid && double && parts.length) { partIdx = 0; loop = { a: parts[0].a, b: parts[0].b }; }
     position = loop?.a ?? 0;
@@ -514,10 +517,10 @@
     if (playing) { stop(); start(to); } else { position = to; paint(); }
   }
 
-  // Opening the library or the options sheet pauses the song (the position is kept: Play resumes it).
-  function toggleSheet(which) {
-    if (sheet !== which && playing) stop();
-    sheet = sheet === which ? null : which;
+  // Opening the panel pauses the song (the position is kept: Play resumes it).
+  function openPanel() {
+    if (playing) stop();
+    panelOpen = true;
   }
 
   function retempo() { if (playing) { const p = songPos(performance.now()); stop(); start(Math.max(0, p)); } }
@@ -755,38 +758,6 @@
 </script>
 
 <main>
-  <div class="hud">
-    {#if scoreMode}
-      {#if song && playing}<span class="acc">{stats.accuracy}%</span>{/if}
-      {#if song?.bpm}<span class="bpm" title="the metronome's tempo">♩ = {metro.bpm}</span>{/if}
-    {:else}
-    <div class="toggle" role="group" aria-label="mode">
-      <button class:on={mode === "play"} onclick={() => onMode("play")}>I play</button>
-      <button class:on={mode === "listen"} onclick={() => onMode("listen")}>Listen</button>
-    </div>
-    <span class="lv" title="{lv.into} / {lv.need} XP to the next level">Lv {lv.level}<i style:width="{Math.round((lv.into / lv.need) * 100)}%"></i>
-      {#key xpGain?.id}{#if xpGain && !finished}<b class="xp-pop">+{xpGain.xp} XP</b>{/if}{/key}
-    </span>
-    {/if}
-    {#if song && mode === "play" && !scoreMode}
-      {#if endless}
-        <span class="endless" title="infinite mode · best {endlessBook.best(songKey(song))}">∞ {endlessShown}</span>
-        {#if laps}<span class="acc">lap {laps + 1}</span>{/if}
-      {:else if hybrid && parts.length}
-        <span class="score" class:racing={fx() && shownScore !== stats.score}>{fx() ? shownScore : stats.score}</span>
-        <span class="part" title="{parts[partIdx]?.label} · {cleared} of {parts.length} cleared">
-          {#each parts as _, k (k)}<i class:done={k < cleared} class:here={k === partIdx}></i>{/each}
-          <b>{partIdx + 1}/{parts.length}</b>
-        </span>
-      {:else}
-        <span class="score" class:racing={fx() && shownScore !== stats.score}>{fx() ? shownScore : stats.score}</span>
-      {/if}
-      {#if stats.streak > 1}<span class="streak">×{stats.streak}</span>{/if}
-      <span class="acc">{stats.accuracy}%</span>
-    {/if}
-    <span class="song" title={song?.credit ?? ""}>{song ? song.name || "untitled" : ""}{#if song?.credit}<small class="credit">{song.credit}</small>{/if}</span>
-  </div>
-
   <div class="area">                                  <!-- the notes' area; the sheet floats over it, never resizing it -->
   {#if song}
     <div class="stage" bind:clientWidth={stageW} bind:clientHeight={stageH}>
@@ -847,106 +818,72 @@
         </section>
       {/if}
       {#if error}<p class="error">{error}</p>{:else if status}<p class="status-msg">{status}</p>
-      {:else if !playing && !finished && !sheet && !scoreView}<p class="status-msg warmup">Tap your keys to find your place{aids.fingers ? " — the numbers are your fingers" : ""}, then Play</p>{/if}
+      {:else if !playing && !finished && !panelOpen && !scoreView}<p class="status-msg warmup">Tap your keys to find your place{aids.fingers ? " — the numbers are your fingers" : ""}, then Play</p>{/if}
     </div>
   {:else}
     <div class="live">
       <div class="chord">{detectChord(sounding, prefs.notation) || " "}</div>
       <div class="notes">{sounding.map(n => noteName(n, prefs.notation)).join(" ") || " "}</div>
-      <p class="muted hint">Tap the folder to pick a song</p>
+      <p class="muted hint">Open the panel (☰) to pick a song</p>
     </div>
   {/if}
 
-  {#if sheet}
-    <button class="scrim" aria-label="close" onclick={() => (sheet = null)}></button>
-  {/if}
-  {#if sheet === "library"}
-    <section class="sheet">
-      <Library current={song?.path} onPick={load} scoresOnly={scoreMode} />
-      <button class="link" onclick={() => load(sampleSong())}>use the built-in sample</button>
-    </section>
-  {:else if sheet === "options" && song}
-    <section class="sheet">
-        {#if mode === "play" && !scoreMode}
-          <div class="modes" role="radiogroup" aria-label="play mode">
-            {#each PLAY_MODES as m (m)}
-              <button class:on={prefs.playMode === m} role="radio" aria-checked={prefs.playMode === m} onclick={() => chooseMode(m)}>{MODE_LABEL[m]}</button>
-            {/each}
-          </div>
-          <p class="muted">{#if prefs.playMode === "hybrid"}Part by part: play a part without a wrong key or a missed note to unlock the next. {cleared} of {parts.length} parts cleared.
-            {#if cleared}<button class="link" onclick={restartParts}>start over from part 1</button>{/if}
-          {:else if prefs.playMode === "infinite"}The song starts over by itself, with a score of its own that goes up with your hits and down with misses and wrong keys.
-          {:else}The whole song, once, then your results.{/if}</p>
-        {/if}
-        {#if scoreMode}
-          <label>Tempo {metro.bpm} BPM <small class="muted">(the score: {current.bpm})</small>
-            <input type="range" min="40" max="240" step="1" value={metro.bpm} oninput={e => setBpm(+e.target.value)}></label>
-        {:else}
-          <label>Tempo {tempo}% <input type="range" min="50" max="150" step="5" bind:value={tempo} onchange={retempo}></label>
-        {/if}
-        {#if !hybrid}<div class="loop">
-          <span>Loop</span>
-          <button class="small" onclick={setA}>A = {fmt(loop?.a ?? position)}</button>
-          <button class="small" onclick={setB} disabled={!loop && position === 0}>B = {loop ? fmt(loop.b) : "—"}</button>
-          {#if loop}<button class="small ghost" onclick={() => (loop = null)}>clear</button>{/if}
-        </div>{/if}
-        {#if !scoreMode}<p class="muted">Difficulty <Gauge value={songDiff} number /> (for your level: {levelDifficulty(lv.level).toFixed(1)}). Points and XP × the tempo.</p>{/if}
-        <p class="muted">{hands.length >= 2 ? "2 hands: right hand blue, left hand green. " : ""}{mode === "play" ? "Hit each note as it reaches the yellow line." : "pisynth plays the song; the notes light up as they sound."}</p>
-    </section>
-  {/if}
-  </div>
-
-  <div class="player">
-    <button class="play" onclick={() => (playing ? stop() : song ? start() : toggleSheet("library"))} aria-label={playing ? "Stop" : "Play"}>
-      {#if playing}
-        <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" /></svg>
-      {:else}
-        <svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" /></svg>
-      {/if}
-    </button>
-    {#if !scoreMode}
-    <button class="modebtn {prefs.playMode}" disabled={mode !== "play"} onclick={cycleMode}
-            aria-label="play mode: {MODE_LABEL[prefs.playMode]} — tap to change" title="{MODE_LABEL[prefs.playMode]} mode">
-      {#if prefs.playMode === "infinite"}∞{:else if prefs.playMode === "hybrid"}<svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 9.9-1h-2.1A3 3 0 0 0 9 8v3h9a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 18 21H6a1.5 1.5 0 0 1-1.5-1.5v-7A1.5 1.5 0 0 1 6 11z" /></svg>{:else}1×{/if}
-    </button>
-    {/if}
-    <button class="replay" disabled={!song} onclick={rewind}
-            aria-label={hybrid ? "stop and back to this part's start (tap twice: the first part)" : loop ? "stop and back to A" : "stop and back to the start"}
-            title={hybrid ? "Back to this part · tap twice: back to part 1" : ""}>
-      <svg viewBox="0 0 24 24"><path d="M12 5V1.5L7 6.5l5 5V7.5a5.5 5.5 0 1 1-5.5 5.5H4a8 8 0 1 0 8-8z" /></svg>
-    </button>
-    {#if prefs.view === "piano"}
-    <button class="metrobtn" class:on={metro.inPlayer} onclick={() => setClickInPlayer(!metro.inPlayer)}
-            aria-pressed={metro.inPlayer} aria-label={metro.inPlayer ? "stop clicking along" : "click along with the song"}>
-      <svg viewBox="0 0 24 24"><path d="M9.2 2h5.6l4.4 18.5A1.2 1.2 0 0 1 18 22H6a1.2 1.2 0 0 1-1.2-1.5zM7.4 16h9.2l-.9-3.8-3.2 3.2-1.3-1.3 3.9-3.9L13.2 4h-2.4z" /></svg>
-    </button>
-    {/if}
-    <button class="folder" class:open={sheet === "library"} class:attention={!song} onclick={() => toggleSheet("library")} aria-label="choose a song">
-      <svg viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h5l2 2h8A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" /></svg>
-    </button>
-    <div class="meta">
-      {#if song}
-        <div class="bar">
-          {#if loop}<span class="loopzone" style:left={pct(loop.a)} style:width="calc({pct(loop.b)} - {pct(loop.a)})"></span>{/if}
-          <input class="seek" type="range" min="0" max={current.durationMs || 1} step="100"
-                 value={Math.min(position, current.durationMs)} onchange={seek} aria-label="position">
-        </div>
-        <div class="time">{fmt(position)} / {fmt(current.durationMs)}{tempo !== 100 ? ` · ${tempo}%` : ""}{loop ? " · loop" : ""}</div>
-      {:else}
-        <div class="time">No song loaded</div>
-      {/if}
-    </div>
-    {#if song}
-      <button class="more" class:open={sheet === "options"} onclick={() => toggleSheet("options")} aria-label="tempo and loop">
-        <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+  {#if panelOpen}
+    <button class="scrim" aria-label="close the panel" onclick={() => (panelOpen = false)}></button>
+    <Panel {song} {mode} {onMode} onPick={s => { load(s); panelOpen = false; }} onClose={() => (panelOpen = false)} {onPanel} {link}
+           {tempo} onTempo={t => { tempo = t; retempo(); }} {loop} {position} onSetA={setA} onSetB={setB} onClearLoop={() => (loop = null)} {fmt}
+           {parts} {cleared} onRestartParts={restartParts} onChooseMode={chooseMode} {lv} {songDiff} />
+  {:else}
+    <!-- the mini player (#2667): what's needed to play, over the stage; the panel holds the rest -->
+    <div class="mini" role="group" aria-label="player">
+      <button class="menu" onclick={openPanel} aria-label="open the panel" class:attention={!song}>
+        <svg viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h16M4 17.5h16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>
       </button>
-    {/if}
+      <button class="play" onclick={() => (playing ? stop() : song ? start() : openPanel())} aria-label={playing ? "Stop" : "Play"}>
+        {#if playing}<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" /></svg>
+        {:else}<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" /></svg>{/if}
+      </button>
+      <button class="replay" disabled={!song} onclick={rewind}
+              aria-label={hybrid ? "stop and back to this part's start (tap twice: the first part)" : loop ? "stop and back to A" : "stop and back to the start"}>
+        <svg viewBox="0 0 24 24"><path d="M12 5V1.5L7 6.5l5 5V7.5a5.5 5.5 0 1 1-5.5 5.5H4a8 8 0 1 0 8-8z" /></svg>
+      </button>
+      {#if scoreMode}
+        <button class="metrobtn" class:on={metro.inPlayer} onclick={() => setClickInPlayer(!metro.inPlayer)}
+                aria-pressed={metro.inPlayer} aria-label={metro.inPlayer ? "metronome off" : "metronome on"}>
+          <svg viewBox="0 0 24 24"><path d="M9.2 2h5.6l4.4 18.5A1.2 1.2 0 0 1 18 22H6a1.2 1.2 0 0 1-1.2-1.5zM7.4 16h9.2l-.9-3.8-3.2 3.2-1.3-1.3 3.9-3.9L13.2 4h-2.4z" /></svg>
+          <small>{metro.bpm}</small>
+        </button>
+      {/if}
+      <div class="info">
+        <span class="name" title={song?.credit ?? ""}>{song ? song.name || "untitled" : "No song — open the panel"}</span>
+        <div class="progress">
+          {#if song}
+            {#if loop}<span class="loopzone" style:left={pct(loop.a)} style:width="calc({pct(loop.b)} - {pct(loop.a)})"></span>{/if}
+            <input class="seek" type="range" min="0" max={current.durationMs || 1} step="100"
+                   value={Math.min(position, current.durationMs)} onchange={seek} aria-label="position">
+          {/if}
+        </div>
+        <span class="time">{song ? `${fmt(position)} / ${fmt(current.durationMs)}` : ""}</span>
+      </div>
+      {#if song && mode === "play" && points}
+        <div class="stats">
+          {#if endless}<span class="endless" title="infinite mode · best {endlessBook.best(songKey(song))}">∞ {endlessShown}</span>
+          {:else}<span class="score" class:racing={fx() && shownScore !== stats.score}>{fx() ? shownScore : stats.score}</span>{/if}
+          {#if hybrid && parts.length}<span class="part" title="{parts[partIdx]?.label} · {cleared} of {parts.length} cleared"><b>{partIdx + 1}/{parts.length}</b></span>{/if}
+          {#if stats.streak > 1}<span class="streak">×{stats.streak}</span>{/if}
+          <span class="acc">{stats.accuracy}%</span>
+          {#key xpGain?.id}{#if xpGain && !finished}<b class="xp-pop">+{xpGain.xp} XP</b>{/if}{/key}
+        </div>
+      {/if}
+    </div>
+  {/if}
   </div>
+
   <Keyboard view={song ? view : null} on={liveOn} demo={guide} {ghost} fingers={song && aids.fingers ? keyFing : null} moves={song && aids.moves && playing ? keyMoves : null} height={song ? "clamp(64px, 19vh, 170px)" : "clamp(90px, 30vh, 240px)"} minHeight="64px" />
 </main>
 
 <style>
-  main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  main { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
   .hud { display: flex; align-items: center; gap: 10px; padding: 4px 12px; font-variant-numeric: tabular-nums; min-height: 38px; }
   .toggle { display: flex; background: #2a2a36; border-radius: 999px; padding: 2px; flex: 0 0 auto; }
   .toggle button { margin: 0; padding: 5px 12px; border-radius: 999px; background: none; color: var(--muted); font-size: .85rem; font-weight: 600; }
@@ -1091,21 +1028,23 @@
   .more svg { width: 20px; height: 20px; fill: var(--muted); }
   .more.open svg { fill: var(--accent); }
   .meta { flex: 1; min-width: 0; }
-  /* sideways (#2419): main's blocks join the app grid (app.css) — score and controls in the side column,
-     the notes and the keyboard in the wide one */
-  @media (orientation: landscape) {
-    main { display: contents; }
-    .hud { grid-column: 1; grid-row: 2; flex-wrap: wrap; align-content: flex-start; gap: 8px 10px;
-           padding: 6px 8px 6px max(12px, env(safe-area-inset-left, 0)); background: var(--bar); }
-    .song { margin-left: 0; flex-basis: 100%; white-space: normal; }
-    .area { grid-column: 2; grid-row: 1 / 4; border-left: 1px solid #000; }
-    .player { grid-column: 1; grid-row: 3 / 5; flex-wrap: wrap; align-content: flex-end; gap: 10px;
-              padding: 8px 8px max(10px, env(safe-area-inset-bottom, 0)) max(12px, env(safe-area-inset-left, 0)); }
-    .meta { order: 3; flex-basis: 100%; }
-    .more { margin-left: auto; }
-    main > :global(.keyboard) { grid-column: 2; grid-row: 4; border-left: 1px solid #000; }
-  }
-  .bar { position: relative; }
+  /* the mini player (#2667): floating over the stage's top-left corner; the progress keeps its width whatever the name */
+  main { position: relative; }
+  .mini { position: absolute; z-index: 8; top: max(8px, env(safe-area-inset-top, 0)); left: max(8px, env(safe-area-inset-left, 0));
+          display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 6px; max-width: calc(100% - 16px);
+          background: rgba(26,26,34,.88); backdrop-filter: blur(6px); border-radius: 30px; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+  .mini button { margin: 0; padding: 0; display: grid; place-items: center; flex: 0 0 auto; }
+  .menu { width: 40px; height: 40px; border-radius: 50%; background: #2c2c3a; color: var(--fg); }
+  .menu svg { width: 22px; height: 22px; }
+  .menu.attention { box-shadow: 0 0 0 2px var(--yellow); }
+  .mini .metrobtn { flex-direction: column; gap: 0; }
+  .mini .metrobtn small { font-size: .55rem; line-height: 1; font-weight: 700; }
+  .mini .metrobtn svg { width: 16px; height: 16px; }
+  .info { flex: 0 0 auto; width: 170px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .info .name { font-size: .8rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .progress { position: relative; width: 170px; height: 18px; }
+  .stats { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; font-variant-numeric: tabular-nums; position: relative; }
+  .stats .part b { font-size: .75rem; color: var(--muted); }
   .loopzone { position: absolute; top: 6px; height: 6px; background: rgba(255,210,63,.35); border-radius: 3px; pointer-events: none; }
   .seek { width: 100%; height: 18px; margin: 0; accent-color: var(--accent); display: block; position: relative; }
   .time { font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }

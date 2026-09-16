@@ -28,7 +28,14 @@ All notable changes to pisynth, in plain language. Newest first.
   CC0 or Public Domain (found through the PDMX dataset): they show in the piano view and play like before, at
   a steady tempo. Handel's Sonatina HWV 585 gets its score beside its MIDI file. Records kept for the old
   MIDI versions of these pieces start over.
-- **Two modes: Score | Game** — the switch at the top of the companion. **Score** (the default) is a calm music
+- **A simpler screen: the side panel and the mini player** — the stage and the keyboard take the whole screen
+  (landscape first). Everything else is in the **panel** that slides in from the left (☰): Score | Game, I play /
+  Listen, normal / hybrid / infinite, the musician, the metronome, tempo and loop, the settings, and **one gallery**
+  — a single search over your library and the score catalogue. Any song or score plays in any mode. Closed, the
+  panel leaves a small **mini player** floating over the stage: ☰, Play / Stop, ↻, the song's name, a progress
+  bar that keeps its size, the metronome in Score mode, the points when there are points. Score mode plays
+  calmly by default; **Effects & points** in the panel turns on the combos, explosions, points and XP there too.
+- **Two modes: Score | Game** — (now in the side panel). **Score** (the default) is a calm music
   stand: the song you had last time is back, its score on **one line that scrolls under a play line at the
   metronome's tempo** (a bar of clicks to count in); slide it with a finger to go back or forward. As you play,
   each note turns green (in time), orange (early or late) or red (missed). Its top bar: the score library,

@@ -1,15 +1,14 @@
 <script>
-  // Shell (#659, navigation #2419): pairing gate, top bar with the cog, the player (one screen,
-  // "I play / Listen") and the settings panel over it. One MIDI socket for the whole app; screens
+  // Shell (#659, navigation #2419, #2667): pairing gate, the player (its side panel holds the navigation) and the
+  // settings panel over it. One MIDI socket for the whole app; screens
   // subscribe to its frames and messages.
   import { onDestroy, untrack } from "svelte";
   import { ensurePaired, openMidiSocket } from "./lib/pair.js";
   import { parseRoute, routePath } from "./lib/routes.js";
   import Player from "./Player.svelte";
   import Settings from "./Settings.svelte";
-  import { musicians, selectMusician } from "./lib/musician.svelte.js";
   import { metroLive, attachMetronome, metronomeLink, toggleMetronome } from "./lib/metronome.svelte.js";
-  import { prefs, setView } from "./lib/prefs.svelte.js";
+  import { prefs } from "./lib/prefs.svelte.js";
 
   const initial = parseRoute(location.pathname);
   let mode = $state(initial.mode ?? "play");
@@ -69,39 +68,9 @@
   onDestroy(() => socket?.close());
 </script>
 
-<header>
-  {#if pairing === "paired"}
-    <!-- the main switch (#2657): Score (a calm music stand) or Game (the falling notes game) -->
-    <div class="modeswitch" role="tablist" aria-label="mode">
-      <button role="tab" class:on={prefs.view === "piano"} aria-selected={prefs.view === "piano"} onclick={() => { setView("piano"); if (panel) navigate({ panel: null }); }}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z" /></svg><span>Score</span></button>
-      <button role="tab" class:on={prefs.view === "game"} aria-selected={prefs.view === "game"} onclick={() => { setView("game"); if (panel) navigate({ panel: null }); }}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h10a5 5 0 0 1 0 10c-1.5 0-2.3-.8-3-1.5h-4c-.7.7-1.5 1.5-3 1.5A5 5 0 0 1 7 6zm-.5 3v1.5H5V12h1.5v1.5H8V12h1.5v-1.5H8V9zm9 .5a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm2 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2z" /></svg><span>Game</span></button>
-    </div>
-  {/if}
-  {#if pairing === "paired" && prefs.view === "game"}
-    <label class="who" style:--mc={musicians.list.find(m => m.id === musicians.current)?.color}>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5z" /></svg>
-      <select value={musicians.current} onchange={e => selectMusician(e.target.value)} aria-label="who is playing">
-        {#each musicians.list as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
-      </select>
-    </label>
-  {:else if pairing !== "paired"}
-    <span class="title">pisynth</span>
-  {/if}
-  {#if pairing === "paired"}
-    <span class="status dot" class:on={link === "live"} title={link} aria-label="pisynth link: {link}"></span>
-    {#if prefs.view === "piano"}
-    <button class="metrobtn" class:running={metroLive.running} class:beat={metroLive.beat > 0} class:one={metroLive.beat === 1}
-            onclick={() => navigate({ panel: panel === "metronome" ? null : "metronome" })} aria-label="metronome">
-      {#key metroLive.beat}<svg viewBox="0 0 24 24"><path d="M9.2 2h5.6l4.4 18.5A1.2 1.2 0 0 1 18 22H6a1.2 1.2 0 0 1-1.2-1.5zM7.4 16h9.2l-.9-3.8-3.2 3.2-1.3-1.3 3.9-3.9L13.2 4h-2.4z" /></svg>{/key}
-    </button>
-    {/if}
-    <button class="cog" onclick={() => navigate({ panel: panel ? null : "sound" })} aria-label="settings">
-      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.47.47 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z" /></svg>
-    </button>
-  {/if}
-</header>
+{#if pairing !== "paired"}
+  <header><span class="title">pisynth</span></header>
+{/if}
 
 {#if pairing === "checking"}
   <section class="card"><p class="muted">Connecting to pisynth…</p></section>
@@ -118,41 +87,10 @@
     {/if}
   </section>
 {:else}
-  <Player {onFrame} {onMessage} {send} mode={prefs.view === "piano" ? "play" : mode} onMode={m => navigate({ mode: m, panel: null })} />
+  <!-- no top bar (#2667): the player's side panel holds the navigation, settings open from there -->
+  <Player {onFrame} {onMessage} {send} mode={prefs.view === "piano" ? "play" : mode} onMode={m => navigate({ mode: m, panel: null })}
+          onPanel={p => navigate({ panel: p })} {link} />
   {#if panel}
     <Settings {panel} onPanel={p => navigate({ panel: p })} onClose={() => navigate({ panel: null })} {onFrame} {onMessage} {send} />
   {/if}
 {/if}
-
-<style>
-  /* the musician playing, in place of the title: a dropdown to choose (names are edited under the cog → Musicians) */
-  .who { position: relative; display: inline-flex; align-items: center; height: 38px; width: 11.5em; min-width: 0; max-width: 70%; border-radius: 19px;
-         overflow: hidden; flex: 0 1 auto;
-         border: 2px solid var(--mc, #c38bff); background: linear-gradient(rgba(18,18,24,.62), rgba(18,18,24,.62)), var(--mc, #c38bff); }
-  /* focused: a soft ring on the pill itself — the select's own focus outline used to stick out on the right */
-  .who:focus-within { box-shadow: 0 0 0 2px rgba(255,255,255,.3); }
-  .who svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; fill: var(--mc, #c38bff); pointer-events: none; }
-  .who::after { content: ""; position: absolute; right: 12px; top: 50%; width: 7px; height: 7px; pointer-events: none;
-                border-right: 2px solid var(--mc, #c38bff); border-bottom: 2px solid var(--mc, #c38bff); transform: translateY(-70%) rotate(45deg); }
-  .who select { -webkit-appearance: none; appearance: none; display: block; height: 100%; width: 100%; min-width: 0; margin: 0; outline: none;
-                padding: 0 32px 0 34px; border: 0; border-radius: 19px; background: transparent; color: #fff; font: inherit; font-weight: 700;
-                line-height: 34px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; cursor: pointer; }
-  .who option { color: #121218; background: #fff; }
-  .modeswitch { display: flex; flex: 0 0 auto; background: #17171f; border-radius: 999px; padding: 3px; gap: 2px; }
-  .modeswitch button { margin: 0; display: flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: 999px; background: none;
-                       color: var(--muted); font-size: .85rem; font-weight: 700; }
-  .modeswitch svg { width: 17px; height: 17px; fill: currentColor; }
-  .modeswitch button.on { background: var(--accent); color: #fff; }
-  @media (max-width: 420px), (orientation: landscape) { .modeswitch span { display: none; } .modeswitch button { padding: 7px 10px; } }
-  .status.dot { flex: 0 0 auto; width: 10px; height: 10px; padding: 0; margin-left: auto; font-size: 0; background: var(--muted); }
-  .status.dot.on { background: #0c0; }
-  .metrobtn { margin: 0 0 0 4px; padding: 6px; background: none; display: grid; place-items: center; border-radius: 50%; }
-  .metrobtn svg { width: 24px; height: 24px; fill: var(--muted); }
-  .metrobtn.running svg { fill: var(--accent); }
-  .metrobtn.running.beat svg { animation: metro-pulse .18s ease-out; }
-  .metrobtn.running.one svg { fill: var(--yellow); }
-  @keyframes metro-pulse { from { transform: scale(1.25); } to { transform: scale(1); } }
-  .cog { margin: 0 0 0 4px; padding: 6px; background: none; display: grid; place-items: center; border-radius: 50%; }
-  .cog svg { width: 24px; height: 24px; fill: var(--muted); }
-  .cog:active svg { fill: var(--fg); }
-</style>

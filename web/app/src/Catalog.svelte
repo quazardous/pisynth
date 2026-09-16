@@ -5,11 +5,14 @@
   import Gauge from "./Gauge.svelte";
   import { CATEGORIES, SORTS, searchCatalog, loadCatalogSong, ScoreShelf } from "./lib/catalog.js";
   import { storeKey, onMusicianChange } from "./lib/musician.svelte.js";
+  import { searchLibrary, displayName } from "./lib/library.js";
 
-  let { onPick, current = "" } = $props();
+  // entries + onPickEntry: the library's files, searched with the same words (the one gallery, #2667)
+  let { onPick, current = "", entries = [], onPickEntry = () => {} } = $props();
 
   let q = $state(""), category = $state(""), composer = $state(""), level = $state(0), hands = $state(0), sort = $state("popular");
   let shelfView = $state("");                        // "" (search) | "fav" | "recent"
+  const libMatches = $derived(shelfView ? [] : searchLibrary(entries, q, 20));
   let items = $state.raw([]), total = $state(0), size = $state(0), facets = $state.raw({}), busy = $state(false), error = $state("");
   let shelf = $state.raw(new ScoreShelf(globalThis.localStorage, storeKey("pisynth.scoreShelf")));
   let shelfTick = $state(0);
@@ -56,7 +59,7 @@
 <div class="catalog">
   <div class="searchrow">
     <input class="search" type="search" bind:value={q} placeholder="Search: Chopin nocturne, Für Elise, reel…"
-           oninput={() => (shelfView = "")} aria-label="search the scores">
+           oninput={() => (shelfView = "")} aria-label="search songs and scores">
     <button class="shelf" class:on={shelfView === "fav"} onclick={() => (shelfView = shelfView === "fav" ? "" : "fav")} aria-label="favourites">★</button>
     <button class="shelf" class:on={shelfView === "recent"} onclick={() => (shelfView = shelfView === "recent" ? "" : "recent")} aria-label="recently played">
       <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 1 0 8.95 10h-2.02A7 7 0 1 1 13 5v3l4-4-4-4zm-1 5v5.4l4.2 2.5.8-1.3-3.5-2.1V8z" /></svg>
@@ -92,6 +95,16 @@
   {/if}
 
   <ul class="list">
+    {#each libMatches as f (f.path)}
+      <li>
+        <button class="row" class:current={current === f.path} onclick={() => onPickEntry(f)}>
+          <span class="main">
+            <span class="name">{displayName(f.path)}{#if f.score} 🎼{/if}</span>
+            <span class="by">in your library · {f.path.split("/").slice(0, -1).join(" › ") || "Library"}</span>
+          </span>
+        </button>
+      </li>
+    {/each}
     {#each shown as item (item.id)}
       <li>
         <button class="row" class:current={current === `catalog:${item.id}`} onclick={() => open(item)}>
@@ -104,7 +117,7 @@
         <button class="fav" class:on={(shelfTick, shelf.isFav(item.id))} onclick={e => star(e, item)} aria-label="favourite">★</button>
       </li>
     {/each}
-    {#if !shown.length && !busy}
+    {#if !shown.length && !libMatches.length && !busy}
       <li class="empty muted">{shelfView === "fav" ? "No favourites yet: tap ★ on a score." : shelfView === "recent" ? "Nothing played yet." : error ? "" : size ? "No score matches." : "No score catalogue on pisynth yet."}</li>
     {/if}
   </ul>
